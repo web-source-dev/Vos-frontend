@@ -46,6 +46,7 @@ interface OfferDecisionData {
 
 interface QuoteData {
   offerAmount?: number
+  accessToken?: string
 }
 
 interface TransactionData {
@@ -126,6 +127,7 @@ export interface CaseData {
   quote?: QuoteData
   transaction?: TransactionData
   veriffSession?: {
+    sessionId?: string
     verified?: boolean
     status?: string
     verifiedAt?: string
@@ -245,7 +247,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
   const [hasExistingData, setHasExistingData] = useState(false)
   const { toast } = useToast()
 
-  const [isVeriffDialogOpen, setIsVeriffDialogOpen] = useState(false)
+  const [showVeriffDialog, setShowVeriffDialog] = useState(false)
   const [idVerificationStatus, setIdVerificationStatus] = useState<'pending' | 'verified' | 'failed'>('pending')
 
   // Load existing paperwork data on component mount
@@ -350,7 +352,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
             console.log(`Document ${key}:`, documentPath, typeof documentPath)
             if (documentPath && typeof documentPath === 'string' && !documentPath.startsWith('http')) {
               // Add backend base URL if it's a relative path
-              const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+              const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://vos-backend-bh76.onrender.com'
               previews[key] = `${baseUrl}${documentPath}`
             } else if (documentPath && typeof documentPath === 'string') {
               // Use the path as is if it's already a full URL
@@ -432,7 +434,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
         
         // Update the preview with the actual server path
         if (response.data?.path) {
-          const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+          const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://vos-backend-bh76.onrender.com'
           const serverUrl = `${baseUrl}${response.data.path}`
           setDocumentPreviews(prev => ({
             ...prev,
@@ -506,22 +508,34 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
       }
 
       // Generate Bill of Sale PDF
-      const pdfBlob = await api.generateBillOfSalePDF(caseId)
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://vos-backend-bh76.onrender.com'
+      const response = await fetch(`${baseUrl}/api/cases/${caseId}/bill-of-sale`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/pdf',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+
+      const pdfBlob = await response.blob();
       
       // Create download link
-      const url = window.URL.createObjectURL(pdfBlob)
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `bill-of-sale-${caseId}.pdf`)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      window.URL.revokeObjectURL(url)
+      const url = window.URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `bill-of-sale-${caseId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
 
       toast({
         title: "Bill of Sale Generated",
         description: "Bill of Sale PDF has been downloaded successfully.",
-      })
+      });
     } catch (error) {
       const errorData = api.handleError(error)
       toast({
@@ -624,46 +638,52 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
               throw new Error(response.error || 'Failed to save paperwork');
             }
           } catch (error) {
-            console.error('Error saving paperwork:', error)
-            throw error
+            console.error('Error saving paperwork:', error);
+            throw error;
           }
-        } else {
-          throw new Error('Case ID not found in vehicle data')
         }
       } else {
-        // For non-estimators, just update local state
-        const updatedVehicleData = {
-          ...vehicleData,
-          transaction: {
-            billOfSale,
-            bankDetails,
-            taxInfo,
-            documents: documentPreviews,
-            paymentStatus: "processing"
-          }
+        // For non-estimators, use the token-based API
+        const token = vehicleData.quote?.accessToken
+        if (!token) {
+          throw new Error('Quote access token not found')
         }
-        onUpdate(updatedVehicleData)
+
+        console.log('Using token-based API with token:', token)
+        const response = await api.updatePaperwork(token, JSON.stringify(paperworkData))
+        console.log('Token-based API Response:', response)
+        
+        if (response.success && response.data) {
+          console.log('Paperwork updated successfully via token')
+          // Update the vehicle data with the response
+          const updatedVehicleData = {
+            ...vehicleData,
+            transaction: response.data as unknown as TransactionData,
+            currentStage: 7,
+            status: 'completed'
+          }
+          onUpdate(updatedVehicleData)
+        } else {
+          console.error('Token-based API returned success: false', response)
+          throw new Error(response.error || 'Failed to update paperwork')
+        }
       }
 
-      setPaymentStatus("processing")
+      console.log('=== PAPERWORK SUBMISSION COMPLETE ===')
+      
+      toast({
+        title: "Paperwork Submitted",
+        description: "Your paperwork has been submitted successfully. Please complete ID verification to proceed.",
+      })
 
-      // Simulate processing delay
-      setTimeout(() => {
-        setPaymentStatus("completed")
-        toast({
-          title: "Payment Processing",
-          description: "ACH transfer has been initiated. Payment will be processed within 1-2 business days.",
-        })
-      }, 2000)
-
-      console.log('=== PAPERWORK SUBMISSION SUCCESS ===');
+      // Show Veriff verification dialog
+      setShowVeriffDialog(true)
 
     } catch (error) {
-      console.error('=== PAPERWORK SUBMISSION ERROR ===');
-      console.error('Error in handleVerifyAndSubmit:', error);
+      console.error('Error in handleVerifyAndSubmit:', error)
       const errorData = api.handleError(error)
       toast({
-        title: "Error Saving Paperwork",
+        title: "Error Submitting Paperwork",
         description: errorData.error,
         variant: "destructive",
       })
@@ -706,7 +726,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
   }
 
   const handleVeriffVerification = () => {
-    setIsVeriffDialogOpen(true)
+    setShowVeriffDialog(true)
   }
 
   const isFormValid =
@@ -1538,8 +1558,8 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
 
       {/* Veriff Dialog */}
       <VeriffDialog
-        isOpen={isVeriffDialogOpen}
-        onClose={() => setIsVeriffDialogOpen(false)}
+        isOpen={showVeriffDialog}
+        onClose={() => setShowVeriffDialog(false)}
         caseData={vehicleData as unknown as Case} 
         onVerificationComplete={handleVeriffVerificationComplete}
       />
