@@ -469,6 +469,72 @@ export async function saveCompletionData(caseId: string, completionData: Record<
   }
 }
 
+export async function createUser(userData: {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  location?: string;
+}): Promise<APIResponse<User>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/users`, {
+      ...await defaultOptions(),
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
+    return await handleResponse<User>(response);
+  } catch (error) {
+    console.error('Error creating user:', error);
+    return handleError(error);
+  }
+}
+
+export async function updateUser(userId: string, userData: {
+  firstName: string;
+  lastName: string;
+  role: string;
+  location?: string;
+}): Promise<APIResponse<User>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+      ...await defaultOptions(),
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    });
+    return await handleResponse<User>(response);
+  } catch (error) {
+    console.error('Error updating user:', error);
+    return handleError(error);
+  }
+}
+
+export async function deleteUser(userId: string): Promise<APIResponse<void>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
+      ...await defaultOptions(),
+      method: 'DELETE',
+    });
+    return await handleResponse<void>(response);
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return handleError(error);
+  }
+}
+
+export async function getAnalytics(timeRange: string = '30d'): Promise<APIResponse<any>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/analytics?timeRange=${timeRange}`, {
+      ...await defaultOptions(),
+      method: 'GET',
+    });
+    return await handleResponse(response);
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    return handleError(error);
+  }
+}
+
 const api = {
   // Auth functions
   loginUser,
@@ -501,12 +567,16 @@ const api = {
   updatePaperwork,
   updateCaseStage,
   getUsersByRole,
+  createUser,
+  updateUser,
+  deleteUser,
   updateQuoteByCaseId,
   generateBillOfSalePDF,
   sendCustomerEmail,
   savePaperworkByCaseId,
   getVehiclePricing,
   saveCompletionData,
+  getAnalytics,
 };
 
 export default api;

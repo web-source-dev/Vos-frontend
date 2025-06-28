@@ -1,6 +1,6 @@
 "use client"
 
-import { AdminOverview } from "@/components/admin/admin-overview"
+import { ReportsDashboard } from "@/components/admin/reports-dashboard"
 import { AdminLayout } from "@/components/admin/admin-layout"
 
 export default function AdminReports() {
@@ -12,7 +12,7 @@ export default function AdminReports() {
           <p className="text-gray-600 mt-2">Comprehensive system reports and performance analytics</p>
         </div>
 
-        <AdminOverview />
+        <ReportsDashboard />
       </div>
     </AdminLayout>
   )
