@@ -11,9 +11,11 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { FileText, CreditCard, Upload, CheckCircle, Printer, Eye, X } from "lucide-react"
+import { FileText, CreditCard, Upload, CheckCircle, Printer, Eye, X, Shield } from "lucide-react"
 import api from '@/lib/api'
 import Image from "next/image"
+import { VeriffDialog } from "@/components/veriff-dialog"
+import { Case } from "@/lib/types"
 
 // TypeScript interfaces for paperwork data
 interface CustomerData {
@@ -115,7 +117,7 @@ interface DocumentData {
   [key: string]: string | null
 }
 
-interface CaseData {
+export interface CaseData {
   id?: string
   _id?: string
   customer?: CustomerData
@@ -123,6 +125,11 @@ interface CaseData {
   offerDecision?: OfferDecisionData
   quote?: QuoteData
   transaction?: TransactionData
+  veriffSession?: {
+    verified?: boolean
+    status?: string
+    verifiedAt?: string
+  }
   currentStage?: number
   status?: string
 }
@@ -237,6 +244,9 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
   const [isLoading, setIsLoading] = useState(true)
   const [hasExistingData, setHasExistingData] = useState(false)
   const { toast } = useToast()
+
+  const [isVeriffDialogOpen, setIsVeriffDialogOpen] = useState(false)
+  const [idVerificationStatus, setIdVerificationStatus] = useState<'pending' | 'verified' | 'failed'>('pending')
 
   // Load existing paperwork data on component mount
   useEffect(() => {
@@ -367,6 +377,19 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
 
     loadExistingData()
   }, [vehicleData])
+
+  // Check if ID is verified through Veriff
+  useEffect(() => {
+    if (vehicleData.veriffSession?.verified) {
+      setIdVerificationStatus('verified')
+      setDocumentsUploaded(prev => ({
+        ...prev,
+        idRescan: true
+      }))
+    } else if (vehicleData.veriffSession?.status === 'declined' || vehicleData.veriffSession?.status === 'expired') {
+      setIdVerificationStatus('failed')
+    }
+  }, [vehicleData.veriffSession])
 
   const handleBillOfSaleChange = (field: string, value: string | boolean | number) => {
     setBillOfSale((prev) => ({
@@ -666,13 +689,33 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
     })
   }
 
+  const handleVeriffVerificationComplete = () => {
+    // Refresh case data to get updated Veriff status
+    const caseId = vehicleData.id || vehicleData._id
+    if (caseId) {
+      api.getCase(caseId).then(response => {
+        if (response.success && response.data) {
+          onUpdate(response.data as unknown as CaseData)
+        }
+      }).catch(error => {
+        console.error('Error refreshing case data:', error)
+      })
+    } else {
+      console.error('Case ID not found for refreshing data')
+    }
+  }
+
+  const handleVeriffVerification = () => {
+    setIsVeriffDialogOpen(true)
+  }
+
   const isFormValid =
     billOfSale.sellerName &&
     billOfSale.sellerAddress &&
     bankDetails.accountHolderName &&
     bankDetails.routingNumber &&
     bankDetails.accountNumber &&
-    documentsUploaded.idRescan &&
+    (documentsUploaded.idRescan || idVerificationStatus === 'verified') &&
     documentsUploaded.signedBillOfSale &&
     billOfSale.asIsAcknowledgment
 
@@ -1336,14 +1379,56 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label>ID Rescan (Updated Photo) *</Label>
-                <FileUpload
-                  label={documentsUploaded.idRescan ? "✓ ID Uploaded" : "Upload ID Photo"}
-                  accept="image/*"
-                  onUpload={(file) => handleDocumentUpload("idRescan", file)}
-                  className={documentsUploaded.idRescan ? "border-green-300 bg-green-50" : ""}
-                />
-                {renderDocumentPreview("idRescan")}
+                <Label className="flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  ID Verification *
+                </Label>
+                
+                {idVerificationStatus === 'verified' ? (
+                  <div className="p-3 border border-green-300 rounded-lg bg-green-50">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <span className="text-sm font-medium text-green-800">
+                        ID Verified via Veriff
+                      </span>
+                    </div>
+                    <p className="text-xs text-green-600 mt-1">
+                      Customer identity verified on {vehicleData.veriffSession?.verifiedAt ? 
+                        new Date(vehicleData.veriffSession.verifiedAt).toLocaleDateString() : 'N/A'}
+                    </p>
+                  </div>
+                ) : idVerificationStatus === 'failed' ? (
+                  <div className="p-3 border border-red-300 rounded-lg bg-red-50">
+                    <div className="flex items-center gap-2">
+                      <X className="h-5 w-5 text-red-600" />
+                      <span className="text-sm font-medium text-red-800">
+                        Verification Failed
+                      </span>
+                    </div>
+                    <Button 
+                      onClick={handleVeriffVerification}
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                    >
+                      Try Again
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Button 
+                      onClick={handleVeriffVerification}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      <Shield className="h-4 w-4 mr-2" />
+                      Verify ID with Veriff
+                    </Button>
+                    <p className="text-xs text-gray-500">
+                      Secure identity verification via Veriff
+                    </p>
+                  </div>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -1450,6 +1535,14 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
           Continue to Completion
         </Button>
       </div>
+
+      {/* Veriff Dialog */}
+      <VeriffDialog
+        isOpen={isVeriffDialogOpen}
+        onClose={() => setIsVeriffDialogOpen(false)}
+        caseData={vehicleData as unknown as Case} 
+        onVerificationComplete={handleVeriffVerificationComplete}
+      />
     </div>
   )
 }

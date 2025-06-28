@@ -7,14 +7,12 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { FileUpload } from "@/components/file-upload"
 import { SaveIndicator } from "@/components/save-indicator"
 import { useToast } from "@/hooks/use-toast"
-import { User, Car, Upload, Building } from "lucide-react"
+import { User, Car, Building } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 import api from '@/lib/api'
 import type { CustomerData, VehicleData } from '@/lib/types'
-import Image from 'next/image'
 
 // TypeScript interfaces for intake form data
 interface CaseData {
@@ -228,65 +226,6 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
     });
   };
 
-  const handleDocumentUpload = async (docType: string, file: File) => {
-    try {
-      const response = await api.uploadDocument(file);
-      if (response.success && response.data) {
-        const uploadData = response.data;
-        setFormData((prev) => ({
-          ...prev,
-          documents: {
-            ...prev.documents,
-            [docType]: {
-              path: uploadData.path,
-              originalName: file.name
-            }
-          },
-        }));
-      } else {
-        toast({
-          title: "Upload Failed",
-          description: "Failed to upload document. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Document upload error:', error);
-      toast({
-        title: "Upload Error",
-        description: "An error occurred while uploading the document.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const DocumentPreview = ({ document, label }: { document: DocumentDisplay | null; label: string }) => {
-    if (!document) return null;
-
-    console.log(document);
-    console.log(`${process.env.NEXT_PUBLIC_API_URL}${document.path}`);
-
-    return (
-      <div className="mt-2 p-2 bg-gray-50 rounded-lg border">
-        <div className="flex items-center gap-2">
-          <div className="relative w-12 h-12 bg-gray-200 rounded overflow-hidden">
-            {document.path && (
-              <Image
-                src={`${process.env.NEXT_PUBLIC_API_URL}${document.path}`}
-                alt={label}
-                fill
-                className="object-cover"
-              />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{document.originalName}</p>
-            <p className="text-xs text-muted-foreground">Uploaded successfully</p>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   const handleComplete = async () => {
     const requiredFields = [
@@ -327,7 +266,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
       const response = await api.createCustomerCase({
         customer: formData.customer,
         vehicle: formData.vehicle,
-        documents: formData.documents,
+        documents: formData.documents.driverLicenseFront?.path || formData.documents.driverLicenseRear?.path || formData.documents.vehicleTitle?.path || "",
         agentInfo: {
           firstName: formData.agentFirstName,
           lastName: formData.agentLastName,
@@ -713,59 +652,6 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
               <Switch
                 checked={formData.vehicle.secondSetOfKeys}
                 onCheckedChange={(value) => handleInputChange("vehicle", "secondSetOfKeys", value)}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Required Images */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              Required Documents
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Driver&apos;s License - Front *</Label>
-              <FileUpload
-                label={formData.documents.driverLicenseFront ? "Replace Front License" : "Upload Front of License"}
-                accept="image/jpeg,image/png"
-                onUpload={(file) => handleDocumentUpload("driverLicenseFront", file)}
-                className={formData.documents.driverLicenseFront ? "border-green-300 bg-green-50" : ""}
-              />
-              <DocumentPreview 
-                document={formData.documents.driverLicenseFront} 
-                label="Driver&apos;s License Front"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Driver&apos;s License - Rear *</Label>
-              <FileUpload
-                label={formData.documents.driverLicenseRear ? "Replace Rear License" : "Upload Rear of License"}
-                accept="image/jpeg,image/png"
-                onUpload={(file) => handleDocumentUpload("driverLicenseRear", file)}
-                className={formData.documents.driverLicenseRear ? "border-green-300 bg-green-50" : ""}
-              />
-              <DocumentPreview 
-                document={formData.documents.driverLicenseRear} 
-                label="Driver&apos;s License Rear"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Vehicle Title (optional at intake)</Label>
-              <FileUpload
-                label={formData.documents.vehicleTitle ? "Replace Title" : "Upload Vehicle Title"}
-                accept="image/*,application/pdf"
-                onUpload={(file) => handleDocumentUpload("vehicleTitle", file)}
-                className={formData.documents.vehicleTitle ? "border-green-300 bg-green-50" : ""}
-              />
-              <DocumentPreview 
-                document={formData.documents.vehicleTitle} 
-                label="Vehicle Title"
               />
             </div>
           </CardContent>

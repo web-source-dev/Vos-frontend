@@ -493,6 +493,7 @@ export async function createUser(userData: {
 export async function updateUser(userId: string, userData: {
   firstName: string;
   lastName: string;
+  email: string;
   role: string;
   location?: string;
 }): Promise<APIResponse<User>> {
@@ -531,6 +532,32 @@ export async function getAnalytics(timeRange: string = '30d'): Promise<APIRespon
     return await handleResponse(response);
   } catch (error) {
     console.error('Error fetching analytics:', error);
+    return handleError(error);
+  }
+}
+
+export async function createVeriffSession(caseId: string): Promise<APIResponse<{ sessionId: string; verificationUrl: string; message: string }>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/veriff-session`, {
+      ...await defaultOptions(),
+      method: 'POST',
+    });
+    return await handleResponse<{ sessionId: string; verificationUrl: string; message: string }>(response);
+  } catch (error) {
+    console.error('Error creating Veriff session:', error);
+    return handleError(error);
+  }
+}
+
+export async function getVeriffSessionStatus(caseId: string): Promise<APIResponse<{ sessionId: string; status: string; decision: string; person: string }>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/veriff-status`, {
+      ...await defaultOptions(),
+      method: 'GET',
+    });
+    return await handleResponse<{ sessionId: string; status: string; decision: string; person: string }>(response);
+  } catch (error) {
+    console.error('Error getting Veriff session status:', error);
     return handleError(error);
   }
 }
@@ -577,6 +604,10 @@ const api = {
   getVehiclePricing,
   saveCompletionData,
   getAnalytics,
+  
+  // Veriff functions
+  createVeriffSession,
+  getVeriffSessionStatus,
 };
 
 export default api;

@@ -173,13 +173,26 @@ export interface Quote {
   updatedAt?: string;
 }
 
+export interface VeriffSession {
+  sessionId?: string;
+  status?: 'created' | 'pending' | 'approved' | 'declined' | 'expired' | 'abandoned' | 'unknown';
+  decision?: 'approved' | 'declined' | 'unknown';
+  verified?: boolean;
+  verificationData?: unknown;
+  createdAt?: string;
+  verifiedAt?: string;
+  lastChecked?: string;
+}
+
 export interface Case {
   id?: string;
+  _id?: string;
   customer: Customer | string;
   vehicle: Vehicle | string;
   inspection?: Inspection | string;
   quote?: Quote | string;
   transaction?: string;
+  veriffSession?: VeriffSession;
   currentStage: number;
   stageStatuses: {
     [key: number]: 'active' | 'complete' | 'pending';
