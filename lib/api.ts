@@ -522,7 +522,7 @@ export async function deleteUser(userId: string): Promise<APIResponse<void>> {
   }
 }
 
-export async function getAnalytics(timeRange: string = '30d'): Promise<APIResponse<any>> {
+export async function getAnalytics(timeRange: string = '30d'): Promise<APIResponse<void>> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/analytics?timeRange=${timeRange}`, {
       ...await defaultOptions(),

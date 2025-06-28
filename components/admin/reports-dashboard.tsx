@@ -2,25 +2,21 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { 
-  Users, 
-  Car, 
+  Users,
   DollarSign, 
   TrendingUp,
   CheckCircle,
   Clock,
   Target,
   BarChart3,
-  PieChart,
   Activity,
   Calendar,
   Download
 } from "lucide-react"
 import {
-  LineChart,
   Line,
   AreaChart,
   Area,
@@ -33,45 +29,11 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   ComposedChart
 } from 'recharts'
 import api from "@/lib/api"
 
-interface CaseData {
-  _id: string
-  status: string
-  currentStage: number
-  createdAt: string
-  updatedAt?: string
-  createdBy: string
-  customer?: {
-    firstName: string
-    lastName: string
-  }
-  vehicle?: {
-    year: string
-    make: string
-    model: string
-  }
-  quote?: {
-    offerAmount?: number
-    offerDecision?: {
-      finalAmount?: number
-      decision?: string
-    }
-  }
-  transaction?: {
-    billOfSale?: {
-      salePrice?: number
-    }
-  }
-  inspection?: {
-    overallRating?: number
-    completedAt?: string
-  }
-}
 
 interface ReportStats {
   totalCases: number
@@ -131,16 +93,6 @@ export function ReportsDashboard() {
   useEffect(() => {
     fetchReportData()
   }, [fetchReportData])
-
-  const getStatusColor = (status: string) => {
-    const colors = {
-      new: "bg-yellow-100 text-yellow-800",
-      active: "bg-blue-100 text-blue-800",
-      completed: "bg-green-100 text-green-800",
-      cancelled: "bg-red-100 text-red-800"
-    }
-    return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800"
-  }
 
   const exportReport = () => {
     const dataStr = JSON.stringify(stats, null, 2)
