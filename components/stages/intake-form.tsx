@@ -250,15 +250,6 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
       return
     }
 
-    if (!formData.documents.driverLicenseFront || !formData.documents.driverLicenseRear) {
-      toast({
-        title: "Missing Required Documents",
-        description: "Please upload both front and rear driver's license photos.",
-        variant: "destructive",
-      })
-      return
-    }
-
     try {
       setIsSubmitting(true)
 

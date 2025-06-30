@@ -14,8 +14,6 @@ import { useToast } from "@/hooks/use-toast"
 import { FileText, CreditCard, Upload, CheckCircle, Printer, Eye, X, Shield } from "lucide-react"
 import api from '@/lib/api'
 import Image from "next/image"
-import { VeriffDialog } from "@/components/veriff-dialog"
-import { Case } from "@/lib/types"
 
 // TypeScript interfaces for paperwork data
 interface CustomerData {
@@ -46,7 +44,6 @@ interface OfferDecisionData {
 
 interface QuoteData {
   offerAmount?: number
-  accessToken?: string
 }
 
 interface TransactionData {
@@ -118,7 +115,7 @@ interface DocumentData {
   [key: string]: string | null
 }
 
-export interface CaseData {
+interface CaseData {
   id?: string
   _id?: string
   customer?: CustomerData
@@ -126,12 +123,6 @@ export interface CaseData {
   offerDecision?: OfferDecisionData
   quote?: QuoteData
   transaction?: TransactionData
-  veriffSession?: {
-    sessionId?: string
-    verified?: boolean
-    status?: string
-    verifiedAt?: string
-  }
   currentStage?: number
   status?: string
 }
@@ -247,9 +238,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
   const [hasExistingData, setHasExistingData] = useState(false)
   const { toast } = useToast()
 
-  const [showVeriffDialog, setShowVeriffDialog] = useState(false)
-  const [idVerificationStatus, setIdVerificationStatus] = useState<'pending' | 'verified' | 'failed'>('pending')
-
   // Load existing paperwork data on component mount
   useEffect(() => {
     const loadExistingData = () => {
@@ -352,7 +340,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
             console.log(`Document ${key}:`, documentPath, typeof documentPath)
             if (documentPath && typeof documentPath === 'string' && !documentPath.startsWith('http')) {
               // Add backend base URL if it's a relative path
-              const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://vos-backend-bh76.onrender.com'
+              const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
               previews[key] = `${baseUrl}${documentPath}`
             } else if (documentPath && typeof documentPath === 'string') {
               // Use the path as is if it's already a full URL
@@ -379,19 +367,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
 
     loadExistingData()
   }, [vehicleData])
-
-  // Check if ID is verified through Veriff
-  useEffect(() => {
-    if (vehicleData.veriffSession?.verified) {
-      setIdVerificationStatus('verified')
-      setDocumentsUploaded(prev => ({
-        ...prev,
-        idRescan: true
-      }))
-    } else if (vehicleData.veriffSession?.status === 'declined' || vehicleData.veriffSession?.status === 'expired') {
-      setIdVerificationStatus('failed')
-    }
-  }, [vehicleData.veriffSession])
 
   const handleBillOfSaleChange = (field: string, value: string | boolean | number) => {
     setBillOfSale((prev) => ({
@@ -434,7 +409,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
         
         // Update the preview with the actual server path
         if (response.data?.path) {
-          const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://vos-backend-bh76.onrender.com'
+          const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
           const serverUrl = `${baseUrl}${response.data.path}`
           setDocumentPreviews(prev => ({
             ...prev,
@@ -508,34 +483,22 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
       }
 
       // Generate Bill of Sale PDF
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://vos-backend-bh76.onrender.com'
-      const response = await fetch(`${baseUrl}/api/cases/${caseId}/bill-of-sale`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/pdf',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-
-      const pdfBlob = await response.blob();
+      const pdfBlob = await api.generateBillOfSalePDF(caseId)
       
       // Create download link
-      const url = window.URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `bill-of-sale-${caseId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      const url = window.URL.createObjectURL(pdfBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `bill-of-sale-${caseId}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
 
       toast({
         title: "Bill of Sale Generated",
         description: "Bill of Sale PDF has been downloaded successfully.",
-      });
+      })
     } catch (error) {
       const errorData = api.handleError(error)
       toast({
@@ -638,52 +601,46 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
               throw new Error(response.error || 'Failed to save paperwork');
             }
           } catch (error) {
-            console.error('Error saving paperwork:', error);
-            throw error;
+            console.error('Error saving paperwork:', error)
+            throw error
           }
+        } else {
+          throw new Error('Case ID not found in vehicle data')
         }
       } else {
-        // For non-estimators, use the token-based API
-        const token = vehicleData.quote?.accessToken
-        if (!token) {
-          throw new Error('Quote access token not found')
-        }
-
-        console.log('Using token-based API with token:', token)
-        const response = await api.updatePaperwork(token, JSON.stringify(paperworkData))
-        console.log('Token-based API Response:', response)
-        
-        if (response.success && response.data) {
-          console.log('Paperwork updated successfully via token')
-          // Update the vehicle data with the response
-          const updatedVehicleData = {
-            ...vehicleData,
-            transaction: response.data as unknown as TransactionData,
-            currentStage: 7,
-            status: 'completed'
+        // For non-estimators, just update local state
+        const updatedVehicleData = {
+          ...vehicleData,
+          transaction: {
+            billOfSale,
+            bankDetails,
+            taxInfo,
+            documents: documentPreviews,
+            paymentStatus: "processing"
           }
-          onUpdate(updatedVehicleData)
-        } else {
-          console.error('Token-based API returned success: false', response)
-          throw new Error(response.error || 'Failed to update paperwork')
         }
+        onUpdate(updatedVehicleData)
       }
 
-      console.log('=== PAPERWORK SUBMISSION COMPLETE ===')
-      
-      toast({
-        title: "Paperwork Submitted",
-        description: "Your paperwork has been submitted successfully. Please complete ID verification to proceed.",
-      })
+      setPaymentStatus("processing")
 
-      // Show Veriff verification dialog
-      setShowVeriffDialog(true)
+      // Simulate processing delay
+      setTimeout(() => {
+        setPaymentStatus("completed")
+        toast({
+          title: "Payment Processing",
+          description: "ACH transfer has been initiated. Payment will be processed within 1-2 business days.",
+        })
+      }, 2000)
+
+      console.log('=== PAPERWORK SUBMISSION SUCCESS ===');
 
     } catch (error) {
-      console.error('Error in handleVerifyAndSubmit:', error)
+      console.error('=== PAPERWORK SUBMISSION ERROR ===');
+      console.error('Error in handleVerifyAndSubmit:', error);
       const errorData = api.handleError(error)
       toast({
-        title: "Error Submitting Paperwork",
+        title: "Error Saving Paperwork",
         description: errorData.error,
         variant: "destructive",
       })
@@ -709,33 +666,13 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
     })
   }
 
-  const handleVeriffVerificationComplete = () => {
-    // Refresh case data to get updated Veriff status
-    const caseId = vehicleData.id || vehicleData._id
-    if (caseId) {
-      api.getCase(caseId).then(response => {
-        if (response.success && response.data) {
-          onUpdate(response.data as unknown as CaseData)
-        }
-      }).catch(error => {
-        console.error('Error refreshing case data:', error)
-      })
-    } else {
-      console.error('Case ID not found for refreshing data')
-    }
-  }
-
-  const handleVeriffVerification = () => {
-    setShowVeriffDialog(true)
-  }
-
   const isFormValid =
     billOfSale.sellerName &&
     billOfSale.sellerAddress &&
     bankDetails.accountHolderName &&
     bankDetails.routingNumber &&
     bankDetails.accountNumber &&
-    (documentsUploaded.idRescan || idVerificationStatus === 'verified') &&
+    documentsUploaded.idRescan &&
     documentsUploaded.signedBillOfSale &&
     billOfSale.asIsAcknowledgment
 
@@ -1399,56 +1336,14 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  ID Verification *
-                </Label>
-                
-                {idVerificationStatus === 'verified' ? (
-                  <div className="p-3 border border-green-300 rounded-lg bg-green-50">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                      <span className="text-sm font-medium text-green-800">
-                        ID Verified via Veriff
-                      </span>
-                    </div>
-                    <p className="text-xs text-green-600 mt-1">
-                      Customer identity verified on {vehicleData.veriffSession?.verifiedAt ? 
-                        new Date(vehicleData.veriffSession.verifiedAt).toLocaleDateString() : 'N/A'}
-                    </p>
-                  </div>
-                ) : idVerificationStatus === 'failed' ? (
-                  <div className="p-3 border border-red-300 rounded-lg bg-red-50">
-                    <div className="flex items-center gap-2">
-                      <X className="h-5 w-5 text-red-600" />
-                      <span className="text-sm font-medium text-red-800">
-                        Verification Failed
-                      </span>
-                    </div>
-                    <Button 
-                      onClick={handleVeriffVerification}
-                      variant="outline"
-                      size="sm"
-                      className="mt-2"
-                    >
-                      Try Again
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Button 
-                      onClick={handleVeriffVerification}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      <Shield className="h-4 w-4 mr-2" />
-                      Verify ID with Veriff
-                    </Button>
-                    <p className="text-xs text-gray-500">
-                      Secure identity verification via Veriff
-                    </p>
-                  </div>
-                )}
+                <Label>ID Rescan (Updated Photo) *</Label>
+                <FileUpload
+                  label={documentsUploaded.idRescan ? "✓ ID Uploaded" : "Upload ID Photo"}
+                  accept="image/*"
+                  onUpload={(file) => handleDocumentUpload("idRescan", file)}
+                  className={documentsUploaded.idRescan ? "border-green-300 bg-green-50" : ""}
+                />
+                {renderDocumentPreview("idRescan")}
               </div>
               
               <div className="space-y-2">
@@ -1555,14 +1450,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
           Continue to Completion
         </Button>
       </div>
-
-      {/* Veriff Dialog */}
-      <VeriffDialog
-        isOpen={showVeriffDialog}
-        onClose={() => setShowVeriffDialog(false)}
-        caseData={vehicleData as unknown as Case} 
-        onVerificationComplete={handleVeriffVerificationComplete}
-      />
     </div>
   )
 }

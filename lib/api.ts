@@ -1,8 +1,7 @@
 import type { Customer, Vehicle, Inspector, Inspection, Quote, Case, APIResponse, User, AuthResponse } from './types';
 import Cookies from 'js-cookie';
 
-// API base URL - use production URL by default
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vos-backend-bh76.onrender.com';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 // Function to get auth headers with retry
 const getAuthHeaders = async (retryCount = 0): Promise<Record<string, string>> => {
@@ -537,32 +536,6 @@ export async function getAnalytics(timeRange: string = '30d'): Promise<APIRespon
   }
 }
 
-export async function createVeriffSession(caseId: string): Promise<APIResponse<{ sessionId: string; verificationUrl: string; message: string }>> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/veriff-session`, {
-      ...await defaultOptions(),
-      method: 'POST',
-    });
-    return await handleResponse<{ sessionId: string; verificationUrl: string; message: string }>(response);
-  } catch (error) {
-    console.error('Error creating Veriff session:', error);
-    return handleError(error);
-  }
-}
-
-export async function getVeriffSessionStatus(caseId: string): Promise<APIResponse<{ sessionId: string; status: string; decision: string; person: string }>> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/veriff-status`, {
-      ...await defaultOptions(),
-      method: 'GET',
-    });
-    return await handleResponse<{ sessionId: string; status: string; decision: string; person: string }>(response);
-  } catch (error) {
-    console.error('Error getting Veriff session status:', error);
-    return handleError(error);
-  }
-}
-
 const api = {
   // Auth functions
   loginUser,
@@ -605,10 +578,6 @@ const api = {
   getVehiclePricing,
   saveCompletionData,
   getAnalytics,
-  
-  // Veriff functions
-  createVeriffSession,
-  getVeriffSessionStatus,
 };
 
 export default api;
