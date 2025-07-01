@@ -41,6 +41,6 @@ export interface VeriffSession {
 // Extend Window interface
 declare global {
   interface Window {
-    Veriff: unknown;
+    Veriff: (config: VeriffConfig) => VeriffInstance;
   }
 } 

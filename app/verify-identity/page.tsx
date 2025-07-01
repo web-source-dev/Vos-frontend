@@ -81,7 +81,7 @@ export default function VerifyIdentityPage() {
       
       // Launch Veriff modal using the session URL
       if (window.Veriff && sessionData.data.url) {
-        const veriff = window.Veriff({
+        const veriff = (window.Veriff as (config: any) => any)({
           host: 'https://stationapi.veriff.com',
           parentId: veriffContainerRef.current?.id || 'veriff-container',
           onSession: function(err: Error | null, response: VeriffSessionResponse) {
