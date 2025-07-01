@@ -11,16 +11,11 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { FileText, CreditCard, Upload, CheckCircle, Printer, Eye, X, Shield, Camera } from "lucide-react"
+import { FileText, CreditCard, Upload, CheckCircle, Printer, Eye, X, Camera } from "lucide-react"
 import api from '@/lib/api'
 import Image from "next/image"
 
-// Veriff SDK types
-declare global {
-  interface Window {
-    Veriff: any;
-  }
-}
+import { VeriffResult } from '@/lib/veriff-types';
 
 // TypeScript interfaces for paperwork data
 interface CustomerData {
@@ -501,11 +496,11 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
       }
 
       // Launch Veriff modal using the session URL
-      if (window.Veriff && response.data.url) {
+      if (window.Veriff && response.data?.url) {
         const veriff = window.Veriff({
           host: 'https://stationapi.veriff.com',
           parentId: veriffContainerRef.current?.id || 'veriff-container',
-          onSession: function(err: any, response: any) {
+          onSession: function(err: Error | null, response: Record<string, unknown>) {
             if (err) {
               console.error('Veriff session error:', err);
               setVerificationStatus('error');
@@ -519,7 +514,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
               console.log('Veriff session created:', response);
             }
           },
-          onVeriff: (response: any) => {
+          onVeriff: (response: VeriffResult) => {
             console.log('Veriff response:', response);
             handleVerificationResult(response);
           },
@@ -549,7 +544,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
     }
   }
 
-  const handleVerificationResult = async (response: any) => {
+  const handleVerificationResult = async (response: VeriffResult) => {
     try {
       const resultResponse = await fetch('/api/veriff/result', {
         method: 'POST',

@@ -327,20 +327,20 @@ export async function getCurrentUser(): Promise<APIResponse<User>> {
 }
 
 // Veriff API functions
-export async function createVeriffSession(personData: any): Promise<APIResponse<any>> {
+export async function createVeriffSession(personData: Record<string, unknown>): Promise<APIResponse<{ id: string; url: string; status: string }>> {
   const options = await defaultOptions();
   const response = await fetch(`${API_BASE_URL}/api/veriff/session`, {
     ...options,
     method: 'POST',
     body: JSON.stringify(personData)
   });
-  return handleResponse<any>(response);
+  return handleResponse<{ id: string; url: string; status: string }>(response);
 }
 
-export async function getVeriffSessionStatus(sessionId: string): Promise<APIResponse<any>> {
+export async function getVeriffSessionStatus(sessionId: string): Promise<APIResponse<{ sessionId: string; status: string; person: Record<string, unknown>; document: Record<string, unknown> }>> {
   const options = await defaultOptions();
   const response = await fetch(`${API_BASE_URL}/api/veriff/session/${sessionId}`, options);
-  return handleResponse<any>(response);
+  return handleResponse<{ sessionId: string; status: string; person: Record<string, unknown>; document: Record<string, unknown> }>(response);
 }
 
 export async function uploadDocument(file: File): Promise<APIResponse<{ path: string }>> {

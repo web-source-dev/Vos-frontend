@@ -7,19 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CheckCircle, XCircle, Camera } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-// Veriff SDK types
-declare global {
-  interface Window {
-    Veriff: any;
-  }
-}
-
-interface VeriffSession {
-  id: string;
-  url: string;
-  status: string;
-}
+import { VeriffSession, VeriffSessionResponse, VeriffResult } from '@/lib/veriff-types';
 
 export default function VerifyIdentityPage() {
   const router = useRouter();
@@ -96,7 +84,7 @@ export default function VerifyIdentityPage() {
         const veriff = window.Veriff({
           host: 'https://stationapi.veriff.com',
           parentId: veriffContainerRef.current?.id || 'veriff-container',
-          onSession: function(err: any, response: any) {
+          onSession: function(err: Error | null, response: VeriffSessionResponse) {
             if (err) {
               console.error('Veriff session error:', err);
               setVerificationStatus('error');
@@ -110,7 +98,7 @@ export default function VerifyIdentityPage() {
               console.log('Veriff session created:', response);
             }
           },
-          onVeriff: (response: any) => {
+          onVeriff: (response: VeriffResult) => {
             console.log('Veriff response:', response);
             handleVerificationResult(response);
           },
@@ -142,7 +130,7 @@ export default function VerifyIdentityPage() {
   };
 
   // Handle verification result
-  const handleVerificationResult = async (response: any) => {
+  const handleVerificationResult = async (response: VeriffResult) => {
     try {
       const resultResponse = await fetch('/api/veriff/result', {
         method: 'POST',
@@ -243,7 +231,7 @@ export default function VerifyIdentityPage() {
               
               <div className="space-y-2">
                 <p className="text-sm text-gray-600">
-                  You'll need to provide:
+                  You&apos;ll need to provide:
                 </p>
                 <ul className="text-sm text-gray-600 space-y-1 ml-4">
                   <li>• A valid government-issued ID</li>
@@ -281,7 +269,7 @@ export default function VerifyIdentityPage() {
             </div>
           )}
 
-          {verificationStatus === 'declined' && (
+          {(verificationStatus === 'declined' || verificationStatus === 'error') && (
             <div className="text-center space-y-4">
               <p className="text-red-600 font-medium">
                 Verification was not successful
@@ -295,24 +283,6 @@ export default function VerifyIdentityPage() {
                 className="w-full"
               >
                 Try Again
-              </Button>
-            </div>
-          )}
-
-          {verificationStatus === 'error' && (
-            <div className="text-center space-y-4">
-              <p className="text-red-600 font-medium">
-                An error occurred
-              </p>
-              <p className="text-sm text-gray-600">
-                Please check your internet connection and try again.
-              </p>
-              <Button 
-                onClick={createVeriffSession}
-                variant="outline"
-                className="w-full"
-              >
-                Retry
               </Button>
             </div>
           )}
