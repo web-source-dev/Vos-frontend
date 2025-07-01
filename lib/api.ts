@@ -326,6 +326,23 @@ export async function getCurrentUser(): Promise<APIResponse<User>> {
   return handleResponse<User>(response);
 }
 
+// Veriff API functions
+export async function createVeriffSession(personData: any): Promise<APIResponse<any>> {
+  const options = await defaultOptions();
+  const response = await fetch(`${API_BASE_URL}/api/veriff/session`, {
+    ...options,
+    method: 'POST',
+    body: JSON.stringify(personData)
+  });
+  return handleResponse<any>(response);
+}
+
+export async function getVeriffSessionStatus(sessionId: string): Promise<APIResponse<any>> {
+  const options = await defaultOptions();
+  const response = await fetch(`${API_BASE_URL}/api/veriff/session/${sessionId}`, options);
+  return handleResponse<any>(response);
+}
+
 export async function uploadDocument(file: File): Promise<APIResponse<{ path: string }>> {
   console.log('Uploading document:', file.name);
   const formData = new FormData();
@@ -578,6 +595,10 @@ const api = {
   getVehiclePricing,
   saveCompletionData,
   getAnalytics,
+  
+  // Veriff functions
+  createVeriffSession,
+  getVeriffSessionStatus,
 };
 
 export default api;

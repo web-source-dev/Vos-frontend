@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,9 +11,16 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { FileText, CreditCard, Upload, CheckCircle, Printer, Eye, X, Shield } from "lucide-react"
+import { FileText, CreditCard, Upload, CheckCircle, Printer, Eye, X, Shield, Camera } from "lucide-react"
 import api from '@/lib/api'
 import Image from "next/image"
+
+// Veriff SDK types
+declare global {
+  interface Window {
+    Veriff: any;
+  }
+}
 
 // TypeScript interfaces for paperwork data
 interface CustomerData {
@@ -135,6 +142,10 @@ interface PaperworkProps {
 }
 
 export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = false }: PaperworkProps) {
+  const [verificationStatus, setVerificationStatus] = useState<'pending' | 'approved' | 'declined' | 'error'>('pending')
+  const [isVerifying, setIsVerifying] = useState(false)
+  const veriffContainerRef = useRef<HTMLDivElement>(null)
+  
   const [billOfSale, setBillOfSale] = useState({
     // Seller Information
     sellerName: "",
@@ -237,6 +248,35 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
   const [isLoading, setIsLoading] = useState(true)
   const [hasExistingData, setHasExistingData] = useState(false)
   const { toast } = useToast()
+
+  // Initialize Veriff SDK
+  useEffect(() => {
+    const loadVeriffSDK = async () => {
+      try {
+        // Load Veriff SDK scripts (using the version provided by Veriff)
+        const scripts = [
+          'https://cdn.veriff.me/sdk/js/1.5/veriff.min.js',
+          'https://cdn.veriff.me/incontext/js/v1/veriff.js'
+        ];
+
+        for (const src of scripts) {
+          const script = document.createElement('script');
+          script.src = src;
+          script.async = true;
+          document.head.appendChild(script);
+        }
+
+        // Wait for scripts to load
+        setTimeout(() => {
+          console.log('Veriff SDK scripts loaded successfully');
+        }, 1000);
+      } catch (error) {
+        console.error('Failed to load Veriff SDK:', error);
+      }
+    };
+
+    loadVeriffSDK();
+  }, []);
 
   // Load existing paperwork data on component mount
   useEffect(() => {
@@ -390,6 +430,12 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
   }
 
   const handleDocumentUpload = async (docType: string, file: File) => {
+    // Special handling for ID rescan - trigger Veriff verification
+    if (docType === "idRescan") {
+      await handleVeriffVerification()
+      return
+    }
+
     try {
       // Create preview URL for the file
       const previewUrl = URL.createObjectURL(file)
@@ -429,6 +475,150 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
         description: errorData.error,
         variant: "destructive",
       })
+    }
+  }
+
+  const handleVeriffVerification = async () => {
+    setIsVerifying(true)
+    setVerificationStatus('pending')
+    
+    try {
+      // Create Veriff session
+      const response = await api.createVeriffSession({
+        person: {
+          givenName: vehicleData.customer?.firstName || 'John',
+          lastName: vehicleData.customer?.lastName || 'Doe',
+          email: vehicleData.customer?.email1 || 'customer@example.com',
+        },
+        document: {
+          type: 'DRIVERS_LICENSE',
+          country: 'US',
+        },
+      })
+
+      if (!response.success) {
+        throw new Error('Failed to create verification session')
+      }
+
+      // Launch Veriff modal using the session URL
+      if (window.Veriff && response.data.url) {
+        const veriff = window.Veriff({
+          host: 'https://stationapi.veriff.com',
+          parentId: veriffContainerRef.current?.id || 'veriff-container',
+          onSession: function(err: any, response: any) {
+            if (err) {
+              console.error('Veriff session error:', err);
+              setVerificationStatus('error');
+              setIsVerifying(false);
+              toast({
+                title: "Verification Error",
+                description: "Failed to start identity verification.",
+                variant: "destructive",
+              });
+            } else {
+              console.log('Veriff session created:', response);
+            }
+          },
+          onVeriff: (response: any) => {
+            console.log('Veriff response:', response);
+            handleVerificationResult(response);
+          },
+        });
+
+        // Set person parameters
+        veriff.setParams({
+          person: {
+            givenName: vehicleData.customer?.firstName || 'John',
+            lastName: vehicleData.customer?.lastName || 'Doe'
+          },
+          vendorData: vehicleData.id || vehicleData._id || 'case_id'
+        });
+
+        // Mount the Veriff widget
+        veriff.mount();
+      }
+    } catch (error) {
+      console.error('Error starting Veriff verification:', error);
+      setVerificationStatus('error');
+      setIsVerifying(false);
+      toast({
+        title: "Verification Error",
+        description: "Failed to start identity verification. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  const handleVerificationResult = async (response: any) => {
+    try {
+      const resultResponse = await fetch('/api/veriff/result', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: response.sessionId,
+          verificationData: response,
+        }),
+      });
+
+      if (!resultResponse.ok) {
+        throw new Error('Failed to process verification result');
+      }
+
+      const result = await resultResponse.json();
+      
+      if (result.status === 'approved') {
+        setVerificationStatus('approved');
+        setIsVerifying(false);
+        
+        // Mark ID rescan as uploaded and create a placeholder image
+        setDocumentsUploaded(prev => ({
+          ...prev,
+          idRescan: true
+        }));
+        
+        // Create a placeholder image for the verified ID
+        const placeholderUrl = 'data:image/svg+xml;base64,' + btoa(`
+          <svg width="400" height="128" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100%" height="100%" fill="#f0f9ff"/>
+            <rect x="10" y="10" width="80" height="100" fill="#3b82f6" rx="5"/>
+            <text x="50" y="70" text-anchor="middle" fill="white" font-family="Arial" font-size="12">ID</text>
+            <text x="120" y="40" fill="#1e40af" font-family="Arial" font-size="14" font-weight="bold">Identity Verified</text>
+            <text x="120" y="60" fill="#64748b" font-family="Arial" font-size="12">${vehicleData.customer?.firstName} ${vehicleData.customer?.lastName}</text>
+            <text x="120" y="80" fill="#64748b" font-family="Arial" font-size="12">Veriff Verification Complete</text>
+            <circle cx="350" cy="30" r="15" fill="#10b981"/>
+            <text x="350" y="35" text-anchor="middle" fill="white" font-family="Arial" font-size="12">✓</text>
+          </svg>
+        `);
+        
+        setDocumentPreviews(prev => ({
+          ...prev,
+          idRescan: placeholderUrl
+        }));
+
+        toast({
+          title: "Identity Verified",
+          description: "Your identity has been verified successfully!",
+        });
+      } else {
+        setVerificationStatus('declined');
+        setIsVerifying(false);
+        toast({
+          title: "Verification Failed",
+          description: "Identity verification was not successful. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error processing verification result:', error);
+      setVerificationStatus('error');
+      setIsVerifying(false);
+      toast({
+        title: "Error",
+        description: "Failed to process verification result.",
+        variant: "destructive",
+      });
     }
   }
 
@@ -528,10 +718,10 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
       return
     }
 
-    if (!documentsUploaded.idRescan || !documentsUploaded.signedBillOfSale) {
+    if ((!documentsUploaded.idRescan && verificationStatus !== 'approved') || !documentsUploaded.signedBillOfSale) {
       toast({
         title: "Missing Documents",
-        description: "Please upload all required documents before submitting.",
+        description: "Please complete identity verification and upload all required documents before submitting.",
         variant: "destructive",
       })
       return
@@ -672,7 +862,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
     bankDetails.accountHolderName &&
     bankDetails.routingNumber &&
     bankDetails.accountNumber &&
-    documentsUploaded.idRescan &&
+    (documentsUploaded.idRescan || verificationStatus === 'approved') &&
     documentsUploaded.signedBillOfSale &&
     billOfSale.asIsAcknowledgment
 
@@ -1336,13 +1526,64 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label>ID Rescan (Updated Photo) *</Label>
-                <FileUpload
-                  label={documentsUploaded.idRescan ? "✓ ID Uploaded" : "Upload ID Photo"}
-                  accept="image/*"
-                  onUpload={(file) => handleDocumentUpload("idRescan", file)}
-                  className={documentsUploaded.idRescan ? "border-green-300 bg-green-50" : ""}
-                />
+                <Label>ID Verification *</Label>
+                <Button
+                  onClick={() => handleVeriffVerification()}
+                  disabled={isVerifying}
+                  variant="outline"
+                  className={`w-full h-12 border-2 border-dashed ${
+                    isVerifying
+                      ? "border-blue-300 bg-blue-50 text-blue-700"
+                      : verificationStatus === 'approved'
+                        ? "border-green-300 bg-green-50 text-green-700"
+                        : documentsUploaded.idRescan 
+                          ? "border-green-300 bg-green-50 text-green-700"
+                          : "border-gray-300 hover:border-gray-400"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {isVerifying ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span>Verifying Identity...</span>
+                      </>
+                    ) : verificationStatus === 'approved' ? (
+                      <>
+                        <CheckCircle className="h-4 w-4" />
+                        <span>✓ Identity Verified</span>
+                      </>
+                    ) : documentsUploaded.idRescan ? (
+                      <>
+                        <CheckCircle className="h-4 w-4" />
+                        <span>✓ ID Uploaded</span>
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="h-4 w-4" />
+                        <span>Verify Identity with Veriff</span>
+                      </>
+                    )}
+                  </div>
+                </Button>
+                
+                {isVerifying && (
+                  <div className="mt-2 p-3 border border-blue-200 rounded-lg bg-blue-50">
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <span className="text-sm text-blue-700">Verifying identity with Veriff...</span>
+                    </div>
+                  </div>
+                )}
+                
+                {verificationStatus === 'approved' && (
+                  <div className="mt-2 p-3 border border-green-200 rounded-lg bg-green-50">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-700">Identity verified successfully!</span>
+                    </div>
+                  </div>
+                )}
+                
                 {renderDocumentPreview("idRescan")}
               </div>
               
@@ -1450,6 +1691,13 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
           Continue to Completion
         </Button>
       </div>
+
+      {/* Veriff Container - Hidden but required for SDK */}
+      <div 
+        id="veriff-container" 
+        ref={veriffContainerRef}
+        className="hidden"
+      />
     </div>
   )
 }

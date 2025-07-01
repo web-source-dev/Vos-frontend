@@ -155,7 +155,7 @@ export function QuotePreparation({
       console.error('Error fetching vehicle pricing from MarketCheck:', error);
       toast({
         title: "MarketCheck API Error",
-        description: "Failed to fetch vehicle pricing from MarketCheck API. Using fallback estimation.",
+        description: "Failed to fetch vehicle pricing from MarketCheck API. Please ensure your MarketCheck API key is configured correctly.",
         variant: "destructive",
       });
     } finally {
