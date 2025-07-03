@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { SaveIndicator } from "@/components/save-indicator"
 import { useToast } from "@/hooks/use-toast"
-import { User, Car, Building } from "lucide-react"
+import { User, Car, Building, Search, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth"
 import api from '@/lib/api'
 import type { CustomerData, VehicleData } from '@/lib/types'
@@ -107,6 +107,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
 
   const [isSaving, setIsSaving] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoadingVinData, setIsLoadingVinData] = useState(false)
   const { toast } = useToast()
 
   // Load agent details on mount
@@ -226,6 +227,94 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
     });
   };
 
+  // Function to fetch vehicle data by VIN
+  const fetchVehicleByVIN = useCallback(async (vin: string) => {
+    if (!vin || vin.length < 17) {
+      return; // Don't attempt lookup if VIN is invalid
+    }
+    
+    setIsLoadingVinData(true);
+    
+    try {
+      // First, get vehicle pricing for estimated value
+      const pricingResponse = await api.getVehiclePricing(vin);
+      const estimatedValue = pricingResponse.success ? pricingResponse.data?.estimatedValue : undefined;
+
+      // Second, get vehicle specifications 
+      const specsResponse = await api.getVehicleSpecs(vin);
+      
+      if (specsResponse.success && specsResponse.data) {
+        toast({
+          title: "Vehicle information retrieved",
+          description: "Successfully retrieved vehicle information from VIN database"
+        });
+        
+        const { year, make, model, exterior_color, body_style } = specsResponse.data;
+        
+        // Update form with retrieved vehicle specs and pricing
+        setFormData(prev => ({
+          ...prev,
+          vehicle: {
+            ...prev.vehicle,
+            year: year || prev.vehicle.year,
+            make: make || prev.vehicle.make,
+            model: model || prev.vehicle.model,
+            color: exterior_color || prev.vehicle.color,
+            bodyStyle: body_style || prev.vehicle.bodyStyle,
+            vin,
+            estimatedValue,
+            pricingSource: 'MarketCheck API',
+            pricingLastUpdated: new Date().toISOString()
+          }
+        }));
+      } else if (pricingResponse.success && pricingResponse.data?.estimatedValue) {
+        // At least update the estimated value if specs lookup failed
+        setFormData(prev => ({
+          ...prev,
+          vehicle: {
+            ...prev.vehicle,
+            estimatedValue,
+            pricingSource: 'MarketCheck API',
+            pricingLastUpdated: new Date().toISOString()
+          }
+        }));
+        
+        toast({
+          title: "Partial vehicle information retrieved",
+          description: "Got pricing data but couldn't retrieve full vehicle details."
+        });
+      } else {
+        // Both lookups failed
+        toast({
+          title: "Vehicle information lookup failed",
+          description: "Could not retrieve vehicle details from VIN. Please enter details manually.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching vehicle data by VIN:', error);
+      toast({
+        title: "Error",
+        description: "Failed to look up vehicle by VIN. Please enter details manually.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingVinData(false);
+    }
+  }, [toast]);
+
+  // Watch for VIN changes to auto-lookup
+  useEffect(() => {
+    // Debounce the VIN lookup to avoid excessive API calls
+    const vinTimer = setTimeout(() => {
+      const vin = formData.vehicle?.vin?.trim();
+      if (vin && vin.length === 17) { // Standard VIN length is 17 characters
+        fetchVehicleByVIN(vin);
+      }
+    }, 1000);
+    
+    return () => clearTimeout(vinTimer);
+  }, [formData.vehicle.vin, fetchVehicleByVIN]);
 
   const handleComplete = async () => {
     const requiredFields = [
@@ -526,6 +615,33 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* VIN moved to the top for auto-population */}
+            <div className="space-y-2">
+              <Label htmlFor="vehicleVin">
+                VIN * 
+                <span className="text-sm text-muted-foreground ml-2">(Enter VIN to auto-populate vehicle details)</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  id="vehicleVin"
+                  value={formData.vehicle.vin}
+                  onChange={(e) => handleInputChange("vehicle", "vin", e.target.value)}
+                  placeholder="1HGBH41JXMN109186"
+                  className="pr-10"
+                />
+                {isLoadingVinData && (
+                  <div className="absolute right-2 top-2">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+                {!isLoadingVinData && formData.vehicle.vin && (
+                  <div className="absolute right-2 top-2">
+                    <Search className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+            </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="vehicleYear">Year *</Label>
@@ -564,15 +680,23 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
                 placeholder="Camry"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="vehicleVin">VIN (optional - can scan later)</Label>
-              <Input
-                id="vehicleVin"
-                value={formData.vehicle.vin}
-                onChange={(e) => handleInputChange("vehicle", "vin", e.target.value)}
-                placeholder="1HGBH41JXMN109186"
-              />
-            </div>
+            
+            {/* Estimated value field (auto-populated from API) */}
+            {formData.vehicle.estimatedValue && (
+              <div className="mt-4 p-3 border rounded-lg bg-green-50 border-green-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-green-800">Estimated Value</h4>
+                    <p className="text-sm text-green-700">
+                      ${formData.vehicle.estimatedValue.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-sm text-green-600">
+                    via {formData.vehicle.pricingSource || 'MarketCheck'}
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

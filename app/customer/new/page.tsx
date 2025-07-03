@@ -117,6 +117,7 @@ export default function NewCustomer() {
   return (
     <VosLayout
       currentStage={currentStage}
+      maxStage={customer.currentStage}
       vehicleData={customer}
       onStageChange={setCurrentStage}
       onBackToDashboard={handleBackToDashboard}

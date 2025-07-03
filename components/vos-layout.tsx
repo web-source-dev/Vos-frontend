@@ -17,11 +17,13 @@ interface VehicleData {
   stageStatuses: {
     [key: number]: string
   }
+  currentStage?: number
 }
 
 interface VosLayoutProps {
   children: ReactNode
   currentStage: number
+  maxStage?: number // Maximum stage reached (from database) - determines actual progress
   vehicleData: VehicleData
   onStageChange: (stage: number) => void
   onBackToDashboard?: () => void
@@ -32,12 +34,16 @@ interface VosLayoutProps {
 export function VosLayout({ 
   children, 
   currentStage, 
+  maxStage, // Maximum stage reached (from database)
   vehicleData, 
   onStageChange, 
   onBackToDashboard, 
   accessibleStages = [],
   isInspector = false
 }: VosLayoutProps) {
+  // Use the maximum of either passed maxStage prop or vehicleData.currentStage from DB or currentStage as fallback
+  const actualMaxStage = maxStage || vehicleData?.currentStage || currentStage;
+  
   const getStageStatus = (stageId: number) => {
     return vehicleData?.stageStatuses?.[stageId] || 'pending'
   }
@@ -65,7 +71,12 @@ export function VosLayout({
   }
 
   const isStageAccessible = (stageId: number) => {
-    return accessibleStages.length === 0 || accessibleStages.includes(stageId)
+    // Allow access to stages up to the max stage reached
+    // If accessibleStages is provided, also check that
+    if (accessibleStages.length > 0) {
+      return stageId <= actualMaxStage && accessibleStages.includes(stageId);
+    }
+    return stageId <= actualMaxStage;
   }
 
   const stages = [
@@ -189,23 +200,23 @@ export function VosLayout({
             </nav>
           </div>
 
-          {/* Progress Summary */}
+          {/* Progress Summary - Use actualMaxStage for progress calculation, not the currently viewed stage */}
           <div className="p-4 border-t border-gray-200 mt-auto bg-gradient-to-r from-gray-50 to-blue-50">
             <div className="text-sm font-semibold text-gray-900 mb-3">Overall Progress</div>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Completion</span>
-                <span className="text-sm font-semibold text-gray-900">{Math.round((currentStage / 7) * 100)}%</span>
+                <span className="text-sm font-semibold text-gray-900">{Math.round((actualMaxStage / 7) * 100)}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                 <div 
                   className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500 ease-out shadow-sm"
-                  style={{ width: `${(currentStage / 7) * 100}%` }}
+                  style={{ width: `${(actualMaxStage / 7) * 100}%` }}
                 />
               </div>
               <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>Stage {currentStage} of 7</span>
-                <span>{stages.find(s => s.id === currentStage)?.name}</span>
+                <span>Viewing Stage {currentStage}</span>
+                <span>Progress: Stage {actualMaxStage} of 7</span>
               </div>
             </div>
           </div>

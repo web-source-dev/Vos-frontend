@@ -132,8 +132,6 @@ export interface Inspection {
   completedAt?: Date;
   inspectionNotes?: string;
   recommendations?: string[];
-  estimatedRepairCost?: number;
-  estimatedRepairTime?: string;
   safetyIssues?: SafetyIssue[];
   maintenanceItems?: MaintenanceItem[];
   createdBy?: string;
@@ -172,6 +170,7 @@ export interface Quote {
   createdAt?: string;
   updatedAt?: string;
 }
+
 
 export interface Case {
   id?: string;

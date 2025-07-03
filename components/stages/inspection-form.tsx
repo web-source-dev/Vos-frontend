@@ -51,8 +51,6 @@ interface InspectionSection {
   rating: number
   score?: number
   maxScore?: number
-  repairCost: number
-  repairTime: number
   photos?: Photo[]
   questions?: Question[]
 }
@@ -77,8 +75,6 @@ interface Inspection {
   completed: boolean
   completedAt?: string
   overallRating: number
-  estimatedRepairCost: number
-  estimatedRepairTime: string
   inspector: Inspector
   sections?: InspectionSection[]
   safetyIssues?: SafetyIssue[]
@@ -110,8 +106,6 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
         completed: vehicleData.inspection.completed,
         sectionsCount: vehicleData.inspection.sections?.length || 0,
         overallRating: vehicleData.inspection.overallRating,
-        estimatedRepairCost: vehicleData.inspection.estimatedRepairCost,
-        estimatedRepairTime: vehicleData.inspection.estimatedRepairTime
       });
       
       if (vehicleData.inspection.sections) {
@@ -120,8 +114,6 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
             questionsCount: section.questions?.length || 0,
             rating: section.rating,
             score: section.score,
-            repairCost: section.repairCost,
-            repairTime: section.repairTime
           });
         });
       }
@@ -264,18 +256,6 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                   </div>
                   <div className="text-gray-600">Average Rating</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">
-                    ${vehicleData.inspection?.estimatedRepairCost?.toLocaleString() || 0}
-                  </div>
-                  <div className="text-gray-600">Est. Repair Cost</div>
-                </div>
-                <div className="text-center">
-                    <div className="text-lg font-bold text-teal-600">
-                      {vehicleData.inspection?.estimatedRepairTime || 'No repairs needed'}
-                    </div>
-                    <div className="text-gray-600">Total Repair Time</div>
-                  </div>
               </div>
               
               {/* Additional Stats */}
@@ -340,23 +320,6 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                                 </span>
                               )}
                             </div>
-                            {/* Repair Estimates */}
-                            {(section.repairCost > 0 || section.repairTime > 0) && (
-                              <div className="flex items-center gap-3 mt-2 text-xs">
-                                {section.repairCost > 0 && (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-red-100 text-red-700 font-medium">
-                                    ${section.repairCost.toLocaleString()} repair cost
-                                  </span>
-                                )}
-                                {section.repairTime > 0 && (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-orange-100 text-orange-700 font-medium">
-                                    {section.repairTime < 1 
-                                      ? `${Math.round(section.repairTime * 60)} min` 
-                                      : `${Math.round(section.repairTime)}h`} repair time
-                                  </span>
-                                )}
-                              </div>
-                            )}
                           </div>
                         </div>
                         

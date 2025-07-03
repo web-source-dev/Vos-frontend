@@ -32,8 +32,6 @@ interface InspectionSubmissionData {
   overallScore?: number;
   inspectionNotes?: string;
   recommendations?: string[];
-  estimatedRepairCost?: number;
-  estimatedRepairTime?: string;
 }
 
 export default function CustomerDetail({ params }: CustomerDetailProps) {
@@ -101,12 +99,36 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
   }
 
   const advanceToStage = async (stage: number) => {
+    const previousStage = currentStage;
     setCurrentStage(stage);
     updateStageStatus(stage, "active");
-    if (stage > 1) {
-      updateStageStatus(stage - 1, "complete");
+    
+    if (previousStage < stage) {
+      // Only update the case's current stage in the database if we're moving forward
+      // This ensures progress is not lost when navigating back to previous stages
+      if (stage > 1) {
+        updateStageStatus(previousStage, "complete");
+      }
+      setCaseData((prev: CaseData | null) => prev ? { ...prev, currentStage: stage } : null);
+      
+      // Update case stage in the backend
+      try {
+        if (caseData) {
+          await api.updateCaseStage(caseData.id || caseData._id || "", {
+            currentStage: stage,
+            stageStatuses: {
+              ...caseData.stageStatuses,
+              [stage]: "active",
+              ...(stage > 1 ? { [previousStage]: "complete" } : {})
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error updating case stage:", error);
+      }
     }
-    setCaseData((prev: CaseData | null) => prev ? { ...prev, currentStage: stage } : null);
+    // If going backward, we don't update the currentStage in the database
+    // This way the progress bar continues to show the maximum progress reached
   }
 
   const handleBackToDashboard = () => {
@@ -249,12 +271,26 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
           />
         )
       case 6:
+        // Map caseData to the local CaseData interface expected by Paperwork
+        const mappedCaseData: import('@/components/stages/paperwork').CaseData = {
+          id: caseData.id,
+          _id: (caseData as CaseData)._id,
+          customer: typeof caseData.customer === 'object' ? caseData.customer : undefined,
+          vehicle: typeof caseData.vehicle === 'object' ? caseData.vehicle : undefined,
+          offerDecision: (caseData as CaseData).offerDecision,
+          quote: typeof caseData.quote === 'object' ? caseData.quote : undefined,
+          transaction: typeof caseData.transaction === 'object' ? caseData.transaction : undefined,
+          currentStage: caseData.currentStage,
+          status: caseData.status,
+        };
         return (
           <Paperwork
-            vehicleData={caseData}
-            onUpdate={updateCaseData}
+            vehicleData={mappedCaseData}
+            onUpdate={updateCaseData as (data: Partial<CaseData>) => Promise<void>}
             onComplete={() => advanceToStage(7)}
             isEstimator={isEstimator}
+            isAdmin={isAdmin}
+            isAgent={isAgent}
           />
         )
       case 7:
@@ -280,11 +316,14 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
   return (
     <VosLayout
       currentStage={currentStage}
+      maxStage={caseData.currentStage}
       vehicleData={caseData}
       onStageChange={setCurrentStage}
       onBackToDashboard={handleBackToDashboard}
       accessibleStages={getAccessibleStages()}
       isInspector={isInspector}
+      isAdmin={isAdmin}
+      isAgent={isAgent}
     >
       {renderCurrentStage()}
     </VosLayout>

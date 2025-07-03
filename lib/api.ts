@@ -39,17 +39,36 @@ const defaultOptions = async (): Promise<RequestInit> => {
   return options;
 };
 
+// Function to handle API responses
 async function handleResponse<T>(response: Response): Promise<APIResponse<T>> {
-  const data = await response.json();
   if (!response.ok) {
-    console.error('API Error:', {
-      status: response.status,
-      statusText: response.statusText,
-      error: data.error
-    });
-    throw { error: data.error || 'An error occurred', status: response.status };
+    // For API errors that return JSON
+    try {
+      const errorData = await response.json();
+      return {
+        success: false,
+        error: errorData.error || `API Error: ${response.status} ${response.statusText}`
+      };
+    } catch (e) {
+      // For non-JSON errors
+      console.error(e)
+      return {
+        success: false,
+        error: `API Error: ${response.status} ${response.statusText}`
+      };
   }
-  return data;
+  }
+
+  try {
+    const data = await response.json();
+    return data as APIResponse<T>;
+  } catch (e) {
+    console.error('Error parsing JSON response:', e);
+    return {
+      success: false,
+      error: 'Invalid JSON response from API'
+    };
+  }
 }
 
 // Auth API functions
@@ -553,6 +572,257 @@ export async function getAnalytics(timeRange: string = '30d'): Promise<APIRespon
   }
 }
 
+/**
+ * Create and send a Bill of Sale signing request to a customer
+ * @param caseId - The ID of the case
+ * @param signingData - Data for the signing request
+ */
+export async function createBillOfSaleSigningRequest(
+  caseId: string,
+  signingData: {
+    recipientEmail: string;
+    recipientName: string;
+    documentType: string;
+  }
+): Promise<APIResponse<{ signUrl: string; expiresAt: string }>> {
+  try {
+    const options = await defaultOptions();
+    const url = `${API_BASE_URL}/api/cases/${caseId}/sign-request`;
+    
+    const response = await fetch(url, {
+      ...options,
+      method: 'POST',
+      body: JSON.stringify(signingData),
+    });
+    
+    return await handleResponse(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Get signing session data
+ * @param token - Signing session token
+ */
+export async function getSigningSession(token: string): Promise<APIResponse<{
+  session: {
+    id: string;
+    token: string;
+    status: string;
+    documentType: string;
+    expiresAt: string;
+    createdAt: string;
+  };
+  recipient: {
+    name: string;
+    email: string;
+  };
+  case: {
+    id: string;
+    customer: {
+      firstName: string;
+      lastName: string;
+    };
+    vehicle: {
+      year: string;
+      make: string;
+      model: string;
+      vin?: string;
+    };
+  };
+  documentUrl: string | null;
+}>> {
+  try {
+    const options = await defaultOptions();
+    const url = `${API_BASE_URL}/api/signing/${token}`;
+    
+    console.log('Fetching signing session from:', url);
+    
+    const response = await fetch(url, {
+      ...options,
+      method: 'GET'
+    });
+    
+    const result = await handleResponse<{
+      session: {
+        id: string;
+        token: string;
+        status: string;
+        documentType: string;
+        expiresAt: string;
+        createdAt: string;
+      };
+      recipient: {
+        name: string;
+        email: string;
+      };
+      case: {
+        id: string;
+        customer: {
+          firstName: string;
+          lastName: string;
+        };
+        vehicle: {
+          year: string;
+          make: string;
+          model: string;
+          vin?: string;
+        };
+      };
+      documentUrl: string | null;
+    }>(response);
+    
+    console.log('Signing session response:', result);
+    return result;
+  } catch (error) {
+    console.error('Error fetching signing session:', error);
+    return handleError(error);
+  }
+}
+
+/**
+ * Check signing status by case ID
+ * @param caseId - Case ID
+ */
+export async function getSigningStatusByCaseId(caseId: string): Promise<APIResponse<{ 
+  status: string; 
+  signedDocumentUrl?: string;
+  signedAt?: string;
+}>> {
+  try {
+    const options = await defaultOptions();
+    const url = `${API_BASE_URL}/api/cases/${caseId}/signing-status`;
+    
+    console.log('Checking signing status for case:', caseId);
+    console.log('URL:', url);
+    
+    const response = await fetch(url, {
+      ...options,
+      method: 'GET'
+    });
+    
+    const result = await handleResponse<{ 
+      status: string; 
+      signedDocumentUrl?: string;
+      signedAt?: string;
+    }>(response);
+    
+    console.log('Signing status response:', result);
+    return result;
+  } catch (error) {
+    console.error('Error checking signing status:', error);
+    return handleError(error);
+  }
+}
+
+/**
+ * Submit signed document
+ * @param signToken - Signing token
+ * @param signatureData - Signature data
+ */
+export async function submitSignedDocument(
+  signToken: string,
+  signatureData: {
+    signature: string;
+    signedAt: string;
+    position?: {
+      x: number;
+      y: number;
+      page: number;
+    };
+    signerType?: string;
+  }
+): Promise<APIResponse<{ 
+  status: string;
+  signedDocumentUrl: string;
+  signedAt: string;
+}>> {
+  try {
+    const options = await defaultOptions();
+    const url = `${API_BASE_URL}/api/signing/${signToken}/submit`;
+    
+    console.log('Submitting signed document to:', url);
+    
+    const response = await fetch(url, {
+      ...options,
+      method: 'POST',
+      body: JSON.stringify(signatureData)
+    });
+    
+    const result = await handleResponse<{ 
+      status: string;
+      signedDocumentUrl: string;
+      signedAt: string;
+    }>(response);
+    
+    console.log('Submit signed document response:', result);
+    return result;
+  } catch (error) {
+    console.error('Error submitting signed document:', error);
+    return handleError(error);
+  }
+}
+
+/**
+ * Add a signature directly to a PDF document
+ * @param caseId - The ID of the case
+ * @param signatureData - The signature data to embed in the PDF
+ */
+export async function addSignatureToPdf(
+  caseId: string,
+  signatureData: {
+    signatureImage: string;
+    signaturePosition: {
+      x: number;
+      y: number;
+      page: number;
+    };
+    signerType: 'customer' | 'seller';
+    useCustomerSignedDocument?: boolean;
+  }
+): Promise<APIResponse<{ documentUrl: string }>> {
+  try {
+    const options = await defaultOptions();
+    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/add-signature`, {
+      ...options,
+      method: 'POST',
+      body: JSON.stringify(signatureData)
+    });
+    
+    return await handleResponse<{ documentUrl: string }>(response);
+  } catch (error) {
+    console.error('Error adding signature to PDF:', error);
+    return handleError(error);
+  }
+}
+
+// Fetch vehicle specs from VIN
+export async function getVehicleSpecs(vin: string): Promise<APIResponse<{
+  year: string;
+  make: string;
+  model: string;
+  trim?: string;
+  body_style?: string;
+  exterior_color?: string;
+  engine?: string;
+  transmission?: string;
+}>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/vehicle/specs/${vin}`, {
+      ...await defaultOptions(),
+      method: 'GET',
+      headers: {
+        ...(await getAuthHeaders()),
+      },
+    });
+
+    return await handleResponse(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
 const api = {
   // Auth functions
   loginUser,
@@ -599,6 +869,16 @@ const api = {
   // Veriff functions
   createVeriffSession,
   getVeriffSessionStatus,
+  
+  // Signing functions
+  createBillOfSaleSigningRequest,
+  getSigningSession,
+  getSigningStatusByCaseId,
+  submitSignedDocument,
+  addSignatureToPdf,
+  
+  // New function
+  getVehicleSpecs,
 };
 
 export default api;

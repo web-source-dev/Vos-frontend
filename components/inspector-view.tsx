@@ -62,8 +62,6 @@ interface InspectionSection {
   maxScore?: number
   completed?: boolean
   photos?: PhotoData[]
-  repairCost?: number
-  repairTime?: number
 }
 
 interface InspectionQuestion {
@@ -100,8 +98,6 @@ interface FormattedInspectionData {
   completedAt: Date
   inspectionNotes: string
   recommendations: string[]
-  totalRepairCost: number
-  totalRepairTime: string
 }
 
 interface InspectorViewProps {
@@ -115,8 +111,6 @@ interface SectionData {
   rating?: number
   score?: number
   maxScore?: number
-  repairCost?: number
-  repairTime?: number
   photos?: PhotoData[]
   questions?: {
     [questionId: string]: {
@@ -878,6 +872,9 @@ const cleanupOldInspectionData = () => {
   }
 };
 
+
+
+
 export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewProps) {
   const inspectionToken = vehicleData.inspection?.accessToken;
   
@@ -894,7 +891,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
   const [isSaving, setIsSaving] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const { toast } = useToast()
-
+  
   // Save data to localStorage whenever inspectionData changes
   useEffect(() => {
     if (inspectionToken && Object.keys(inspectionData).length > 0) {
@@ -949,8 +946,6 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
                 rating: section.rating || 0,
                 score: section.score || 0,
                 maxScore: section.maxScore || 0,
-                repairCost: section.repairCost || 0,
-                repairTime: section.repairTime || 0,
                 photos: section.photos || [],
                 questions: {}
               };
@@ -1209,8 +1204,6 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
           photos: inspectionData[section.id]?.photos || [],
           score: calculateSectionScore(section.id),
           maxScore: calculateSectionMaxScore(section),
-          repairCost: inspectionData[section.id]?.repairCost || 0,
-          repairTime: inspectionData[section.id]?.repairTime || 0,
           completed: true
         })),
         overallRating: calculateOverallRating(),
@@ -1221,8 +1214,6 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
         completedAt: new Date(),
         inspectionNotes: inspectionData.overallNotes || "",
         recommendations: generateRecommendations(),
-        totalRepairCost: calculateTotalRepairCost(),
-        totalRepairTime: calculateTotalRepairTime()
       };
 
       if (onSubmit) {
@@ -1235,8 +1226,6 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
         console.log('Submitting inspection with data:', {
           sectionsCount: formattedData.sections.length,
           overallRating: formattedData.overallRating,
-          totalRepairCost: formattedData.totalRepairCost,
-          totalRepairTime: formattedData.totalRepairTime
         });
         
         const response = await api.submitInspection(vehicleData.inspection.accessToken, formattedData);
@@ -1368,27 +1357,6 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
       return total + calculateSectionMaxScore(section);
     }, 0);
   };
-
-  const calculateTotalRepairCost = () => {
-    return inspectionSections.reduce((total, section) => {
-      const sectionData = inspectionData[section.id];
-      return total + (sectionData?.repairCost || 0);
-    }, 0);
-  };
-
-  const calculateTotalRepairTime = () => {
-    const totalHours = inspectionSections.reduce((total, section) => {
-      const sectionData = inspectionData[section.id];
-      return total + (sectionData?.repairTime || 0);
-    }, 0);
-    
-    if (totalHours === 0) return "No repairs needed";
-    if (totalHours < 1) return `${Math.round(totalHours * 60)} minutes`;
-    if (totalHours < 24) return `${Math.round(totalHours)} hours`;
-    const days = Math.ceil(totalHours / 8); // Assuming 8-hour work days
-    return `${days} day${days > 1 ? 's' : ''}`;
-  };
-
   const generateRecommendations = () => {
     const recommendations: string[] = [];
     
@@ -1713,17 +1681,6 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     );
   };
 
-  // Handle repair cost and time updates with localStorage persistence
-  const handleRepairUpdate = (sectionId: string, field: 'repairCost' | 'repairTime', value: number) => {
-    setInspectionData((prev) => ({
-      ...prev,
-      [sectionId]: {
-        ...prev[sectionId],
-        [field]: value
-      }
-    }));
-  };
-
 
   // Handle marking section as complete with localStorage persistence
   const handleMarkSectionComplete = (sectionId: string) => {
@@ -1857,25 +1814,6 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
                 </p>
               </div>
               
-              <div className="hidden sm:block w-px h-16 bg-gray-200"></div>
-              
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600 mb-2">
-                  {Math.max(0, Math.round((calculateOverallScore() / calculateMaxPossibleScore()) * 100))}%
-                </div>
-                <p className="text-sm text-gray-600">Completion</p>
-                <p className="text-lg font-semibold text-gray-900">Progress</p>
-              </div>
-            </div>
-            
-            <div className="text-center lg:text-right">
-              <div className="text-sm text-gray-500 mb-1">Total Repair Cost</div>
-              <div className="text-2xl font-bold text-red-600">
-                ${calculateTotalRepairCost().toLocaleString()}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {calculateTotalRepairTime()} total time
-              </div>
             </div>
           </div>
         </div>
@@ -2012,42 +1950,6 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
               {expandedSections.has(section.id) && (
                 <div className="border-t border-gray-200 bg-gray-50">
                   <div className="p-6">
-                    {/* Repair Cost and Time Inputs */}
-                    <div className="mb-6 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg p-4 border border-orange-200">
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                        <p className="text-sm font-semibold text-orange-800 uppercase tracking-wide">Repair Estimates</p>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700 mb-2 block">Estimated Repair Cost ($)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={inspectionData[section.id]?.repairCost || ""}
-                            onChange={(e) => handleRepairUpdate(section.id, 'repairCost', parseFloat(e.target.value) || 0)}
-                            placeholder="0.00"
-                            className="border-2 border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-lg font-mono"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-sm font-medium text-gray-700 mb-2 block">Estimated Repair Time (hours)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.5"
-                            value={inspectionData[section.id]?.repairTime || ""}
-                            onChange={(e) => handleRepairUpdate(section.id, 'repairTime', parseFloat(e.target.value) || 0)}
-                            placeholder="0.0"
-                            className="border-2 border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 rounded-lg font-mono"
-                          />
-                        </div>
-                      </div>
-                      <div className="mt-3 text-xs text-orange-700">
-                        💡 Enter the estimated cost and time for repairs needed in this section
-                      </div>
-                    </div>
 
                     {/* Questions Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

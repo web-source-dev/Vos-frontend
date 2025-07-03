@@ -1,52 +1,46 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { FileUpload } from "@/components/file-upload"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { FileText, CreditCard, Upload, CheckCircle, Printer, Eye, X, Camera } from "lucide-react"
+import { FileText, CreditCard, Upload, CheckCircle, X, Camera, Send, FileSignature, Info, Loader2 } from "lucide-react"
 import api from '@/lib/api'
 import Image from "next/image"
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { formatDate } from "@/lib/utils"
+import {  pdfjs } from 'react-pdf'
+import dynamic from 'next/dynamic'
 
-import { VeriffResult } from '@/lib/veriff-types';
+import { VeriffResult, VeriffSessionResponse } from '@/lib/veriff-types';
+import { Customer, Vehicle, Quote } from "@/lib/types";
 
-// TypeScript interfaces for paperwork data
-interface CustomerData {
-  firstName?: string
-  lastName?: string
-  cellPhone?: string
-  email1?: string
-}
+// Dynamically import react-signature-canvas to avoid SSR issues
+const SignaturePad = dynamic(() => import('react-signature-canvas'), { 
+  ssr: false,
+  loading: () => <div className="w-full h-[200px] bg-gray-100 animate-pulse rounded-lg" />
+});
 
-interface VehicleData {
-  year?: string
-  make?: string
-  model?: string
-  vin?: string
-  currentMileage?: string
-  color?: string
-  bodyStyle?: string
-  titleNumber?: string
-  licensePlate?: string
-  licenseState?: string
-  titleStatus?: string
-  knownDefects?: string
-}
+// Add import for SignatureCanvas type
+import SignatureCanvas from 'react-signature-canvas';
 
 interface OfferDecisionData {
   finalAmount?: number
 }
 
-interface QuoteData {
-  offerAmount?: number
-}
 
 interface TransactionData {
   billOfSale?: BillOfSaleData
@@ -117,29 +111,40 @@ interface DocumentData {
   [key: string]: string | null
 }
 
+interface TransactionData {
+  billOfSale?: BillOfSaleData
+  bankDetails?: BankDetailsData
+  taxInfo?: TaxInfoData
+  documents?: DocumentData
+  paymentStatus?: string
+}
+
 interface CaseData {
-  id?: string
-  _id?: string
-  customer?: CustomerData
-  vehicle?: VehicleData
-  offerDecision?: OfferDecisionData
-  quote?: QuoteData
-  transaction?: TransactionData
-  currentStage?: number
-  status?: string
+  id?: string;
+  _id?: string;
+  customer?: Customer;
+  vehicle?: Vehicle;
+  offerDecision?: OfferDecisionData;
+  quote?: Quote;
+  transaction?: TransactionData;
+  currentStage?: number;
+  status?: string;
 }
 
 interface PaperworkProps {
-  vehicleData: CaseData
-  onUpdate: (data: CaseData) => void
-  onComplete: () => void
-  isEstimator?: boolean
+  vehicleData: CaseData;
+  onUpdate: (data: Partial<CaseData>) => void;
+  onComplete: () => void;
+  isEstimator?: boolean;
+  isAdmin?: boolean;
+  isAgent?: boolean;
 }
 
-export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = false }: PaperworkProps) {
+export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,isAgent = false, isEstimator = false }: PaperworkProps) {
   const [verificationStatus, setVerificationStatus] = useState<'pending' | 'approved' | 'declined' | 'error'>('pending')
   const [isVerifying, setIsVerifying] = useState(false)
   const veriffContainerRef = useRef<HTMLDivElement>(null)
+  const [documentSigned, setDocumentSigned] = useState(false)
   
   const [billOfSale, setBillOfSale] = useState({
     // Seller Information
@@ -244,58 +249,88 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
   const [hasExistingData, setHasExistingData] = useState(false)
   const { toast } = useToast()
 
-  // Initialize Veriff SDK
-  useEffect(() => {
-    const loadVeriffSDK = async () => {
-      try {
-        // Load Veriff SDK scripts (using the version provided by Veriff)
-        const scripts = [
-          'https://cdn.veriff.me/sdk/js/1.5/veriff.min.js',
-          'https://cdn.veriff.me/incontext/js/v1/veriff.js'
-        ];
+  // New state variables for Bill of Sale signing
+  const [isSendingSignRequest, setIsSendingSignRequest] = useState(false)
+  const [showSignDialog, setShowSignDialog] = useState(false)
 
-        for (const src of scripts) {
-          const script = document.createElement('script');
-          script.src = src;
-          script.async = true;
-          document.head.appendChild(script);
-        }
+  // Add new state variables for tracking saved state and signing status
+  const [formSaved, setFormSaved] = useState(false);
+  const [signingSent, setSigningSent] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [sendingSigning, setSendingSigning] = useState(false);
 
-        // Wait for scripts to load
-        setTimeout(() => {
-          console.log('Veriff SDK scripts loaded successfully');
-        }, 1000);
-      } catch (error) {
-        console.error('Failed to load Veriff SDK:', error);
-      }
-    };
+  // State for PDF preview and seller signature
+  const [sellerSignature, setSellerSignature] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [signedPdfUrl, setSignedPdfUrl] = useState<string | null>(null);
+  const signaturePadRef = useRef<SignatureCanvas | null>(null);
+  
+  // New state variables for direct document signing
+  const [signaturePosition, setSignaturePosition] = useState({ x: 0, y: 0, pageIndex: 0 });
+  const [pdfDimensions, setPdfDimensions] = useState({ width: 800, height: 1100 });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isSigningMode, setIsSigningMode] = useState(false);
+  const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
+  const pdfContainerRef = useRef<HTMLDivElement>(null);
 
-    loadVeriffSDK();
-  }, []);
+  // Add new state variables for customer signature status
+  const [customerSignatureStatus, setCustomerSignatureStatus] = useState<{
+    status: string;
+    signedDocumentUrl?: string;
+    signedAt?: string;
+  } | null>(null);
+
+  // Add new state variables for seller signature
+  const [showSellerSignDialog, setShowSellerSignDialog] = useState(false);
+  const [sellerSignatureStatus, setSellerSignatureStatus] = useState<{
+    status: string;
+    signedDocumentUrl?: string;
+    signedAt?: string;
+  } | null>(null);
+
+  // Set up PDF.js worker
+  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
 
   // Load existing paperwork data on component mount
   useEffect(() => {
     const loadExistingData = () => {
+      console.log('vehicleData', vehicleData, sellerSignature, pdfUrl, signedPdfUrl, pdfContainerRef, isSigningMode, currentPage, setPdfDimensions, setSignaturePosition, signaturePreview, setCurrentPage, setIsSendingSignRequest, isGeneratingPDF)
+
       // Always pre-populate with case data first
       const prePopulatedBillOfSale = {
-        sellerName: vehicleData.customer?.firstName && vehicleData.customer?.lastName 
-          ? `${vehicleData.customer.firstName} ${vehicleData.customer.lastName}` 
+        sellerName: (vehicleData.customer && typeof vehicleData.customer === 'object' && 'firstName' in vehicleData.customer && 'lastName' in vehicleData.customer)
+          ? `${vehicleData.customer.firstName} ${vehicleData.customer.lastName}`
           : "",
-        sellerPhone: vehicleData.customer?.cellPhone || "",
-        sellerEmail: vehicleData.customer?.email1 || "",
-        vehicleVIN: vehicleData.vehicle?.vin || "",
-        vehicleYear: vehicleData.vehicle?.year || "",
-        vehicleMake: vehicleData.vehicle?.make || "",
-        vehicleModel: vehicleData.vehicle?.model || "",
-        vehicleMileage: vehicleData.vehicle?.currentMileage || "",
-        vehicleColor: vehicleData.vehicle?.color || "",
-        vehicleBodyStyle: vehicleData.vehicle?.bodyStyle || "",
-        vehicleTitleNumber: vehicleData.vehicle?.titleNumber || "",
-        vehicleLicensePlate: vehicleData.vehicle?.licensePlate || "",
-        vehicleLicenseState: vehicleData.vehicle?.licenseState || "",
-        odometerReading: vehicleData.vehicle?.currentMileage || "",
-        titleStatus: vehicleData.vehicle?.titleStatus || "clean",
-        knownDefects: vehicleData.vehicle?.knownDefects || "",
+        sellerPhone: (vehicleData.customer && typeof vehicleData.customer === 'object' && 'cellPhone' in vehicleData.customer)
+          ? vehicleData.customer.cellPhone : "",
+        sellerEmail: (vehicleData.customer && typeof vehicleData.customer === 'object' && 'email1' in vehicleData.customer)
+          ? vehicleData.customer.email1 : "",
+        vehicleVIN: (vehicleData.vehicle && typeof vehicleData.vehicle === 'object' && 'vin' in vehicleData.vehicle)
+          ? vehicleData.vehicle.vin : "",
+        vehicleYear: (vehicleData.vehicle && typeof vehicleData.vehicle === 'object' && 'year' in vehicleData.vehicle)
+          ? vehicleData.vehicle.year : "",
+        vehicleMake: (vehicleData.vehicle && typeof vehicleData.vehicle === 'object' && 'make' in vehicleData.vehicle)
+          ? vehicleData.vehicle.make : "",
+        vehicleModel: (vehicleData.vehicle && typeof vehicleData.vehicle === 'object' && 'model' in vehicleData.vehicle)
+          ? vehicleData.vehicle.model : "",
+        vehicleMileage: (vehicleData.vehicle && typeof vehicleData.vehicle === 'object' && 'currentMileage' in vehicleData.vehicle)
+          ? vehicleData.vehicle.currentMileage : "",
+        vehicleColor: (vehicleData.vehicle && typeof vehicleData.vehicle === 'object' && 'color' in vehicleData.vehicle)
+          ? vehicleData.vehicle.color : "",
+        vehicleBodyStyle: (vehicleData.vehicle && typeof vehicleData.vehicle === 'object' && 'bodyStyle' in vehicleData.vehicle)
+          ? vehicleData.vehicle.bodyStyle : "",
+        vehicleTitleNumber: (vehicleData.vehicle && typeof vehicleData.vehicle === 'object' && 'titleNumber' in vehicleData.vehicle)
+          ? vehicleData.vehicle.titleNumber : "",
+        vehicleLicensePlate: (vehicleData.vehicle && typeof vehicleData.vehicle === 'object' && 'licensePlate' in vehicleData.vehicle)
+          ? vehicleData.vehicle.licensePlate : "",
+        vehicleLicenseState: (vehicleData.vehicle && typeof vehicleData.vehicle === 'object' && 'licenseState' in vehicleData.vehicle)
+          ? vehicleData.vehicle.licenseState : "",
+        odometerReading: (vehicleData.vehicle && typeof vehicleData.vehicle === 'object' && 'currentMileage' in vehicleData.vehicle)
+          ? vehicleData.vehicle.currentMileage : "",
+        titleStatus: (vehicleData.vehicle && typeof vehicleData.vehicle === 'object' && 'titleStatus' in vehicleData.vehicle)
+          ? vehicleData.vehicle.titleStatus : "clean",
+        knownDefects: (vehicleData.vehicle && typeof vehicleData.vehicle === 'object' && 'knownDefects' in vehicleData.vehicle)
+          ? vehicleData.vehicle.knownDefects : "",
         salePrice: vehicleData.offerDecision?.finalAmount || vehicleData.quote?.offerAmount || 0,
         saleDate: new Date().toISOString().split("T")[0], // Always set current date
         saleTime: new Date().toTimeString().split(" ")[0].slice(0, 5), // Always set current time
@@ -308,30 +343,48 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
 
       if (vehicleData.transaction?.billOfSale) {
         // Override with existing transaction data, but preserve pre-populated data for missing fields
-        setBillOfSale(prev => ({
-          ...prev,
-          ...prePopulatedBillOfSale,
-          ...vehicleData.transaction?.billOfSale,
-          // Ensure these fields are always populated from case data
-          vehicleVIN: vehicleData.vehicle?.vin || vehicleData.transaction?.billOfSale?.vehicleVIN || "",
-          vehicleYear: vehicleData.vehicle?.year || vehicleData.transaction?.billOfSale?.vehicleYear || "",
-          vehicleMake: vehicleData.vehicle?.make || vehicleData.transaction?.billOfSale?.vehicleMake || "",
+        setBillOfSale(prev => {
+          // Create a properly typed object with all properties from the existing state
+          return {
+            ...prev,
+            ...prePopulatedBillOfSale,
+            ...(vehicleData.transaction?.billOfSale || {}),
+            // Ensure these fields are always populated with strings to avoid type errors
+            vehicleVIN: vehicleData.vehicle?.vin || vehicleData.transaction?.billOfSale?.vehicleVIN || "",
+            vehicleYear: vehicleData.vehicle?.year || vehicleData.transaction?.billOfSale?.vehicleYear || "",
+            vehicleMake: vehicleData.vehicle?.make || vehicleData.transaction?.billOfSale?.vehicleMake || "",
             vehicleModel: vehicleData.vehicle?.model || vehicleData.transaction?.billOfSale?.vehicleModel || "",
-          vehicleColor: vehicleData.vehicle?.color || vehicleData.transaction?.billOfSale?.vehicleColor || "",
-          vehicleBodyStyle: vehicleData.vehicle?.bodyStyle || vehicleData.transaction?.billOfSale?.vehicleBodyStyle || "",
-          vehicleLicensePlate: vehicleData.vehicle?.licensePlate || vehicleData.transaction?.billOfSale?.vehicleLicensePlate || "",
-          vehicleLicenseState: vehicleData.vehicle?.licenseState || vehicleData.transaction?.billOfSale?.vehicleLicenseState || "",
-          vehicleTitleNumber: vehicleData.vehicle?.titleNumber || vehicleData.transaction?.billOfSale?.vehicleTitleNumber || "",
-          saleDate: vehicleData.transaction?.billOfSale?.saleDate || new Date().toISOString().split("T")[0],
-          saleTime: vehicleData.transaction?.billOfSale?.saleTime || new Date().toTimeString().split(" ")[0].slice(0, 5),
-        }))
+            vehicleColor: vehicleData.vehicle?.color || vehicleData.transaction?.billOfSale?.vehicleColor || "",
+            vehicleBodyStyle: vehicleData.vehicle?.bodyStyle || vehicleData.transaction?.billOfSale?.vehicleBodyStyle || "",
+            vehicleLicensePlate: vehicleData.vehicle?.licensePlate || vehicleData.transaction?.billOfSale?.vehicleLicensePlate || "",
+            vehicleLicenseState: vehicleData.vehicle?.licenseState || vehicleData.transaction?.billOfSale?.vehicleLicenseState || "",
+            vehicleTitleNumber: vehicleData.vehicle?.titleNumber || vehicleData.transaction?.billOfSale?.vehicleTitleNumber || "",
+            saleDate: vehicleData.transaction?.billOfSale?.saleDate || new Date().toISOString().split("T")[0],
+            saleTime: vehicleData.transaction?.billOfSale?.saleTime || new Date().toTimeString().split(" ")[0].slice(0, 5),
+            // Set default values for all required properties to avoid type errors
+            titleStatus: vehicleData.transaction?.billOfSale?.titleStatus || vehicleData.vehicle?.titleStatus || "clean",
+            odometerReading: vehicleData.transaction?.billOfSale?.odometerReading || vehicleData.vehicle?.currentMileage || "",
+            odometerAccurate: vehicleData.transaction?.billOfSale?.odometerAccurate ?? true,
+          };
+        });
         setHasExistingData(true)
       } else {
         // Use pre-populated data
-        setBillOfSale(prev => ({
-          ...prev,
-          ...prePopulatedBillOfSale
-        }))
+        setBillOfSale(prev => {
+          return {
+            ...prev,
+            ...prePopulatedBillOfSale,
+            // Ensure all required fields have string values
+            vehicleVIN: prePopulatedBillOfSale.vehicleVIN || "",
+            vehicleYear: prePopulatedBillOfSale.vehicleYear || "",
+            vehicleMake: prePopulatedBillOfSale.vehicleMake || "",
+            vehicleModel: prePopulatedBillOfSale.vehicleModel || "",
+            vehicleMileage: prePopulatedBillOfSale.vehicleMileage || "",
+            vehicleColor: prePopulatedBillOfSale.vehicleColor || "",
+            vehicleBodyStyle: prePopulatedBillOfSale.vehicleBodyStyle || "",
+            titleStatus: prePopulatedBillOfSale.titleStatus || "clean",
+          };
+        });
       }
 
       if (vehicleData.transaction?.bankDetails) {
@@ -397,11 +450,146 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
         setPaymentStatus("completed")
       }
 
+      // If there's transaction data, set formSaved to true
+      if (vehicleData.transaction) {
+        setFormSaved(true);
+      }
+
       setIsLoading(false)
     }
 
     loadExistingData()
-  }, [vehicleData])
+  }, []);
+  // Add state for tracking real-time polling
+  const [pollingSigningStatus, setPollingSigningStatus] = useState(false);
+  const [pollingInterval, setPollingIntervalState] = useState<NodeJS.Timeout | null>(null);
+
+  // Initialize documentSigned state based on existing transaction data
+  useEffect(() => {
+    if (vehicleData.transaction?.documents?.signedBillOfSale) {
+      setDocumentSigned(true);
+    }
+  }, []);
+  // Function to stop polling for signature updates
+  const stopSignaturePolling = useCallback(() => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      setPollingIntervalState(null);
+    }
+    setPollingSigningStatus(false);
+  }, [pollingInterval]);
+
+  const checkSigningStatus = useCallback(async () => {
+    try {
+      const caseId = vehicleData?.id || vehicleData?._id;
+      if (!caseId) return;
+
+      const response = await api.getSigningStatusByCaseId(caseId);
+      console.log('Signing status:', response);
+      
+      // Track if this is a newly detected signature (for notification purposes)
+      const previousStatus = customerSignatureStatus?.status;
+      
+      if (response.success && response.data) {
+        setCustomerSignatureStatus(response.data);
+        
+        // If document is signed by customer, update state to reflect that
+        if (response.data.status === 'signed' && response.data.signedDocumentUrl) {
+          setSigningSent(true);
+          setFormSaved(true);
+          
+          // Update the documents data to include the signed bill of sale
+          setDocumentPreviews(prev => ({
+            ...prev,
+            signedBillOfSale: response.data?.signedDocumentUrl || null
+          }));
+          
+          // Set document signed status
+          setDocumentSigned(true);
+          
+          // Set the signed PDF URL for seller to sign on same document
+          setSignedPdfUrl(response.data.signedDocumentUrl);
+          
+          // Show a notification if this is a newly detected signature
+          if (previousStatus !== 'signed') {
+            toast({
+              title: "Customer Signature Received",
+              description: "The customer has signed the document. You can now add your signature.",
+              duration: 5000,
+            });
+            
+            // Stop polling since we found the signature
+            stopSignaturePolling();
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking signing status:', error);
+    }
+  }, [vehicleData, customerSignatureStatus, toast, stopSignaturePolling]);
+
+  // Check for customer and seller signatures when component mounts or when vehicleData changes
+  useEffect(() => {
+    if (vehicleData?.id || vehicleData?._id) {
+      // Check for customer signature status
+      checkSigningStatus();
+    }
+  }, []);
+
+  // Effect to update UI when either signature status changes
+  useEffect(() => {
+    // If both signatures are present, update the document signed status
+    if (
+      customerSignatureStatus?.status === 'signed' && 
+      sellerSignatureStatus?.status === 'signed'
+    ) {
+      setDocumentSigned(true);
+      
+      // Use the most recent signed document URL (which should have both signatures)
+      if (sellerSignatureStatus?.signedDocumentUrl) {
+                 setDocumentPreviews(prev => ({
+           ...prev,
+           signedBillOfSale: sellerSignatureStatus.signedDocumentUrl || null
+         }));
+        
+        // Set the dual-signed flag in transaction
+        if ((isEstimator || isAdmin || isAgent) && vehicleData?._id) {
+          const paperworkData = {
+            documents: {
+              ...documentPreviews,
+              signedBillOfSale: sellerSignatureStatus.signedDocumentUrl,
+              dualSignedBillOfSale: true
+            }
+          };
+          
+          api.savePaperworkByCaseId(vehicleData._id, paperworkData)
+            .then(response => {
+              if (response.success) {
+                console.log('Saved dual-signed document status');
+              }
+            })
+            .catch(error => {
+              console.error('Error saving dual-signed document status:', error);
+            });
+        }
+      }
+    } 
+    // If only customer has signed, update UI to reflect that
+    else if (
+      customerSignatureStatus?.status === 'signed' && 
+      sellerSignatureStatus?.status !== 'signed'
+    ) {
+      // Customer has signed but seller hasn't
+      setSigningSent(true);
+      
+      if (customerSignatureStatus.signedDocumentUrl) {
+                 setDocumentPreviews(prev => ({
+           ...prev,
+           signedBillOfSale: customerSignatureStatus.signedDocumentUrl || null
+         }));
+      }
+    }
+  }, []);
 
   const handleBillOfSaleChange = (field: string, value: string | boolean | number) => {
     setBillOfSale((prev) => ({
@@ -424,54 +612,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
     }))
   }
 
-  const handleDocumentUpload = async (docType: string, file: File) => {
-    // Special handling for ID rescan - trigger Veriff verification
-    if (docType === "idRescan") {
-      await handleVeriffVerification()
-      return
-    }
-
-    try {
-      // Create preview URL for the file
-      const previewUrl = URL.createObjectURL(file)
-      setDocumentPreviews(prev => ({
-        ...prev,
-        [docType]: previewUrl
-      }))
-
-      // Upload file to server
-      const response = await api.uploadDocument(file)
-      
-      if (response.success) {
-        setDocumentsUploaded((prev) => ({
-          ...prev,
-          [docType]: true,
-        }))
-        
-        // Update the preview with the actual server path
-        if (response.data?.path) {
-          const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
-          const serverUrl = `${baseUrl}${response.data.path}`
-          setDocumentPreviews(prev => ({
-            ...prev,
-            [docType]: serverUrl
-          }))
-        }
-
-        toast({
-          title: "Document Uploaded",
-          description: `${docType === "idRescan" ? "ID Rescan" : docType === "signedBillOfSale" ? "Signed Bill of Sale" : docType === "titlePhoto" ? "Vehicle Title" : docType === "insuranceDeclaration" ? "Insurance Declaration" : docType === "sellerSignature" ? "Seller's Signature" : "Additional Document"} uploaded successfully.`,
-        })
-      }
-    } catch (error) {
-      const errorData = api.handleError(error)
-      toast({
-        title: "Upload Failed",
-        description: errorData.error,
-        variant: "destructive",
-      })
-    }
-  }
 
   const handleVeriffVerification = async () => {
     setIsVerifying(true)
@@ -500,7 +640,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
         const veriff = window.Veriff({
           host: 'https://stationapi.veriff.com',
           parentId: veriffContainerRef.current?.id || 'veriff-container',
-          onSession: function(err: Error | null, response: Record<string, unknown>) {
+          onSession: function(err: Error | null, response: VeriffSessionResponse) {
             if (err) {
               console.error('Veriff session error:', err);
               setVerificationStatus('error');
@@ -633,6 +773,15 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
   }
 
   const handlePrintBillOfSale = async () => {
+    if (!formSaved) {
+      toast({
+        title: 'Data not saved',
+        description: 'Please save your data before printing the bill of sale.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
     try {
       setIsGeneratingPDF(true)
       
@@ -644,7 +793,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
       }
 
       // For estimators, save the current paperwork data first to ensure the PDF has the latest information
-      if (isEstimator) {
+      if (isEstimator || isAdmin || isAgent) {
         const paperworkData = {
           billOfSale,
           bankDetails,
@@ -697,144 +846,68 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
   }
 
   const handleVerifyAndSubmit = async () => {
-    if (
-      !billOfSale.sellerName ||
-      !billOfSale.sellerAddress ||
-      !bankDetails.accountHolderName ||
-      !bankDetails.routingNumber ||
-      !bankDetails.accountNumber ||
-      !billOfSale.odometerReading
-    ) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields before submitting.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if ((!documentsUploaded.idRescan && verificationStatus !== 'approved') || !documentsUploaded.signedBillOfSale) {
-      toast({
-        title: "Missing Documents",
-        description: "Please complete identity verification and upload all required documents before submitting.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!billOfSale.asIsAcknowledgment) {
-      toast({
-        title: "Agreement Required",
-        description: "Please acknowledge the as-is disclosure before proceeding.",
-        variant: "destructive",
-      })
-      return
-    }
-
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true)
-
-      const paperworkData = {
+      // Set payment status to 'processing' and save paperwork
+      setPaymentStatus('processing');
+      const paymentData = {
         billOfSale,
         bankDetails,
         taxInfo,
         documentsUploaded,
         documents: documentPreviews,
         submittedAt: new Date(),
-        status: "processing",
+        status: 'processing',
+        paymentStatus: 'processing',
+      };
+      let response;
+      if ((isEstimator || isAdmin || isAgent) && vehicleData._id) {
+        response = await api.savePaperworkByCaseId(vehicleData._id, paymentData);
+      } else if (vehicleData.quote && vehicleData.quote.accessToken && vehicleData.quote.accessToken !== '') {
+        response = await api.updatePaperwork(vehicleData.quote.accessToken, JSON.stringify(paymentData));
       }
-
-      console.log('=== PAPERWORK SUBMISSION START ===');
-      console.log('paperworkData:', JSON.stringify(paperworkData, null, 2));
-
-      // Save to backend if estimator
-      if (isEstimator) {
-        const caseId = vehicleData.id || vehicleData._id
-        console.log('Saving paperwork for case ID:', caseId)
-        console.log('Vehicle data:', vehicleData)
-        
-        if (caseId) {
-          try {
-            console.log('Calling savePaperworkByCaseId with caseId:', caseId);
-            const response = await api.savePaperworkByCaseId(caseId, paperworkData)
-            console.log('API Response:', response);
-            
-            if (response.success && response.data) {
-              console.log('Paperwork saved successfully');
-              // Update both paperwork and vehicle data
-              const updatedVehicleData = {
-                ...vehicleData,
-                vehicle: {
-                  ...vehicleData.vehicle,
-                  color: billOfSale.vehicleColor,
-                  licensePlate: billOfSale.vehicleLicensePlate,
-                  licenseState: billOfSale.vehicleLicenseState,
-                  bodyStyle: billOfSale.vehicleBodyStyle,
-                  titleNumber: billOfSale.vehicleTitleNumber,
-                  titleStatus: billOfSale.titleStatus,
-                  knownDefects: billOfSale.knownDefects,
-                },
-                transaction: response.data.transaction as TransactionData,
-                currentStage: 7,
-                status: 'completed'
-              }
-              
-              console.log('Updated vehicle data:', updatedVehicleData);
-              onUpdate(updatedVehicleData)
-            } else {
-              console.error('API returned success: false', response);
-              throw new Error(response.error || 'Failed to save paperwork');
-            }
-          } catch (error) {
-            console.error('Error saving paperwork:', error)
-            throw error
+      if (response && response.success) {
+        setFormSaved(true);
+        if (response.data) {
+          let updatedTransaction;
+          if ('transaction' in response.data) {
+            updatedTransaction = response.data.transaction;
+          } else {
+            updatedTransaction = response.data;
           }
-        } else {
-          throw new Error('Case ID not found in vehicle data')
+          onUpdate({
+            ...vehicleData,
+            transaction: updatedTransaction as TransactionData,
+          });
         }
-      } else {
-        // For non-estimators, just update local state
-        const updatedVehicleData = {
-          ...vehicleData,
-          transaction: {
-            billOfSale,
-            bankDetails,
-            taxInfo,
-            documents: documentPreviews,
-            paymentStatus: "processing"
-          }
-        }
-        onUpdate(updatedVehicleData)
-      }
-
-      setPaymentStatus("processing")
-
-      // Simulate processing delay
-      setTimeout(() => {
-        setPaymentStatus("completed")
         toast({
-          title: "Payment Processing",
-          description: "ACH transfer has been initiated. Payment will be processed within 1-2 business days.",
-        })
-      }, 2000)
-
-      console.log('=== PAPERWORK SUBMISSION SUCCESS ===');
-
+          title: 'Payment Submitted',
+          description: 'Payment is being processed. This may take a few moments.',
+        });
+        // Simulate payment processing delay, then mark as completed
+        setTimeout(() => {
+          setPaymentStatus('completed');
+          toast({
+            title: 'Payment Completed',
+            description: 'Payment has been completed successfully.',
+          });
+        }, 2000); // 2 seconds for demo
+      } else {
+        throw new Error(response?.error || 'Failed to submit payment');
+      }
     } catch (error) {
-      console.error('=== PAPERWORK SUBMISSION ERROR ===');
-      console.error('Error in handleVerifyAndSubmit:', error);
-      const errorData = api.handleError(error)
+      console.error(error)
       toast({
-        title: "Error Saving Paperwork",
-        description: errorData.error,
-        variant: "destructive",
-      })
+        title: 'Error',
+        description: 'Failed to submit payment. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (paymentStatus !== "completed") {
       toast({
         title: "Payment Not Processed",
@@ -844,22 +917,390 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
       return
     }
 
-    onComplete()
-    toast({
-      title: "Paperwork Complete",
-      description: "All documentation and payment processing completed successfully.",
-    })
+    try {
+      // First save the current paperwork data with documents
+      const completeData = {
+        billOfSale,
+        bankDetails,
+        taxInfo,
+        documentsUploaded,
+        documents: documentPreviews,
+        submittedAt: new Date(),
+        status: "completed",
+        paymentStatus: "completed"
+      }
+
+      // Save complete data
+      let response;
+      if ((isEstimator || isAdmin || isAgent) && vehicleData.id) {
+        response = await api.savePaperworkByCaseId(vehicleData.id, completeData);
+      } else if (vehicleData.quote && vehicleData.quote.accessToken && vehicleData.quote.accessToken !== '') {
+        response = await api.updatePaperwork(vehicleData.quote.accessToken, JSON.stringify(completeData));
+      }
+
+      if (!response || !response.success) {
+        throw new Error('Failed to save complete paperwork data');
+      }
+
+      // Update case data with complete transaction
+      if (response.data) {
+        let updatedTransaction;
+        if ('transaction' in response.data) {
+          updatedTransaction = response.data.transaction;
+        } else {
+          updatedTransaction = response.data;
+        }
+        
+        onUpdate({
+          ...vehicleData,
+          transaction: updatedTransaction as TransactionData
+        });
+      }
+
+      // Proceed to next stage
+      onComplete();
+      
+      toast({
+        title: "Paperwork Complete",
+        description: "All documentation and payment processing completed successfully.",
+      });
+    } catch (error) {
+      console.error('Error completing paperwork:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to complete paperwork. Please try again.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+
+  // Function to start polling for signature updates
+  const startSignaturePolling = useCallback(() => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+    }
+    
+    // Only start polling if we're not already doing so
+    if (!pollingSigningStatus) {
+      setPollingSigningStatus(true);
+      
+      // Check every 5 seconds for updates
+      const interval = setInterval(() => {
+        checkSigningStatus();
+      }, 5000);
+      
+      setPollingIntervalState(interval);
+      
+      // Add console log for debugging
+      console.log('Started polling for signature updates');
+    }
+  }, [pollingInterval, pollingSigningStatus, checkSigningStatus]);
+
+
+  // Start polling when signing request is sent, stop when document is signed
+  useEffect(() => {
+    // Start polling when signing request is sent
+    if (signingSent && !documentSigned) {
+      startSignaturePolling();
+    }
+    
+    // Stop polling when document is signed
+    if (documentSigned && pollingSigningStatus) {
+      stopSignaturePolling();
+    }
+    
+    // Clean up on unmount
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+    };
+  }, []);
+
+  const handleSendSigningRequest = async () => {
+    if (!formSaved) {
+      toast({
+        title: 'Data not saved',
+        description: 'Please save your data before sending the signing request.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    if (!vehicleData.customer?.email1) {
+      toast({
+        title: "Missing customer email",
+        description: "Customer email is required to send a signing request",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setSendingSigning(true)
+    
+    try {
+      const caseId = vehicleData?.id || vehicleData?._id;
+      if (!caseId) {
+        throw new Error('Case ID is required');
+      }
+      
+      // Prepare signing data
+      const signingData = {
+        recipientEmail: vehicleData.customer.email1,
+        recipientName: `${vehicleData.customer.firstName} ${vehicleData.customer.lastName}`,
+        documentType: 'bill-of-sale',
+        signDirectlyOnDocument: true  // Flag to enable direct document signing
+      };
+      
+      // Send the signing request
+      const response = await api.createBillOfSaleSigningRequest(caseId, signingData);
+      
+      if (response.success && response.data) {
+        setSigningSent(true);
+        toast({
+          title: 'Success!',
+          description: `Signing request sent to ${signingData.recipientEmail}`,
+        });
+        
+        // Start polling for signature status updates
+        startSignaturePolling();
+        
+      } else {
+        throw new Error(response.error || 'Failed to send signing request');
+      }
+    } catch (error) {
+      console.error('Error sending signing request:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to send signing request. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setSendingSigning(false);
+    }
   }
 
-  const isFormValid =
-    billOfSale.sellerName &&
-    billOfSale.sellerAddress &&
-    bankDetails.accountHolderName &&
-    bankDetails.routingNumber &&
-    bankDetails.accountNumber &&
-    (documentsUploaded.idRescan || verificationStatus === 'approved') &&
-    documentsUploaded.signedBillOfSale &&
-    billOfSale.asIsAcknowledgment
+
+  const handleSaveData = async () => {
+    try {
+      setSaving(true);
+      
+      // Save only the basic paperwork data without documents or payment status
+      const paperworkData = {
+        billOfSale,
+        bankDetails,
+        taxInfo,
+        submittedAt: new Date(),
+        // Do NOT set status or paymentStatus here
+      }
+
+      console.log(vehicleData);
+      // Save to database
+      let response;
+      if ((isEstimator || isAdmin || isAgent)  && vehicleData._id) {
+        response = await api.savePaperworkByCaseId(vehicleData._id, paperworkData);
+      } else if (vehicleData.quote && vehicleData.quote.accessToken && vehicleData.quote.accessToken !== '') {
+        response = await api.updatePaperwork(vehicleData.quote.accessToken, JSON.stringify(paperworkData));
+      }
+
+      if (response && response.success) {
+        // Mark form as saved
+        setFormSaved(true);
+        
+        // Update case data
+        if (response.data) {
+          // Check response type to properly access transaction data
+          let updatedTransaction;
+          if ('transaction' in response.data) {
+            // For savePaperworkByCaseId response
+            updatedTransaction = response.data.transaction;
+          } else {
+            // For updatePaperwork response
+            updatedTransaction = response.data;
+          }
+          
+          onUpdate({
+            ...vehicleData,
+            transaction: updatedTransaction as TransactionData
+          });
+        }
+        
+        // Show success message
+        toast({
+          title: 'Success!',
+          description: 'Paperwork data saved successfully',
+        });
+      } else {
+        throw new Error(response?.error || 'Failed to save paperwork data');
+      }
+    } catch (error) {
+      console.error('Error saving paperwork data:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save paperwork data. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Load Bill of Sale PDF (signed or unsigned)
+  useEffect(() => {
+    // Prefer signed document if available
+    if (documentPreviews.signedBillOfSale) {
+      setSignedPdfUrl(documentPreviews.signedBillOfSale);
+    } else if (vehicleData.id || vehicleData._id) {
+      // Generate unsigned Bill of Sale PDF for preview
+      const caseId = vehicleData.id || vehicleData._id;
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      setPdfUrl(`${baseUrl}/api/cases/${caseId}/bill-of-sale`);
+    }
+  }, []);
+  
+  // Handler for seller signature save
+  const handleSellerSignatureSave = async () => {
+    if (signaturePadRef.current && !signaturePadRef.current.isEmpty()) {
+      const dataUrl = signaturePadRef.current.getTrimmedCanvas().toDataURL('image/png');
+      setSellerSignature(dataUrl);
+      setSignaturePreview(dataUrl);
+      setIsSigningMode(false);
+      
+      const caseId = vehicleData.id || vehicleData._id;
+      if (!caseId) {
+        toast({
+          title: "Error",
+          description: "Case ID not found",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      try {
+        // Send the signature data to the backend for embedding in the PDF
+        const signatureData = {
+          signatureImage: dataUrl,
+          signaturePosition: {
+            x: signaturePosition.x / pdfDimensions.width,  // Normalize to 0-1 range
+            y: signaturePosition.y / pdfDimensions.height, // Normalize to 0-1 range
+            page: signaturePosition.pageIndex
+          },
+          signerType: 'seller' as const, // Use 'as const' instead of 'as seller'
+          useCustomerSignedDocument: Boolean(customerSignatureStatus?.signedDocumentUrl) // Specify that we want to sign the customer-signed document
+        };
+        
+        const response = await api.addSignatureToPdf(caseId.toString(), signatureData);
+        
+        if (response.success && response.data?.documentUrl) {
+          // Update the document preview with the newly dual-signed document
+          setSignedPdfUrl(response.data.documentUrl);
+          setDocumentPreviews(prev => ({
+            ...prev,
+            signedBillOfSale: response.data?.documentUrl || ''
+          }));
+          
+          // Update seller signature status
+          setSellerSignatureStatus({
+            status: 'signed',
+            signedDocumentUrl: response.data.documentUrl,
+            signedAt: new Date().toISOString()
+          });
+          
+          // Make sure we update transaction data to include the dual-signed document
+          const paperworkData = {
+            documents: {
+              ...documentPreviews,
+              signedBillOfSale: response.data.documentUrl,
+              dualSignedBillOfSale: true // Add a flag to indicate both signatures are present
+            }
+          };
+          
+          // Save the updated document to the transaction
+          let saveResponse;
+          if ((isEstimator || isAdmin || isAgent) && vehicleData._id) {
+            saveResponse = await api.savePaperworkByCaseId(vehicleData._id, paperworkData);
+            
+            if (saveResponse.success) {
+              // Update the case data with the updated transaction
+              onUpdate({
+                ...vehicleData,
+                transaction: {
+                  ...vehicleData.transaction,
+                  documents: {
+                    ...vehicleData.transaction?.documents,
+                    signedBillOfSale: response.data.documentUrl,
+                    dualSignedBillOfSale: 'true'
+                  }
+                }
+              });
+            }
+          }
+          
+          toast({
+            title: "Success",
+            description: "Seller signature added to document successfully"
+          });
+          
+          // Close the signature dialog
+          setShowSellerSignDialog(false);
+        } else {
+          throw new Error(response.error || "Failed to add signature to document");
+        }
+      } catch (error) {
+        console.error("Error adding signature to document:", error);
+        toast({
+          title: "Error",
+          description: "Failed to add signature to document. Please try again.",
+          variant: "destructive"
+        });
+      }
+    } else {
+      toast({
+        title: "Empty Signature",
+        description: "Please sign before saving",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handler to clear seller signature
+  const handleSellerSignClear = () => {
+    if (signaturePadRef.current) {
+      signaturePadRef.current.clear();
+    }
+  };
+  // Handle starting seller document signing
+  const startSellerSigning = () => {
+    // If customer has signed, ensure we're using the customer-signed document
+    if (customerSignatureStatus?.signedDocumentUrl) {
+      setSignedPdfUrl(customerSignatureStatus.signedDocumentUrl);
+    }
+    
+    setShowSellerSignDialog(true);
+    setSignaturePreview(null);
+    setIsSigningMode(true);
+  };
+
+  // Ensure vehicle information is properly loaded from previous stages
+  useEffect(() => {
+    if (vehicleData?.vehicle && billOfSale) {
+      // Add additional vehicle data that might not have been loaded in initial load
+      setBillOfSale(prev => ({
+        ...prev,
+        vehicleVIN: vehicleData.vehicle?.vin || prev.vehicleVIN,
+        vehicleYear: vehicleData.vehicle?.year || prev.vehicleYear,
+        vehicleMake: vehicleData.vehicle?.make || prev.vehicleMake,
+        vehicleModel: vehicleData.vehicle?.model || prev.vehicleModel,
+        vehicleColor: vehicleData.vehicle?.color || prev.vehicleColor,
+        vehicleBodyStyle: vehicleData.vehicle?.bodyStyle || prev.vehicleBodyStyle,
+        vehicleLicensePlate: vehicleData.vehicle?.licensePlate || prev.vehicleLicensePlate,
+        vehicleLicenseState: vehicleData.vehicle?.licenseState || prev.vehicleLicenseState,
+        vehicleTitleNumber: vehicleData.vehicle?.titleNumber || prev.vehicleTitleNumber,
+        odometerReading: vehicleData.vehicle?.currentMileage || prev.odometerReading,
+      }));
+    }
+  }, []);
 
   if (isLoading) {
     return (
@@ -931,27 +1372,15 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Paperwork & Payment</h1>
-          <p className="text-muted-foreground">Complete sale documentation and payment processing</p>
-          {hasExistingData && (
-            <div className="flex items-center gap-2 mt-2">
-              <Eye className="h-4 w-4 text-blue-600" />
-              <span className="text-sm text-blue-600">Existing paperwork data loaded</span>
-            </div>
-          )}
+          <h2 className="text-2xl font-bold tracking-tight">Paperwork & Payment</h2>
+          <p className="text-muted-foreground">
+            Complete Bill of Sale and payment information
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={handlePrintBillOfSale}
-            disabled={isGeneratingPDF}
-            variant="outline"
-            size="sm"
-          >
-            <Printer className="h-4 w-4 mr-2" />
-            {isGeneratingPDF ? "Generating..." : "Print Bill of Sale"}
-          </Button>
+        
+        <div className="flex items-center gap-2">          
           <Badge
             className={
               paymentStatus === "completed"
@@ -965,6 +1394,59 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
           </Badge>
         </div>
       </div>
+
+      {/* Signing Dialog */}
+      <Dialog open={showSignDialog} onOpenChange={setShowSignDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Send Bill of Sale for Signing</DialogTitle>
+            <DialogDescription>
+              An email will be sent to the customer with a link to view and sign the Bill of Sale document.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="recipient">Recipient</Label>
+              <Input 
+                id="recipient"
+                value={`${vehicleData.customer?.firstName || ''} ${vehicleData.customer?.lastName || ''}`}
+                disabled
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input 
+                id="email"
+                value={vehicleData.customer?.email1 || ''}
+                disabled
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="vehicle">Vehicle</Label>
+              <Input 
+                id="vehicle"
+                value={`${vehicleData.vehicle?.year || ''} ${vehicleData.vehicle?.make || ''} ${vehicleData.vehicle?.model || ''}`}
+                disabled
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSignDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSendSigningRequest}
+              disabled={isSendingSignRequest || !vehicleData.customer?.email1}
+            >
+              {isSendingSignRequest ? "Sending..." : "Send Signing Request"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Transaction Summary */}
       <Card>
@@ -1480,36 +1962,39 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
           </CardContent>
         </Card>
 
-        {/* Bill of Sale Generation */}
-        <Card className="border-blue-200 bg-blue-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Printer className="h-5 w-5" />
-              Bill of Sale Generation
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between p-4 border rounded-lg bg-white">
-              <div>
-                <h4 className="font-medium">Generate Bill of Sale PDF</h4>
-                <p className="text-sm text-muted-foreground">
-                  Create a professional bill of sale document with all current information
-                </p>
-              </div>
-              <Button 
-                onClick={handlePrintBillOfSale} 
-                variant="outline" 
-                disabled={isGeneratingPDF}
-                className="flex items-center gap-2"
-              >
-                <Printer className="h-4 w-4" />
-                {isGeneratingPDF ? "Generating..." : "Print Bill of Sale"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
       </div>
+        {/* Save Button Section - moved above Required Documents */}
+        {!hasExistingData && (
+          <Card className="border-blue-200 bg-blue-50 w-full">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Loader2 className="h-5 w-5" />
+                Save Paperwork
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button
+                onClick={handleSaveData}
+                disabled={saving || formSaved}
+                className="w-full"
+                variant="default"
+                size="lg"
+              >
+                {saving ? "Saving..." : formSaved ? "Saved" : "Save Paperwork"}
+              </Button>
+              {formSaved && (
+                <div className="text-green-600 text-sm mt-2 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Paperwork data saved successfully.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+{(formSaved || hasExistingData) && ( 
+      <>
+      
         {/* Document Upload */}
         <Card className="border-blue-200 bg-blue-50 w-full">
           <CardHeader>
@@ -1582,79 +2067,14 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
                 {renderDocumentPreview("idRescan")}
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-2 flex flex-col justify-center">
                 <Label>Signed Bill of Sale *</Label>
-                <FileUpload
-                  label={documentsUploaded.signedBillOfSale ? "✓ Bill of Sale Uploaded" : "Upload Signed Document"}
-                  accept="image/*,application/pdf"
-                  onUpload={(file) => handleDocumentUpload("signedBillOfSale", file)}
-                  className={documentsUploaded.signedBillOfSale ? "border-green-300 bg-green-50" : ""}
-                />
+                <Button onClick={handlePrintBillOfSale} className="w-full">Print Bill of Sale</Button>
                 {renderDocumentPreview("signedBillOfSale")}
               </div>
-              
-              <div className="space-y-2">
-                <Label>Vehicle Title Photo *</Label>
-                <FileUpload
-                  label={documentsUploaded.titlePhoto ? "✓ Title Uploaded" : "Upload Title Photo"}
-                  accept="image/*,application/pdf"
-                  onUpload={(file) => handleDocumentUpload("titlePhoto", file)}
-                  className={documentsUploaded.titlePhoto ? "border-green-300 bg-green-50" : ""}
-                />
-                {renderDocumentPreview("titlePhoto")}
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Insurance Declaration (if applicable)</Label>
-                <FileUpload
-                  label={documentsUploaded.insuranceDeclaration ? "✓ Insurance Uploaded" : "Upload Insurance"}
-                  accept="image/*,application/pdf"
-                  onUpload={(file) => handleDocumentUpload("insuranceDeclaration", file)}
-                  className={documentsUploaded.insuranceDeclaration ? "border-green-300 bg-green-50" : ""}
-                />
-                {renderDocumentPreview("insuranceDeclaration")}
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Digital Signature *</Label>
-                <FileUpload
-                  label={documentsUploaded.sellerSignature ? "✓ Signature Uploaded" : "Upload Signature"}
-                  accept="image/*"
-                  onUpload={(file) => handleDocumentUpload("sellerSignature", file)}
-                  className={documentsUploaded.sellerSignature ? "border-green-300 bg-green-50" : ""}
-                />
-                {renderDocumentPreview("sellerSignature")}
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Additional Document (Optional)</Label>
-                <FileUpload
-                  label={documentsUploaded.additionalDocument ? "✓ Document Uploaded" : "Upload Document"}
-                  accept="image/*,application/pdf"
-                  onUpload={(file) => handleDocumentUpload("additionalDocument", file)}
-                  className={documentsUploaded.additionalDocument ? "border-green-300 bg-green-50" : ""}
-                />
-                {renderDocumentPreview("additionalDocument")}
-              </div>
             </div>
           </CardContent>
         </Card>
-
-      {/* Payment Status */}
-      {paymentStatus === "processing" && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-              <div>
-                <h3 className="font-semibold text-blue-800">Processing Payment</h3>
-                <p className="text-sm text-blue-700">ACH transfer is being processed. This may take a few moments...</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {paymentStatus === "completed" && (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="p-4">
@@ -1675,14 +2095,14 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
       <div className="flex justify-between">
         <Button
           onClick={handleVerifyAndSubmit}
-          disabled={!isFormValid || paymentStatus !== "pending" || isSubmitting}
           variant="outline"
           size="lg"
+          disabled={isSubmitting || paymentStatus === "processing"}
         >
           {isSubmitting ? "Saving..." : paymentStatus === "pending" ? "Verify & Submit" : "Payment Submitted"}
         </Button>
 
-        <Button onClick={handleComplete} disabled={paymentStatus !== "completed"} size="lg" className="px-8">
+        <Button onClick={handleComplete} size="lg" className="px-8">
           Continue to Completion
         </Button>
       </div>
@@ -1693,6 +2113,162 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isEstimator = fal
         ref={veriffContainerRef}
         className="hidden"
       />
+
+      {/* Add Seller Signature Dialog */}
+      <Dialog open={showSellerSignDialog} onOpenChange={setShowSellerSignDialog}>
+        <DialogContent className="sm:max-w-[800px]">
+          <DialogHeader>
+            <DialogTitle>Add Seller Signature</DialogTitle>
+            <DialogDescription>
+              Please sign in the designated area below
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="relative border rounded-lg p-4">
+              <SignaturePad
+                canvasProps={{
+                  className: "border rounded-lg w-full h-[200px]",
+                  style: { 
+                    width: '100%', 
+                    height: '200px',
+                    backgroundColor: '#fff'
+                  }
+                }}
+                ref={signaturePadRef}
+              />
+            </div>
+            
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={handleSellerSignClear}>
+                Clear
+              </Button>
+              <Button onClick={handleSellerSignatureSave}>
+                Save Signature
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Signature Status Display */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Document Signatures</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Customer Signature Status */}
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <h4 className="font-medium">Customer Signature</h4>
+                <p className="text-sm text-muted-foreground">
+                  {customerSignatureStatus?.status === 'signed' 
+                    ? `Signed on ${formatDate(customerSignatureStatus.signedAt)}` 
+                    : 'Pending customer signature'}
+                </p>
+              </div>
+              {customerSignatureStatus?.status !== 'signed' && (
+                <Button
+                  onClick={() => setShowSignDialog(true)}
+                  variant="outline"
+                  disabled={sendingSigning}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  {sendingSigning ? "Sending..." : "Send for Signing"}
+                </Button>
+              )}
+            </div>
+
+            {/* Customer Signature Received Banner */}
+            {customerSignatureStatus?.status === 'signed' && sellerSignatureStatus?.status !== 'signed' && (
+              <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-lg">
+                <div className="flex items-center">
+                  <Info className="h-5 w-5 text-blue-500 mr-2" />
+                  <div>
+                    <h4 className="font-medium text-blue-800">Customer Signature Received!</h4>
+                    <p className="text-sm text-blue-700">
+                      The customer has signed the document. Please add your signature to the same document to complete the process.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <Button
+                    onClick={startSellerSigning}
+                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                    size="sm"
+                  >
+                    <FileSignature className="h-4 w-4 mr-2" />
+                    Sign Document Now
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Seller Signature Status */}
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <h4 className="font-medium">Seller Signature</h4>
+                <p className="text-sm text-muted-foreground">
+                  {sellerSignatureStatus?.status === 'signed' 
+                    ? `Signed on ${formatDate(sellerSignatureStatus.signedAt)}` 
+                    : 'Pending seller signature'}
+                </p>
+              </div>
+              {customerSignatureStatus?.status === 'signed' && sellerSignatureStatus?.status !== 'signed' && (
+                <Button
+                  onClick={startSellerSigning}
+                  variant="default"
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <FileSignature className="h-4 w-4 mr-2" />
+                  Sign as Seller
+                </Button>
+              )}
+              {customerSignatureStatus?.status !== 'signed' && sellerSignatureStatus?.status !== 'signed' && (
+                <Button
+                  onClick={startSellerSigning}
+                  variant="outline"
+                >
+                  <FileSignature className="h-4 w-4 mr-2" />
+                  Sign as Seller
+                </Button>
+              )}
+            </div>
+
+            {/* Document Preview */}
+            {(customerSignatureStatus?.signedDocumentUrl || sellerSignatureStatus?.signedDocumentUrl) && (
+              <div className="mt-4">
+                <h4 className="font-medium mb-2">Signed Document Preview</h4>
+                <div className="border rounded-lg overflow-hidden">
+                  <iframe
+                    src={sellerSignatureStatus?.signedDocumentUrl || customerSignatureStatus?.signedDocumentUrl}
+                    className="w-full h-[500px]"
+                    title="Signed Bill of Sale"
+                  />
+                </div>
+                
+                {/* Show dual signature status if both have signed */}
+                {sellerSignatureStatus?.status === 'signed' && customerSignatureStatus?.status === 'signed' && (
+                  <div className="mt-2 p-3 border border-green-200 rounded-lg bg-green-50">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <span className="font-medium text-green-700">
+                        Document has been signed by both parties
+                      </span>
+                    </div>
+                    <p className="text-sm text-green-600 mt-1">
+                      This document contains both customer and seller signatures and is legally complete.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+      </>
+      )}
     </div>
   )
 }

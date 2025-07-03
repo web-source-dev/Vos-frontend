@@ -20,16 +20,21 @@ export interface VeriffParams {
 }
 
 export interface VeriffSessionResponse {
-  verification: {
-    url: string;
-    id: string;
-  };
+  host: string;
+  status: string;
+  sessionToken: string;
+  url: string;
 }
 
 export interface VeriffResult {
+  id: string;
   sessionId: string;
   status: string;
-  verificationData: Record<string, unknown>;
+  technicalData: {
+    ip: string;
+    userAgent: string;
+    timestamp: string;
+  };
 }
 
 export interface VeriffSession {
@@ -42,5 +47,36 @@ export interface VeriffSession {
 declare global {
   interface Window {
     Veriff: (config: VeriffConfig) => VeriffInstance;
+  }
+}
+
+// React Signature Canvas type declaration
+declare module 'react-signature-canvas' {
+  import * as React from 'react';
+
+  export interface ReactSignatureCanvasProps {
+    canvasProps?: React.CanvasHTMLAttributes<HTMLCanvasElement>;
+    clearOnResize?: boolean;
+    penColor?: string;
+    velocityFilterWeight?: number;
+    minWidth?: number;
+    maxWidth?: number;
+    dotSize?: number | (() => number);
+    minDistance?: number;
+    backgroundColor?: string;
+    throttle?: number;
+    ref?: React.Ref<unknown>;
+  }
+
+  export default class SignatureCanvas extends React.Component<ReactSignatureCanvasProps> {
+    clear(): void;
+    isEmpty(): boolean;
+    toDataURL(type?: string, encoderOptions?: number): string;
+    fromDataURL(dataURL: string, options?: object): void;
+    off(): void;
+    on(): void;
+    getCanvas(): HTMLCanvasElement;
+    getTrimmedCanvas(): HTMLCanvasElement;
+    getPointGroup(): unknown[][];
   }
 } 
