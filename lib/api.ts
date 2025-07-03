@@ -1,7 +1,14 @@
 import type { Customer, Vehicle, Inspector, Inspection, Quote, Case, APIResponse, User, AuthResponse } from './types';
 import Cookies from 'js-cookie';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+// Update API URL configuration to match the deployed backend
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (
+  process.env.NODE_ENV === 'production' 
+    ? 'https://vos-backend-bh76.onrender.com' 
+    : 'http://localhost:5000'
+);
+
+console.log('Using API URL:', API_BASE_URL);
 
 // Function to get auth headers with retry
 const getAuthHeaders = async (retryCount = 0): Promise<Record<string, string>> => {

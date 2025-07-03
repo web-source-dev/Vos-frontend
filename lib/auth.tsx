@@ -37,7 +37,7 @@ const setTokenWithVerification = async (token: string): Promise<boolean> => {
     expires: 7,
     path: '/',
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax'
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
   });
 
   // Verify the token was set
