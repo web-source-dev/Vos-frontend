@@ -59,6 +59,42 @@ const stages = [
   { id: 7, name: "Complete", color: "bg-green-100 text-green-800" },
 ]
 
+// New status mapping based on current stage
+const getStatusFromStage = (currentStage: number, status: string) => {
+  if (status === "completed") return "Completed"
+  
+  switch (currentStage) {
+    case 1:
+    case 2:
+      return "Pending Inspection Scheduling"
+    case 3:
+      return "Pending Inspection Completion"
+    case 4:
+      return "Pending Quote"
+    case 5:
+      return "Pending Offer Decision"
+    case 6:
+      return "Pending Paperwork"
+    case 7:
+      return "Pending Completion"
+    default:
+      return "Pending Inspection Scheduling"
+  }
+}
+
+const getStatusBadgeColor = (status: string) => {
+  const statusConfig = {
+    "Pending Inspection Scheduling": "bg-yellow-100 text-yellow-800",
+    "Pending Inspection Completion": "bg-orange-100 text-orange-800",
+    "Pending Quote": "bg-blue-100 text-blue-800",
+    "Pending Offer Decision": "bg-purple-100 text-purple-800",
+    "Pending Paperwork": "bg-indigo-100 text-indigo-800",
+    "Pending Completion": "bg-pink-100 text-pink-800",
+    "Completed": "bg-green-100 text-green-800",
+  }
+  return statusConfig[status as keyof typeof statusConfig] || "bg-gray-100 text-gray-800"
+}
+
 export function CustomerDashboard() {
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards")
   const [searchTerm, setSearchTerm] = useState("")
@@ -69,7 +105,6 @@ export function CustomerDashboard() {
   const [error, setError] = useState<string | null>(null)
   const { isAdmin } = useAuth()
   const pathname = usePathname()
-
 
   useEffect(() => {
     const fetchCases = async () => {
@@ -92,27 +127,30 @@ export function CustomerDashboard() {
     fetchCases();
   }, []);
 
-  // Queue Management - Walk-in customers waiting
-  const queueCustomers = cases
-    .filter((c) => c.status === "new" || (c.status === "active" && c.currentStage <= 2))
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-
-  // In-Process customers (currently being worked on)
-  const inProcessCustomers = cases.filter(
-    (c) => c.status === "active" && c.currentStage >= 3 && c.currentStage <= 6,
-  )
+  // Calculate case stats - these are independent of filters
+  const totalCases = cases.length;
+  
+  const totalInProcess = cases.filter(c => {
+    const status = getStatusFromStage(c.currentStage, c.status);
+    return status !== "Completed";
+  }).length;
+  
+  const totalCompleted = cases.filter(c => 
+    getStatusFromStage(c.currentStage, c.status) === "Completed"
+  ).length;
 
   // Today's completed - filter by today's date
   const today = new Date().toDateString()
   const completedToday = cases.filter((c) => 
-    c.status === "completed" && 
+    getStatusFromStage(c.currentStage, c.status) === "Completed" && 
     new Date(c.updatedAt || c.createdAt).toDateString() === today
-  )
+  ).length;
 
   const filteredCustomers = useMemo(() => {
     return cases.filter((caseData) => {
       const customer = caseData.customer;
       const vehicle = caseData.vehicle;
+      const caseStatus = getStatusFromStage(caseData.currentStage, caseData.status);
       
       const matchesSearch =
         `${customer?.firstName} ${customer?.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -120,25 +158,16 @@ export function CustomerDashboard() {
         vehicle?.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         vehicle?.vin?.toLowerCase().includes(searchTerm.toLowerCase())
 
-      const matchesStatus = statusFilter === "all" || caseData.status === statusFilter
+      const matchesStatus = statusFilter === "all" || caseStatus === statusFilter
       const matchesStage = stageFilter === "all" || caseData.currentStage.toString() === stageFilter
 
       return matchesSearch && matchesStatus && matchesStage
     })
   }, [searchTerm, statusFilter, stageFilter, cases])
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      new: { label: "Waiting", className: "bg-yellow-100 text-yellow-800" },
-      active: { label: "In Progress", className: "bg-blue-100 text-blue-800" },
-      scheduled: { label: "Scheduled", className: "bg-purple-100 text-purple-800" },
-      negotiating: { label: "Negotiating", className: "bg-orange-100 text-orange-800" },
-      "quote-ready": { label: "Quote Ready", className: "bg-pink-100 text-pink-800" },
-      completed: { label: "Completed", className: "bg-green-100 text-green-800" },
-    }
-
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.new
-    return <Badge className={config.className}>{config.label}</Badge>
+  const getStatusBadge = (currentStage: number, status: string) => {
+    const caseStatus = getStatusFromStage(currentStage, status);
+    return <Badge className={getStatusBadgeColor(caseStatus)}>{caseStatus}</Badge>
   }
 
   const getPriorityColor = (priority: string) => {
@@ -157,7 +186,6 @@ export function CustomerDashboard() {
   const getProgressPercentage = (currentStage: number) => {
     return Math.round((currentStage / 7) * 100)
   }
-
 
   // Helper function to get the correct amount for a case
   const getCaseAmount = (caseData: CaseData) => {
@@ -209,10 +237,9 @@ export function CustomerDashboard() {
               </div>
               <div>
                 <CardTitle className="text-lg">{`${caseData.customer?.firstName} ${caseData.customer?.lastName}`}</CardTitle>
-                <p className="text-sm text-muted-foreground">{caseData.customer?.cellPhone}</p>
               </div>
             </div>
-            {getStatusBadge(caseData.status)}
+            {getStatusBadge(caseData.currentStage, caseData.status)}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -238,7 +265,7 @@ export function CustomerDashboard() {
 
           <div className="flex items-center justify-between">
             <Badge className={stages[caseData.currentStage - 1]?.color}>
-              Stage {caseData.currentStage}: {stages[caseData.currentStage - 1]?.name}
+              {stages[caseData.currentStage - 1]?.name}
             </Badge>
             <span className="text-sm text-muted-foreground">
               {caseData.lastActivity?.timestamp ? new Date(caseData.lastActivity.timestamp).toLocaleDateString() : 'N/A'}
@@ -315,14 +342,18 @@ export function CustomerDashboard() {
             </div>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-48">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="new">Waiting</SelectItem>
-                <SelectItem value="active">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="all">All Customers</SelectItem>
+                <SelectItem value="Pending Inspection Scheduling">Pending Inspection Scheduling</SelectItem>
+                <SelectItem value="Pending Inspection Completion">Pending Inspection Completion</SelectItem>
+                <SelectItem value="Pending Quote">Pending Quote</SelectItem>
+                <SelectItem value="Pending Offer Decision">Pending Offer Decision</SelectItem>
+                <SelectItem value="Pending Paperwork">Pending Paperwork</SelectItem>
+                <SelectItem value="Pending Completion">Pending Completion</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
               </SelectContent>
             </Select>
 
@@ -353,12 +384,12 @@ export function CustomerDashboard() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-yellow-600" />
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Users className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{queueCustomers.length}</p>
-                  <p className="text-sm text-muted-foreground">In Queue</p>
+                  <p className="text-2xl font-bold">{totalCases}</p>
+                  <p className="text-sm text-muted-foreground">Total Cases</p>
                 </div>
               </div>
             </CardContent>
@@ -367,11 +398,11 @@ export function CustomerDashboard() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <Users className="h-5 w-5 text-blue-600" />
+                <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <Clock className="h-5 w-5 text-yellow-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{inProcessCustomers.length}</p>
+                  <p className="text-2xl font-bold">{totalInProcess}</p>
                   <p className="text-sm text-muted-foreground">In Process</p>
                 </div>
               </div>
@@ -385,7 +416,21 @@ export function CustomerDashboard() {
                   <CheckCircle className="h-5 w-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{completedToday.length}</p>
+                  <p className="text-2xl font-bold">{totalCompleted}</p>
+                  <p className="text-sm text-muted-foreground">Total Completed</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{completedToday}</p>
                   <p className="text-sm text-muted-foreground">Completed Today</p>
                 </div>
               </div>
@@ -394,7 +439,8 @@ export function CustomerDashboard() {
         </div>
 
         {/* Customer List/Cards */}
-        {viewMode === "cards" ? (
+        {filteredCustomers.length > 0 ? (
+          viewMode === "cards" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCustomers.map((customer) => (
               <CustomerCard key={customer._id} customer={customer} />
@@ -402,12 +448,25 @@ export function CustomerDashboard() {
           </div>
         ) : (
           <Card>
-            <CardContent className="space-y-2 p-4">
+              <CardContent className="p-0">
+                {/* List Headers */}
+                <div className="grid grid-cols-12 gap-4 p-4 border-b bg-gray-50 font-medium text-sm text-gray-600">
+                  <div className="col-span-3 font-bold">Customer</div>
+                  <div className="col-span-2 font-bold">Vehicle</div>
+                  <div className="col-span-2 font-bold">VIN</div>
+                  <div className="col-span-2 font-bold">Status</div>
+                  <div className="col-span-1 font-bold">Est. Value</div>
+                  <div className="col-span-1 font-bold">Last Activity</div>
+                  <div className="col-span-1 font-bold">Actions</div>
+                </div>
+                
+                {/* List Items */}
+                <div className="space-y-1">
               {filteredCustomers.map((customer) => (
+                    <Link key={customer._id} href={`/customer/${customer._id}`} className="block">
                 <div
-                  key={customer._id}
                   className={cn(
-                    "grid grid-cols-12 gap-4 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors border-l-4 relative",
+                          "grid grid-cols-12 gap-4 p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors border-l-4 relative",
                     getPriorityColor(customer.priority),
                   )}
                 >
@@ -417,10 +476,9 @@ export function CustomerDashboard() {
                     </div>
                     <div>
                       <p className="font-medium">{`${customer.customer?.firstName} ${customer.customer?.lastName}`}</p>
-                      <p className="text-sm text-muted-foreground">{customer.customer?.cellPhone}</p>
                     </div>
                   </div>
-                  <div className="col-span-3 flex items-center">
+                        <div className="col-span-2 flex items-center">
                     <div>
                       <p className="font-medium">
                         {customer.vehicle?.year} {customer.vehicle?.make} {customer.vehicle?.model}
@@ -429,20 +487,22 @@ export function CustomerDashboard() {
                     </div>
                   </div>
                   <div className="col-span-2 flex items-center">
-                    <Badge className={stages[customer.currentStage - 1]?.color}>
-                      Stage {customer.currentStage}
-                    </Badge>
+                          <p className="text-sm font-mono">{customer.vehicle?.vin || 'N/A'}</p>
+                        </div>
+                        <div className="col-span-2 flex items-center">
+                          {getStatusBadge(customer.currentStage, customer.status)}
                   </div>
-                  <div className="col-span-2 flex items-center">{getStatusBadge(customer.status)}</div>
-                  <div className="col-span-1 flex items-center justify-end">
+                        <div className="col-span-1 flex items-center">
                     <span className="font-semibold text-green-600">
                       ${getCaseAmount(customer).toLocaleString()}
                     </span>
                   </div>
-                  <div className="col-span-1 flex items-center justify-end gap-2">
+                        <div className="col-span-1 flex items-center">
                     <span className="text-sm text-muted-foreground">
                       {customer.lastActivity?.timestamp ? new Date(customer.lastActivity.timestamp).toLocaleDateString() : 'N/A'}
                     </span>
+                        </div>
+                        <div className="col-span-1 flex items-center justify-end">
                     {isAdmin && (
                       <Button
                         variant="ghost"
@@ -454,7 +514,32 @@ export function CustomerDashboard() {
                     )}
                   </div>
                 </div>
+                    </Link>
               ))}
+                </div>
+              </CardContent>
+            </Card>
+          )
+        ) : (
+          <Card>
+            <CardContent className="p-8">
+              <div className="text-center">
+                <div className="mb-4">
+                  <Search className="h-12 w-12 text-gray-400 mx-auto" />
+                </div>
+                <h3 className="text-lg font-medium mb-2">No customers found</h3>
+                <p className="text-muted-foreground mb-4">
+                  {searchTerm || statusFilter !== "all" 
+                    ? "Try adjusting your search or filters to find what you're looking for."
+                    : "There are no customers in the system yet."}
+                </p>
+                <Link href="/customer/new">
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add New Customer
+                  </Button>
+                </Link>
+              </div>
             </CardContent>
           </Card>
         )}

@@ -13,6 +13,7 @@ export interface Customer {
   otherQuoteOfferer?: string;
   otherQuoteAmount?: number;
   agent?: string;
+  notes:string;
   storeLocation?: string;
 }
 
@@ -33,6 +34,8 @@ export interface Vehicle {
   loanStatus?: 'paid-off' | 'still-has-loan' | 'not-sure';
   loanAmount?: number;
   secondSetOfKeys?: boolean;
+  hasTitleInPossession?: boolean;
+  titleInOwnName?: boolean;
   knownDefects?: string;
   estimatedValue?: number;
   pricingSource?: string;
@@ -121,6 +124,7 @@ export interface Inspection {
   inspector: Inspector;
   scheduledDate: Date;
   scheduledTime: string;
+  notesForInspector?: string;
   status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
   accessToken?: string;
   sections: InspectionSection[];
@@ -134,6 +138,10 @@ export interface Inspection {
   recommendations?: string[];
   safetyIssues?: SafetyIssue[];
   maintenanceItems?: MaintenanceItem[];
+  vinVerification?: {
+    vinNumber: string;
+    vinMatch: 'yes' | 'no' | 'not_verified';
+  };
   createdBy?: string;
 }
 
@@ -229,6 +237,8 @@ export interface VehicleData extends Omit<Vehicle, 'id' | 'customer'> {
   loanStatus?: 'paid-off' | 'still-has-loan' | 'not-sure';
   loanAmount?: number;
   secondSetOfKeys: boolean;
+  hasTitleInPossession?: boolean;
+  titleInOwnName?: boolean;
   estimatedValue?: number;
   pricingSource?: string;
   pricingLastUpdated?: string;

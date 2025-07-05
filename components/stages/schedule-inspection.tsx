@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { Calendar, User as UserIcon, Clock, CheckCircle, Edit } from "lucide-react"
+import { Calendar, User as UserIcon, Clock, CheckCircle, Edit, FileText } from "lucide-react"
 import api from '@/lib/api'
 import type { User } from '@/lib/types'
 
@@ -37,6 +38,7 @@ interface InspectionData {
   scheduledDate?: string
   scheduledTime?: string
   inspector?: InspectorData
+  notesForInspector?: string
 }
 
 interface CaseData {
@@ -64,6 +66,7 @@ export function ScheduleInspection({
   const [selectedInspector, setSelectedInspector] = useState<string>("")
   const [scheduledDate, setScheduledDate] = useState("")
   const [scheduledTime, setScheduledTime] = useState("")
+  const [notesForInspector, setNotesForInspector] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [inspectorsLoading, setInspectorsLoading] = useState(true)
   const [isRescheduling, setIsRescheduling] = useState(false)
@@ -113,6 +116,11 @@ export function ScheduleInspection({
       if (inspection.scheduledTime) {
         setScheduledTime(inspection.scheduledTime);
       }
+      
+      // Auto-fill notes if available
+      if (inspection.notesForInspector) {
+        setNotesForInspector(inspection.notesForInspector);
+      }
     }
   }, [vehicleData.inspection, inspectors]);
 
@@ -136,6 +144,7 @@ export function ScheduleInspection({
     setSelectedInspector("");
     setScheduledDate("");
     setScheduledTime("");
+    // Don't clear notes when rescheduling
   }
 
   const handleCancelReschedule = () => {
@@ -155,6 +164,9 @@ export function ScheduleInspection({
       if (inspection.scheduledTime) {
         setScheduledTime(inspection.scheduledTime);
       }
+      if (inspection.notesForInspector) {
+        setNotesForInspector(inspection.notesForInspector);
+      }
     }
   }
 
@@ -163,6 +175,7 @@ export function ScheduleInspection({
     console.log('selectedInspector:', selectedInspector);
     console.log('scheduledDate:', scheduledDate);
     console.log('scheduledTime:', scheduledTime);
+    console.log('notesForInspector:', notesForInspector);
     console.log('inspectors:', inspectors);
     console.log('inspectorsLoading:', inspectorsLoading);
     
@@ -218,12 +231,16 @@ export function ScheduleInspection({
           location: selectedInspectorData.location
         },
         new Date(scheduledDate),
-        scheduledTime
+        scheduledTime,
+        notesForInspector
       );
 
       if (response.success) {
         onUpdate({
-          inspection: response.data as unknown as InspectionData,
+          inspection: {
+            ...response.data as unknown as InspectionData,
+            notesForInspector
+          },
           currentStage: 3,
           status: 'scheduled'
         })
@@ -343,6 +360,17 @@ export function ScheduleInspection({
                 <span className="font-medium text-green-700">Time:</span> {vehicleData.inspection?.scheduledTime}
               </div>
             </div>
+            {vehicleData.inspection?.notesForInspector && (
+              <div className="mt-4 pt-4 border-t border-green-200">
+                <div className="flex items-start gap-2">
+                  <FileText className="h-4 w-4 mt-0.5 text-green-600" />
+                  <div className="flex-1">
+                    <span className="font-medium text-green-700">Notes for Inspector:</span>
+                    <p className="text-sm text-green-600 mt-1 whitespace-pre-wrap">{vehicleData.inspection.notesForInspector}</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -427,6 +455,26 @@ export function ScheduleInspection({
                 </Select>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Notes Section */}
+      {(!hasExistingInspection || isRescheduling) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Notes for Inspector
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea
+              placeholder="Enter any notes for the inspector (e.g., specific instructions, concerns)"
+              value={notesForInspector}
+              onChange={(e) => setNotesForInspector(e.target.value)}
+              className="min-h-[100px]"
+            />
           </CardContent>
         </Card>
       )}

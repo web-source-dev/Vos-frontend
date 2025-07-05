@@ -12,9 +12,10 @@ interface FileUploadProps {
   onUpload: (file: File) => void
   className?: string
   disabled?: boolean
+  showSuccessState?: boolean
 }
 
-export function FileUpload({ label, accept = "*", onUpload, className, disabled }: FileUploadProps) {
+export function FileUpload({ label, accept = "*", onUpload, className, disabled, showSuccessState = false }: FileUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [isUploaded, setIsUploaded] = useState(false)
 
@@ -61,7 +62,7 @@ export function FileUpload({ label, accept = "*", onUpload, className, disabled 
       className={cn(
         "relative border-2 border-dashed rounded-lg p-4 text-center transition-colors",
         isDragOver && !disabled ? "border-blue-400 bg-blue-50" : "border-gray-300",
-        isUploaded ? "border-green-400 bg-green-50" : "",
+        isUploaded && showSuccessState ? "border-green-400 bg-green-50" : "",
         disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:border-gray-400",
         className,
       )}
@@ -78,7 +79,7 @@ export function FileUpload({ label, accept = "*", onUpload, className, disabled 
       />
 
       <div className="flex flex-col items-center gap-2">
-        {isUploaded ? (
+        {isUploaded && showSuccessState ? (
           <>
             <CheckCircle className="h-8 w-8 text-green-600" />
             <p className="text-sm font-medium text-green-800">{label}</p>

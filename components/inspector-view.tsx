@@ -28,6 +28,7 @@ import {
   Shield as ShieldIcon,
   Gauge as GaugeIcon,
   CircleDot as CircleDotIcon,
+  XCircle,
 } from "lucide-react"
 import api from "@/lib/api"
 import { RadioGroup } from "@/components/ui/radio-group"
@@ -43,11 +44,13 @@ interface VehicleData {
     make: string
     model: string
     currentMileage?: number
+    vin?: string
   }
   inspection?: {
     accessToken: string
     sections?: InspectionSection[]
     inspectionNotes?: string
+    notesForInspector?: string
   }
 }
 
@@ -131,6 +134,10 @@ interface SectionData {
 type InspectionData = Record<string, SectionData> & {
   overallNotes?: string
   lastUpdated?: number
+  vinVerification?: {
+    vinNumber?: string
+    vinMatch?: string
+  }
 }
 
 // Comprehensive inspection sections with detailed questions
@@ -227,11 +234,6 @@ const inspectionSections = [
             id: "lights_details",
             question: "List any non-functional lights:",
             type: "text"
-          },
-          {
-            id: "lights_condition",
-            question: "Rate overall light condition:",
-            type: "rating"
           }
         ]
       },
@@ -241,16 +243,21 @@ const inspectionSections = [
         type: "radio",
         required: true,
         options: [
-          { value: "excellent", label: "Excellent - No damage", points: 5 },
-          { value: "good", label: "Good - Minor scratches", points: 4 },
-          { value: "fair", label: "Fair - Some damage", points: 3 },
-          { value: "poor", label: "Poor - Significant damage", points: 2 },
-          { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
+          { value: "front_excellent", label: "Front - Excellent - No damage", points: 5 },
+          { value: "front_good", label: "Front - Good - Minor scratches", points: 4 },
+          { value: "front_fair", label: "Front - Fair - Some damage", points: 3 },
+          { value: "front_poor", label: "Front - Poor - Significant damage", points: 2 },
+          { value: "front_very_poor", label: "Front - Very Poor - Major damage", points: 1 },
+          { value: "rear_excellent", label: "Rear - Excellent - No damage", points: 5 },
+          { value: "rear_good", label: "Rear - Good - Minor scratches", points: 4 },
+          { value: "rear_fair", label: "Rear - Fair - Some damage", points: 3 },
+          { value: "rear_poor", label: "Rear - Poor - Significant damage", points: 2 },
+          { value: "rear_very_poor", label: "Rear - Very Poor - Major damage", points: 1 }
         ]
       },
       {
         id: "exterior_photos",
-        question: "Take comprehensive photos of exterior condition",
+        question: "Take comprehensive photos of exterior condition - Include front, rear, sides, corners, and any damage areas. Take photos from multiple angles to show the overall condition clearly.",
         type: "photo",
         required: true
       }
@@ -342,7 +349,7 @@ const inspectionSections = [
       },
       {
         id: "interior_photos",
-        question: "Take comprehensive photos of interior condition",
+        question: "Take comprehensive photos of interior condition - Include dashboard, seats, steering wheel, center console, door panels, and any damage or wear areas. Take photos from driver and passenger perspectives.",
         type: "photo",
         required: true
       }
@@ -454,7 +461,7 @@ const inspectionSections = [
       },
       {
         id: "engine_photos",
-        question: "Take photos of engine compartment",
+        question: "Take photos of engine compartment - Include overall engine bay, close-ups of any leaks or damage, fluid levels, and any visible components that need attention.",
         type: "photo",
         required: true
       }
@@ -533,7 +540,7 @@ const inspectionSections = [
       },
       {
         id: "tire_photos",
-        question: "Take photos of all four tires and wheels",
+        question: "Take photos of all four tires and wheels - Include tread depth, sidewall condition, wheel damage, and any visible wear patterns. Take close-ups of any damage or issues.",
         type: "photo",
         required: true
       }
@@ -727,7 +734,7 @@ const inspectionSections = [
       },
       {
         id: "undercarriage_photos",
-        question: "Take photos of undercarriage and frame",
+        question: "Take photos of undercarriage and frame - Include suspension components, exhaust system, transmission, drive shaft, and any visible rust or damage. Take photos from multiple angles to show overall condition.",
         type: "photo",
         required: true
       }
@@ -890,6 +897,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
+  const [vinVerificationComplete, setVinVerificationComplete] = useState(false)
   const { toast } = useToast()
   
   // Save data to localStorage whenever inspectionData changes
@@ -909,6 +917,16 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
       }, 1000);
     }
   }, [inspectionData, inspectionToken]);
+
+  // Check if VIN verification is complete
+  useEffect(() => {
+    const vinData = inspectionData.vinVerification;
+    if (vinData && vinData.vinNumber && vinData.vinMatch) {
+      setVinVerificationComplete(true);
+    } else {
+      setVinVerificationComplete(false);
+    }
+  }, [inspectionData.vinVerification]);
 
   // Load data from localStorage on component mount (only if no database data exists)
   useEffect(() => {
@@ -1156,7 +1174,61 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     }
   };
 
+  const handleVinVerification = (field: 'vinNumber' | 'vinMatch', value: string) => {
+    setInspectionData((prev) => ({
+      ...prev,
+      vinVerification: {
+        ...prev.vinVerification,
+        [field]: value
+      }
+    }));
+  };
+
+  // Check if VINs match automatically
+  const checkVinMatch = () => {
+    const enteredVin = inspectionData.vinVerification?.vinNumber;
+    const originalVin = vehicleData.vehicle?.vin;
+    
+    if (enteredVin && originalVin) {
+      const normalizedEnteredVin = enteredVin.replace(/[^A-Z0-9]/g, '').toUpperCase();
+      const normalizedOriginalVin = originalVin.replace(/[^A-Z0-9]/g, '').toUpperCase();
+      
+      return normalizedEnteredVin === normalizedOriginalVin;
+    }
+    return null; // No comparison possible
+  };
+
+  const vinMatchStatus = checkVinMatch();
+
+  // Auto-suggest VIN match based on comparison
+  useEffect(() => {
+    if (vinMatchStatus !== null && !inspectionData.vinVerification?.vinMatch) {
+      const suggestedMatch = vinMatchStatus ? 'yes' : 'no';
+      handleVinVerification('vinMatch', suggestedMatch);
+    }
+  }, [vinMatchStatus, inspectionData.vinVerification?.vinMatch]);
+
   const handleSubmitInspection = async () => {
+    // Validate VIN verification first
+    const vinData = inspectionData.vinVerification;
+    if (!vinData?.vinNumber || !vinData?.vinMatch) {
+      toast({
+        title: "VIN Verification Required",
+        description: "Please complete the VIN verification before proceeding.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (vinData.vinMatch === 'no') {
+      toast({
+        title: "Inspection Cannot Proceed",
+        description: "The VIN numbers do not match. This vehicle has been flagged for further review.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validate required questions
     const missingRequired: string[] = [];
     
@@ -1214,6 +1286,10 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
         completedAt: new Date(),
         inspectionNotes: inspectionData.overallNotes || "",
         recommendations: generateRecommendations(),
+        vinVerification: inspectionData.vinVerification ? {
+          vinNumber: inspectionData.vinVerification.vinNumber || '',
+          vinMatch: (inspectionData.vinVerification.vinMatch as 'yes' | 'no' | 'not_verified') || 'not_verified'
+        } : undefined,
       };
 
       if (onSubmit) {
@@ -1518,6 +1594,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
                   label="Upload Photo"
                   accept="image/*"
                   onUpload={(file) => handlePhotoUpload(sectionId, question.id, file)}
+                  showSuccessState={false}
                 />
               </div>
               
@@ -1552,7 +1629,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
         {question.subQuestions && question.subQuestions.length > 0 && (() => {
           // Check if sub-questions should be shown based on parent question type and answer
           if (question.type === 'yesno') {
-            return currentAnswer === "yes";
+            return currentAnswer === "no";
           } else if (question.type === 'radio') {
             return currentAnswer && currentAnswer !== "";
           } else if (question.type === 'checkbox') {
@@ -1698,20 +1775,6 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     setExpandedSections(newExpanded);
   };
 
-  // Get the first photo from exterior questions for section display
-  const getSectionDisplayPhoto = (sectionId: string): PhotoData | null => {
-    const sectionData = inspectionData[sectionId];
-    if (!sectionData?.questions) return null;
-
-    // Look for the first photo in any question of this section
-    for (const questionId in sectionData.questions) {
-      const question = sectionData.questions[questionId];
-      if (question?.photos && question.photos.length > 0) {
-        return question.photos[0];
-      }
-    }
-    return null;
-  };
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -1779,8 +1842,166 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
       </div>
 
       {/* Main Content */}
-      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* VIN Verification Section */}
+        <Card className="mb-8 border-2 border-blue-200 bg-blue-50">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-blue-100 rounded-full">
+                <CarIcon className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-blue-800">VIN Number Verification</h2>
+                <p className="text-blue-600 text-sm">Required before inspection can proceed</p>
+              </div>
+              {vinVerificationComplete && (
+                <div className="ml-auto flex items-center gap-2 text-green-600">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="text-sm font-medium">Verified</span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              {/* VIN Input */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-blue-800">
+                  VIN Number from Vehicle
+                </Label>
+                <Input
+                  placeholder="Enter VIN number from windshield/dashboard"
+                  value={inspectionData.vinVerification?.vinNumber || ''}
+                  onChange={(e) => handleVinVerification('vinNumber', e.target.value.toUpperCase())}
+                  className={`border-2 focus:ring-2 ${
+                    vinMatchStatus === true 
+                      ? 'border-green-500 focus:border-green-500 focus:ring-green-200' 
+                      : vinMatchStatus === false 
+                      ? 'border-red-500 focus:border-red-500 focus:ring-red-200'
+                      : 'border-blue-300 focus:border-blue-500 focus:ring-blue-200'
+                  }`}
+                  maxLength={17}
+                />
+                {vehicleData.vehicle?.vin && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-blue-600">
+                      Original VIN: {vehicleData.vehicle.vin}
+                    </p>
+                    {vinMatchStatus !== null && (
+                      <div className={`flex items-center gap-2 text-xs ${
+                        vinMatchStatus ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {vinMatchStatus ? (
+                          <>
+                            <CheckCircle className="h-3 w-3" />
+                            <span>VINs match automatically</span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="h-3 w-3" />
+                            <span>VINs do not match - please verify manually</span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* VIN Matching Question */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-blue-800">
+                  Do the VIN numbers match?
+                </Label>
+                <p className="text-xs text-blue-600 mb-3">
+                  Inspect and compare the VIN from the windshield/dashboard with the VIN on the driver-side door frame or label.
+                  {vinMatchStatus !== null && (
+                    <span className="block mt-1 font-medium">
+                      💡 Tip: The system automatically compares the entered VIN with the original VIN from the case data.
+                    </span>
+                  )}
+                </p>
+                
+                <RadioGroup 
+                  value={inspectionData.vinVerification?.vinMatch || ""} 
+                  onValueChange={(value) => handleVinVerification('vinMatch', value)}
+                  className="space-y-3"
+                >
+                  <div className={`flex items-center space-x-3 p-4 rounded-lg border-2 transition-all duration-200 ${
+                    vinMatchStatus === true 
+                      ? 'border-green-400 bg-green-50' 
+                      : 'border-green-200 hover:border-green-300 hover:bg-green-50'
+                  }`}>
+                    <RadioGroupItem value="yes" id="vin-match-yes" />
+                    <Label htmlFor="vin-match-yes" className="text-sm font-medium text-green-800 cursor-pointer flex-1">
+                      ✅ Yes – VINs match
+                    </Label>
+                    {vinMatchStatus === true && (
+                      <div className="flex items-center gap-1 text-xs text-green-600">
+                        <CheckCircle className="h-3 w-3" />
+                        <span>Auto-detected</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className={`flex items-center space-x-3 p-4 rounded-lg border-2 transition-all duration-200 ${
+                    vinMatchStatus === false 
+                      ? 'border-red-400 bg-red-50' 
+                      : 'border-red-200 hover:border-red-300 hover:bg-red-50'
+                  }`}>
+                    <RadioGroupItem value="no" id="vin-match-no" />
+                    <Label htmlFor="vin-match-no" className="text-sm font-medium text-red-800 cursor-pointer flex-1">
+                      ❌ No – VINs do not match
+                    </Label>
+                    {vinMatchStatus === false && (
+                      <div className="flex items-center gap-1 text-xs text-red-600">
+                        <XCircle className="h-3 w-3" />
+                        <span>Auto-detected</span>
+                      </div>
+                    )}
+                  </div>
+                </RadioGroup>
+
+                {/* Warning for non-matching VINs */}
+                {inspectionData.vinVerification?.vinMatch === 'no' && (
+                  <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <XCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <h4 className="font-semibold text-red-800 mb-1">🚫 Inspection Cannot Proceed</h4>
+                        <p className="text-sm text-red-700">
+                          The VIN numbers do not match, which may indicate tampering or a stolen vehicle. 
+                          Please flag this vehicle for further review.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Notes for Inspector */}
+        {vehicleData.inspection?.notesForInspector && (
+          <Card className="mb-8 border-2 border-yellow-200 bg-yellow-50">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-yellow-100 rounded-full">
+                  <ClipboardList className="h-6 w-6 text-yellow-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-yellow-800">Notes for Inspector</h2>
+                  <p className="text-yellow-600 text-sm">Special instructions from the front desk</p>
+                </div>
+              </div>
+              <div className="bg-white p-4 rounded-lg border border-yellow-200">
+                <p className="text-sm text-yellow-800 whitespace-pre-wrap">
+                  {vehicleData.inspection.notesForInspector}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Overall Rating and Score Display */}
         <div className="mb-8 bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
           <div className="flex flex-col lg:flex-row items-center justify-between space-y-6 lg:space-y-0">
@@ -1882,24 +2103,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
                       <h3 className="text-xl font-bold text-gray-900">{section.name}</h3>
                       <p className="text-gray-600 text-sm">{section.description}</p>
                     </div>
-                    {/* Section Image Preview */}
-                    {(() => {
-                      const displayPhoto = getSectionDisplayPhoto(section.id);
-                      if (displayPhoto) {
-                        return (
-                          <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm">
-                            <Image
-                              src={`${process.env.NEXT_PUBLIC_API_URL}${displayPhoto.path}`}
-                              alt={`${section.name} preview`}
-                              className="w-full h-full object-cover"
-                              width={100}
-                              height={100}
-                            />
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
+                 
                   </div>
                   
                   <div className="flex items-center space-x-4">
@@ -1986,8 +2190,8 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
         <div className="mt-12 flex justify-center">
           <Button
             onClick={handleSubmitInspection}
-            disabled={isSubmitting}
-            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+            disabled={isSubmitting || !vinVerificationComplete || inspectionData.vinVerification?.vinMatch === 'no'}
+            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             {isSubmitting ? (
               <>

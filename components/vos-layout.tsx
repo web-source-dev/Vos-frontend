@@ -1,7 +1,7 @@
 "use client"
 
 import { ReactNode } from "react"
-import { ArrowLeftIcon, User, Car, CheckCircle, Clock, Lock } from "lucide-react"
+import { ArrowLeftIcon, User, Car, CheckCircle, Clock, Lock, FileCheck } from "lucide-react"
 
 interface VehicleData {
   customer: {
@@ -45,6 +45,10 @@ export function VosLayout({
   const actualMaxStage = maxStage || vehicleData?.currentStage || currentStage;
   
   const getStageStatus = (stageId: number) => {
+    // Summary stage (0) is always considered active when viewing it
+    if (stageId === 0) {
+      return currentStage === 0 ? 'active' : 'pending'
+    }
     return vehicleData?.stageStatuses?.[stageId] || 'pending'
   }
 
@@ -71,6 +75,10 @@ export function VosLayout({
   }
 
   const isStageAccessible = (stageId: number) => {
+    // Summary stage (0) is always accessible
+    if (stageId === 0) {
+      return true;
+    }
     // Allow access to stages up to the max stage reached
     // If accessibleStages is provided, also check that
     if (accessibleStages.length > 0) {
@@ -123,9 +131,12 @@ export function VosLayout({
                   <User className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900">
+                  <button
+                    onClick={() => onStageChange(0)}
+                    className="font-semibold text-gray-900 hover:text-blue-600 transition-colors cursor-pointer text-left"
+                  >
                     {vehicleData?.customer?.firstName} {vehicleData?.customer?.lastName}
-                  </p>
+                  </button>
                   <p className="text-sm text-gray-600">Customer</p>
                 </div>
               </div>
@@ -177,7 +188,11 @@ export function VosLayout({
                             ? 'bg-gradient-to-r from-blue-600 to-indigo-600 shadow-lg'
                             : getStatusColor(status)
                         }`}>
-                          {getStatusIcon(status) || stage.id}
+                          {stage.id === 0 ? (
+                            <FileCheck className="w-5 h-5" />
+                          ) : (
+                            getStatusIcon(status) || stage.id
+                          )}
                         </div>
                         <div className="flex-1">
                           <div className="font-semibold text-sm">{stage.name}</div>
@@ -215,7 +230,7 @@ export function VosLayout({
                 />
               </div>
               <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>Viewing Stage {currentStage}</span>
+                <span>Viewing {currentStage === 0 ? 'Summary' : `Stage ${currentStage}`}</span>
                 <span>Progress: Stage {actualMaxStage} of 7</span>
               </div>
             </div>

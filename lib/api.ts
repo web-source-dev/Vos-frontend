@@ -149,11 +149,32 @@ export async function createCustomerCase(data: {
   return handleResponse<Case>(response);
 }
 
+export async function updateCustomerCase(caseId: string, data: {
+  customer: Customer;
+  vehicle: Vehicle;
+  documents: string;
+  agentInfo: {
+    firstName: string;
+    lastName: string;
+    storeLocation: string;
+  };
+}): Promise<APIResponse<Case>> {
+  console.log('Updating customer case...', caseId);
+  const options = await defaultOptions();
+  const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}`, {
+    ...options,
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  return handleResponse<Case>(response);
+}
+
 export async function scheduleInspection(
   caseId: string,
   inspectorData: Inspector,
   scheduledDate: Date,
-  scheduledTime: string
+  scheduledTime: string,
+  notesForInspector?: string
 ): Promise<APIResponse<Inspection>> {
   const options = await defaultOptions();
   const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/inspection`, {
@@ -163,6 +184,7 @@ export async function scheduleInspection(
       inspector: inspectorData,
       scheduledDate,
       scheduledTime,
+      notesForInspector,
     }),
   });
   return handleResponse<Inspection>(response);
@@ -842,6 +864,7 @@ const api = {
   getCases,
   getCase,
   createCustomerCase,
+  updateCustomerCase,
   scheduleInspection,
   getInspectionByToken,
   getInspectorInspections,

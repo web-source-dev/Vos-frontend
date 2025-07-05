@@ -11,6 +11,7 @@ import { OfferDecision } from "@/components/stages/offer-decision"
 import { Paperwork } from "@/components/stages/paperwork"
 import { Completion } from "@/components/stages/completion"
 import { InspectorView } from "@/components/inspector-view"
+import { CaseSummary } from "@/components/stages/case-summary"
 import { useAuth } from "@/lib/auth"
 import api from "@/lib/api"
 import { Case, Inspection, InspectionSection } from "@/lib/types"
@@ -38,7 +39,7 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
   const router = useRouter()
   const { isAdmin, isAgent, isEstimator, isInspector } = useAuth()
   const [caseData, setCaseData] = useState<CaseData | null>(null)
-  const [currentStage, setCurrentStage] = useState(1)
+  const [currentStage, setCurrentStage] = useState(0) // 0 means summary view
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -59,15 +60,8 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
           const caseData = response.data as CaseData;
           setCaseData(caseData);
           
-          // Check if user has access to the current stage, if not redirect to an accessible stage
-          const accessibleStages = getAccessibleStages();
-          if (!accessibleStages.includes(caseData.currentStage) && accessibleStages.length > 0) {
-            // Find the highest stage they can access
-            const highestAccessibleStage = Math.max(...accessibleStages);
-            setCurrentStage(highestAccessibleStage);
-          } else {
-            setCurrentStage(caseData.currentStage);
-          }
+          // Always start with summary view (stage 0)
+          setCurrentStage(0);
         } else {
           setError("Failed to fetch case data");
           router.push('/');
@@ -114,7 +108,7 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
       // Update case stage in the backend
       try {
         if (caseData) {
-          await api.updateCaseStage(caseData.id || caseData._id || "", {
+          await api.updateCaseStage(caseData.id || "", {
             currentStage: stage,
             stageStatuses: {
               ...caseData.stageStatuses,
@@ -136,6 +130,10 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
   }
 
   const canAccessStage = (stage: number) => {
+    // Summary stage (0) is always accessible
+    if (stage === 0) {
+      return true;
+    }
     return getAccessibleStages().includes(stage);
   }
 
@@ -201,6 +199,17 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
   }
 
   const renderCurrentStage = () => {
+    // Show summary by default (stage 0)
+    if (currentStage === 0) {
+      return (
+        <CaseSummary
+          vehicleData={caseData}
+          onStageChange={setCurrentStage}
+          accessibleStages={getAccessibleStages()}
+        />
+      )
+    }
+
     switch (currentStage) {
       case 1:
         return (
