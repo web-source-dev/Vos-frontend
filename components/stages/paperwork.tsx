@@ -1370,6 +1370,23 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
     )
   }
 
+  // Add a helper function to get source label
+  const getSourceLabel = (sourceKey?: string) => {
+    if (!sourceKey) return "Not specified";
+    
+    const sources: Record<string, string> = {
+      "contact_form": "Contact Us Form Submission",
+      "walk_in": "Walk-In",
+      "phone": "Phone",
+      "online": "Online",
+      "on_the_road": "On the Road",
+      "social_media": "Social Media",
+      "other": "Other"
+    };
+    
+    return sources[sourceKey] || sourceKey;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -1423,7 +1440,14 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
                 disabled
               />
             </div>
-            
+            <div className="space-y-2">
+              <Label htmlFor="source">Source</Label>
+              <Input 
+                id="source"
+                value={getSourceLabel(vehicleData.customer?.source)}
+                disabled
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="vehicle">Vehicle</Label>
               <Input 

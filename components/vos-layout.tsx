@@ -221,12 +221,12 @@ export function VosLayout({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Completion</span>
-                <span className="text-sm font-semibold text-gray-900">{Math.round((actualMaxStage / 7) * 100)}%</span>
+                <span className="text-sm font-semibold text-gray-900">{Math.round(((actualMaxStage - 1) / 7) * 100)}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                 <div 
                   className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500 ease-out shadow-sm"
-                  style={{ width: `${(actualMaxStage / 7) * 100}%` }}
+                  style={{ width: `${Math.max(0, ((actualMaxStage - 1) / 7) * 100)}%` }}
                 />
               </div>
               <div className="flex items-center justify-between text-xs text-gray-500">

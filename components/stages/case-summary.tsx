@@ -37,6 +37,7 @@ interface CustomerData {
   email2?: string
   email3?: string
   hearAboutVOS?: string
+  source?: string // Add customer source field
   receivedOtherQuote?: boolean
   otherQuoteOfferer?: string
   otherQuoteAmount?: number
@@ -353,6 +354,23 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
     setExpandedSection(expandedSection === section ? null : section)
   }
 
+  // Function to get a human-readable source
+  const getSourceLabel = (sourceKey?: string) => {
+    if (!sourceKey) return "Not specified";
+    
+    const sources: Record<string, string> = {
+      "contact_form": "Contact Us Form Submission",
+      "walk_in": "Walk-In",
+      "phone": "Phone",
+      "online": "Online",
+      "on_the_road": "On the Road",
+      "social_media": "Social Media",
+      "other": "Other"
+    };
+    
+    return sources[sourceKey] || sourceKey;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -507,18 +525,26 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
               )}
             </div>
 
+            {/* Customer Source */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-500">Customer Source</p>
+                <p className="font-medium">{getSourceLabel(vehicleData?.customer?.source)}</p>
+              </div>
+              
+              {vehicleData.customer?.receivedOtherQuote && (
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-800">
+                    <strong>Competition:</strong> Received quote from {vehicleData.customer.otherQuoteOfferer} for {formatCurrency(vehicleData.customer.otherQuoteAmount || 0)}
+                  </p>
+                </div>
+              )}
+            </div>
+
             {vehicleData.customer?.notes && (
               <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                 <p className="text-sm text-yellow-800">
                   <strong>Notes:</strong> {vehicleData.customer.notes}
-                </p>
-              </div>
-            )}
-
-            {vehicleData.customer?.receivedOtherQuote && (
-              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm text-blue-800">
-                  <strong>Competition:</strong> Received quote from {vehicleData.customer.otherQuoteOfferer} for {formatCurrency(vehicleData.customer.otherQuoteAmount || 0)}
                 </p>
               </div>
             )}

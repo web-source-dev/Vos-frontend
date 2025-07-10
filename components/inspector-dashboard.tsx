@@ -15,6 +15,8 @@ interface InspectionData {
   status: string
   scheduledDate: string
   scheduledTime: string
+  dueByDate?: string
+  dueByTime?: string
   accessToken: string
   customer?: {
     firstName: string
@@ -148,6 +150,18 @@ export function InspectorDashboard() {
                       </p>
                     </div>
                   </div>
+                  
+                  {inspection.dueByDate && (
+                    <div className="flex items-start gap-3">
+                      <Calendar className="h-4 w-4 mt-0.5 text-red-500" />
+                      <div>
+                        <p className="font-medium">Inspection Due By</p>
+                        <p className="text-sm text-red-600 font-medium">
+                          {formatDate(inspection.dueByDate)} {inspection.dueByTime && `at ${inspection.dueByTime}`}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="flex items-start gap-3">
                     <User className="h-4 w-4 mt-0.5 text-gray-500" />

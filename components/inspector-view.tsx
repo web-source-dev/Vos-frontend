@@ -51,6 +51,10 @@ interface VehicleData {
     sections?: InspectionSection[]
     inspectionNotes?: string
     notesForInspector?: string
+    scheduledDate?: string
+    scheduledTime?: string
+    dueByDate?: string
+    dueByTime?: string
   }
 }
 
@@ -1996,6 +2000,34 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
               <div className="bg-white p-4 rounded-lg border border-yellow-200">
                 <p className="text-sm text-yellow-800 whitespace-pre-wrap">
                   {vehicleData.inspection.notesForInspector}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Inspection Due By */}
+        {vehicleData.inspection?.dueByDate && (
+          <Card className="mb-8 border-2 border-red-200 bg-red-50">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <Clock className="h-6 w-6 text-red-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-red-800">Inspection Due By</h2>
+                  <p className="text-red-600 text-sm">Please complete by the deadline</p>
+                </div>
+              </div>
+              <div className="bg-white p-4 rounded-lg border border-red-200">
+                <p className="text-lg font-semibold text-red-800">
+                  {new Date(vehicleData.inspection.dueByDate).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                  {vehicleData.inspection.dueByTime && ` at ${vehicleData.inspection.dueByTime}`}
                 </p>
               </div>
             </CardContent>

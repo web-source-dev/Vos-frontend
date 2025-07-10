@@ -174,7 +174,9 @@ export async function scheduleInspection(
   inspectorData: Inspector,
   scheduledDate: Date,
   scheduledTime: string,
-  notesForInspector?: string
+  notesForInspector?: string,
+  dueByDate?: Date,
+  dueByTime?: string
 ): Promise<APIResponse<Inspection>> {
   const options = await defaultOptions();
   const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/inspection`, {
@@ -185,6 +187,8 @@ export async function scheduleInspection(
       scheduledDate,
       scheduledTime,
       notesForInspector,
+      dueByDate,
+      dueByTime,
     }),
   });
   return handleResponse<Inspection>(response);
@@ -284,6 +288,16 @@ export async function updateCaseStage(token: string, stageData: { currentStage: 
   const response = await fetch(`${API_BASE_URL}/api/quote/${token}/stage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(stageData),
+  });
+  return handleResponse<Case>(response);
+}
+
+export async function updateCaseStageByCaseId(caseId: string, stageData: { currentStage: number; stageStatuses?: Record<number, string> }): Promise<APIResponse<Case>> {
+  const options = await defaultOptions();
+  const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/stage`, {
+    ...options,
+    method: 'PUT',
     body: JSON.stringify(stageData),
   });
   return handleResponse<Case>(response);
@@ -884,6 +898,7 @@ const api = {
   updateOfferDecisionByCaseId,
   updatePaperwork,
   updateCaseStage,
+  updateCaseStageByCaseId,
   getUsersByRole,
   createUser,
   updateUser,

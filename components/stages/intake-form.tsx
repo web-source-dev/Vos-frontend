@@ -133,6 +133,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
       email3: "",
       notes:"",
       hearAboutVOS: "",
+      source: "", // Add new field for customer source
       receivedOtherQuote: false,
       otherQuoteOfferer: "",
       otherQuoteAmount: 0,
@@ -229,6 +230,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
           email2: vehicleData.customer?.email2 || "",
           email3: vehicleData.customer?.email3 || "",
           notes: vehicleData.customer?.notes || "",
+          source: vehicleData.customer?.source || "", // Add source to load from existing data
           hearAboutVOS: vehicleData.customer?.hearAboutVOS || "",
           receivedOtherQuote: vehicleData.customer?.receivedOtherQuote || false,
           otherQuoteOfferer: vehicleData.customer?.otherQuoteOfferer || "",
@@ -438,20 +440,47 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
       };
 
       let response;
+      let caseId;
       
       // Check if this is an existing case (has _id) or a new case
       if (vehicleData?._id) {
         // Update existing case
-        response = await api.updateCustomerCase(vehicleData._id, caseData);
+        caseId = vehicleData._id;
+        response = await api.updateCustomerCase(caseId, caseData);
       } else {
         // Create new case
         response = await api.createCustomerCase(caseData);
+        if (response.success && response.data) {
+          caseId = response.data._id;
+        }
       }
 
       if (response.success) {
         // Update the vehicle data with the created/updated case
         if (response.data) {
           onUpdate(response.data as CaseData);
+          
+          // Update the case stage to 2 (Schedule Inspection)
+          if (caseId) {
+            const stageData = {
+              currentStage: 2,
+              stageStatuses: {
+                1: 'complete' // Mark stage 1 (Intake) as complete
+              }
+            };
+            
+            const stageResponse = await api.updateCaseStageByCaseId(caseId, stageData);
+            
+            if (stageResponse.success) {
+              console.log('Successfully updated case stage to Schedule Inspection');
+              // If we have updated stage data, update the UI with it
+              if (stageResponse.data) {
+                onUpdate(stageResponse.data as CaseData);
+              }
+            } else {
+              console.error('Failed to update case stage:', stageResponse.error);
+            }
+          }
         }
 
         toast({
@@ -624,6 +653,37 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
                 onChange={(e) => handleInputChange("customer", "email3", e.target.value)}
                 placeholder="john.alt@email.com"
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Customer Source Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Customer Source
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="customerSource">How did this customer come to us? *</Label>
+              <Select
+                value={formData.customer.source}
+                onValueChange={(value) => handleInputChange("customer", "source", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select customer source" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="contact_form">Contact Us Form Submission</SelectItem>
+                  <SelectItem value="walk_in">Walk-In</SelectItem>
+                  <SelectItem value="phone">Phone</SelectItem>
+                  <SelectItem value="online">Online</SelectItem>
+                  <SelectItem value="on_the_road">On the Road</SelectItem>
+                  <SelectItem value="social_media">Social Media</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>

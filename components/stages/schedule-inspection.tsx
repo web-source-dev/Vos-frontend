@@ -39,6 +39,8 @@ interface InspectionData {
   scheduledTime?: string
   inspector?: InspectorData
   notesForInspector?: string
+  dueByDate?: string
+  dueByTime?: string
 }
 
 interface CaseData {
@@ -66,6 +68,8 @@ export function ScheduleInspection({
   const [selectedInspector, setSelectedInspector] = useState<string>("")
   const [scheduledDate, setScheduledDate] = useState("")
   const [scheduledTime, setScheduledTime] = useState("")
+  const [dueByDate, setDueByDate] = useState("")
+  const [dueByTime, setDueByTime] = useState("")
   const [notesForInspector, setNotesForInspector] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [inspectorsLoading, setInspectorsLoading] = useState(true)
@@ -117,6 +121,14 @@ export function ScheduleInspection({
         setScheduledTime(inspection.scheduledTime);
       }
       
+      // Auto-fill due by date and time if available
+      if (inspection.dueByDate) {
+        setDueByDate(new Date(inspection.dueByDate).toISOString().split('T')[0]);
+      }
+      if (inspection.dueByTime) {
+        setDueByTime(inspection.dueByTime);
+      }
+      
       // Auto-fill notes if available
       if (inspection.notesForInspector) {
         setNotesForInspector(inspection.notesForInspector);
@@ -135,6 +147,10 @@ export function ScheduleInspection({
       setScheduledDate(value);
     } else if (field === 'time') {
       setScheduledTime(value);
+    } else if (field === 'dueByDate') {
+      setDueByDate(value);
+    } else if (field === 'dueByTime') {
+      setDueByTime(value);
     }
   }
 
@@ -144,6 +160,8 @@ export function ScheduleInspection({
     setSelectedInspector("");
     setScheduledDate("");
     setScheduledTime("");
+    setDueByDate("");
+    setDueByTime("");
     // Don't clear notes when rescheduling
   }
 
@@ -164,6 +182,12 @@ export function ScheduleInspection({
       if (inspection.scheduledTime) {
         setScheduledTime(inspection.scheduledTime);
       }
+      if (inspection.dueByDate) {
+        setDueByDate(new Date(inspection.dueByDate).toISOString().split('T')[0]);
+      }
+      if (inspection.dueByTime) {
+        setDueByTime(inspection.dueByTime);
+      }
       if (inspection.notesForInspector) {
         setNotesForInspector(inspection.notesForInspector);
       }
@@ -175,6 +199,8 @@ export function ScheduleInspection({
     console.log('selectedInspector:', selectedInspector);
     console.log('scheduledDate:', scheduledDate);
     console.log('scheduledTime:', scheduledTime);
+    console.log('dueByDate:', dueByDate);
+    console.log('dueByTime:', dueByTime);
     console.log('notesForInspector:', notesForInspector);
     console.log('inspectors:', inspectors);
     console.log('inspectorsLoading:', inspectorsLoading);
@@ -232,14 +258,18 @@ export function ScheduleInspection({
         },
         new Date(scheduledDate),
         scheduledTime,
-        notesForInspector
+        notesForInspector,
+        dueByDate ? new Date(dueByDate) : undefined,
+        dueByTime || undefined
       );
 
       if (response.success) {
         onUpdate({
           inspection: {
             ...response.data as unknown as InspectionData,
-            notesForInspector
+            notesForInspector,
+            dueByDate,
+            dueByTime
           },
           currentStage: 3,
           status: 'scheduled'
@@ -359,6 +389,9 @@ export function ScheduleInspection({
               <div>
                 <span className="font-medium text-green-700">Time:</span> {vehicleData.inspection?.scheduledTime}
               </div>
+              <div>
+                <span className="font-medium text-green-700">Inspection Due By:</span> {vehicleData.inspection?.dueByDate ? new Date(vehicleData.inspection.dueByDate).toLocaleDateString() : 'Not set'} {vehicleData.inspection?.dueByTime || ''}
+              </div>
             </div>
             {vehicleData.inspection?.notesForInspector && (
               <div className="mt-4 pt-4 border-t border-green-200">
@@ -453,6 +486,41 @@ export function ScheduleInspection({
                     <SelectItem value="17:00">5:00 PM</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-4 mt-4">
+              <h3 className="text-sm font-semibold mb-4">Inspection Due By</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="dueByDate">Due Date</Label>
+                  <Input
+                    id="dueByDate"
+                    type="date"
+                    value={dueByDate}
+                    onChange={(e) => handleInspectorChange('dueByDate', e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dueByTime">Due Time</Label>
+                  <Select value={dueByTime} onValueChange={(value) => handleInspectorChange('dueByTime', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="09:00">9:00 AM</SelectItem>
+                      <SelectItem value="10:00">10:00 AM</SelectItem>
+                      <SelectItem value="11:00">11:00 AM</SelectItem>
+                      <SelectItem value="12:00">12:00 PM</SelectItem>
+                      <SelectItem value="13:00">1:00 PM</SelectItem>
+                      <SelectItem value="14:00">2:00 PM</SelectItem>
+                      <SelectItem value="15:00">3:00 PM</SelectItem>
+                      <SelectItem value="16:00">4:00 PM</SelectItem>
+                      <SelectItem value="17:00">5:00 PM</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </CardContent>

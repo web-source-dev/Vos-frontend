@@ -2,17 +2,32 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { CustomerDashboard } from '@/components/customer-dashboard'
 import { useAuth } from '@/lib/auth'
 
 export default function VosSystem() {
-  const { isAdmin, isInspector, isAuthenticated, loading } = useAuth()
+  const { isAdmin, isAgent, isEstimator, isInspector, isAuthenticated, loading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
     if (!loading) {
       if (!isAuthenticated) {
-        router.push('/customer-intake')
+        router.push('/login')
+        return
+      }
+      
+      // Redirect users based on their role
+      if (isAdmin) {
+        router.push('/admin')
+        return
+      }
+      
+      if (isAgent) {
+        router.push('/agent')
+        return
+      }
+      
+      if (isEstimator) {
+        router.push('/estimator')
         return
       }
       
@@ -21,13 +36,8 @@ export default function VosSystem() {
         router.push('/inspector/dashboard')
         return
       }
-      
-      if (isAdmin) {
-        router.push('/admin')
-        return
-      }
     }
-  }, [isInspector, isAdmin, loading, router, isAuthenticated])
+  }, [isInspector, isAdmin, isAgent, isEstimator, loading, router, isAuthenticated])
 
   // Show loading or dashboard for authenticated users
   if (loading) {
@@ -45,9 +55,13 @@ export default function VosSystem() {
     return null // Will redirect to public page
   }
 
+  // This should rarely be seen as users will be redirected based on role
   return (
-    <div className="min-h-screen bg-gray-50">
-      <CustomerDashboard />
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Loading...</p>
+      </div>
     </div>
   )
 }

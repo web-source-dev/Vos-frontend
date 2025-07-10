@@ -127,25 +127,6 @@ export function CustomerDashboard() {
     fetchCases();
   }, []);
 
-  // Calculate case stats - these are independent of filters
-  const totalCases = cases.length;
-  
-  const totalInProcess = cases.filter(c => {
-    const status = getStatusFromStage(c.currentStage, c.status);
-    return status !== "Completed";
-  }).length;
-  
-  const totalCompleted = cases.filter(c => 
-    getStatusFromStage(c.currentStage, c.status) === "Completed"
-  ).length;
-
-  // Today's completed - filter by today's date
-  const today = new Date().toDateString()
-  const completedToday = cases.filter((c) => 
-    getStatusFromStage(c.currentStage, c.status) === "Completed" && 
-    new Date(c.updatedAt || c.createdAt).toDateString() === today
-  ).length;
-
   const filteredCustomers = useMemo(() => {
     return cases.filter((caseData) => {
       const customer = caseData.customer;
@@ -164,6 +145,25 @@ export function CustomerDashboard() {
       return matchesSearch && matchesStatus && matchesStage
     })
   }, [searchTerm, statusFilter, stageFilter, cases])
+  
+  // Calculate case stats - now based on filtered results
+  const totalCases = filteredCustomers.length;
+  
+  const totalInProcess = filteredCustomers.filter(c => {
+    const status = getStatusFromStage(c.currentStage, c.status);
+    return status !== "Completed";
+  }).length;
+  
+  const totalCompleted = filteredCustomers.filter(c => 
+    getStatusFromStage(c.currentStage, c.status) === "Completed"
+  ).length;
+
+  // Today's completed - filter by today's date
+  const today = new Date().toDateString()
+  const completedToday = filteredCustomers.filter((c) => 
+    getStatusFromStage(c.currentStage, c.status) === "Completed" && 
+    new Date(c.updatedAt || c.createdAt).toDateString() === today
+  ).length;
 
   const getStatusBadge = (currentStage: number, status: string) => {
     const caseStatus = getStatusFromStage(currentStage, status);
@@ -184,7 +184,7 @@ export function CustomerDashboard() {
   }
 
   const getProgressPercentage = (currentStage: number) => {
-    return Math.round((currentStage / 7) * 100)
+    return Math.round(((currentStage - 1) / 7) * 100)
   }
 
   // Helper function to get the correct amount for a case
@@ -258,7 +258,7 @@ export function CustomerDashboard() {
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${getProgressPercentage(caseData.currentStage)}%` }}
+                style={{ width: `${Math.max(0, getProgressPercentage(caseData.currentStage))}%` }}
               />
             </div>
           </div>
@@ -389,7 +389,11 @@ export function CustomerDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{totalCases}</p>
-                  <p className="text-sm text-muted-foreground">Total Cases</p>
+                  <p className="text-sm text-muted-foreground">
+                    {searchTerm || statusFilter !== "all" || stageFilter !== "all" 
+                      ? "Filtered Cases" 
+                      : "Total Cases"}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -417,7 +421,11 @@ export function CustomerDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{totalCompleted}</p>
-                  <p className="text-sm text-muted-foreground">Total Completed</p>
+                  <p className="text-sm text-muted-foreground">
+                    {searchTerm || statusFilter !== "all" || stageFilter !== "all" 
+                      ? "Filtered Completed" 
+                      : "Total Completed"}
+                  </p>
                 </div>
               </div>
             </CardContent>
