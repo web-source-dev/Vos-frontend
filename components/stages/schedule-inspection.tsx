@@ -51,6 +51,7 @@ interface CaseData {
   inspection?: InspectionData
   currentStage?: number
   status?: string
+  stageStatuses?: { [key: number]: string }
 }
 
 interface ScheduleInspectionProps {
@@ -271,9 +272,30 @@ export function ScheduleInspection({
             dueByDate,
             dueByTime
           },
-          currentStage: 3,
+          currentStage: vehicleData.currentStage || 3, // Preserve current stage or default to 3
           status: 'scheduled'
         })
+
+        // Update stage statuses to mark stage 2 as complete and stage 3 as active
+        const currentStageStatuses = vehicleData.stageStatuses || {};
+        const stageData = {
+          currentStage: vehicleData.currentStage || 3,
+          stageStatuses: {
+            ...currentStageStatuses,
+            2: 'complete', // Mark stage 2 (Schedule Inspection) as complete
+            3: 'active'    // Mark stage 3 (Inspection) as active
+          }
+        };
+        
+        // Update stage statuses in the database
+        if (caseId) {
+          try {
+            await api.updateCaseStageByCaseId(caseId, stageData);
+            console.log('Successfully updated stage statuses');
+          } catch (error) {
+            console.error('Failed to update stage statuses:', error);
+          }
+        }
 
         const actionText = isRescheduling ? "Rescheduled" : "Scheduled";
         toast({

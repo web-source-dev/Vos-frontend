@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroupItem } from "@/components/ui/radio-group"
-import { FileUpload } from "@/components/file-upload"
 import { useToast } from "@/hooks/use-toast"
 import Image from "next/image"
 import { 
@@ -16,7 +15,6 @@ import {
   ArrowLeft, 
   CheckCircle,
   ChevronRight,
-  Eye,
   User,
   ClipboardList,
   Clock,
@@ -26,9 +24,10 @@ import {
   Wrench as WrenchIcon,
   Zap as ZapIcon,
   Shield as ShieldIcon,
-  Gauge as GaugeIcon,
   CircleDot as CircleDotIcon,
   XCircle,
+  Camera,
+  RefreshCw,
 } from "lucide-react"
 import api from "@/lib/api"
 import { RadioGroup } from "@/components/ui/radio-group"
@@ -55,6 +54,10 @@ interface VehicleData {
     scheduledTime?: string
     dueByDate?: string
     dueByTime?: string
+    vinVerification?: {
+      vinNumber?: string
+      vinMatch?: string
+    }
   }
 }
 
@@ -284,6 +287,24 @@ const inspectionSections = [
           { value: "fair", label: "Fair - Some wear/tears", points: 3 },
           { value: "poor", label: "Poor - Significant damage", points: 2 },
           { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
+        ]
+      },
+      {
+        id: "seat_adjustment",
+        question: "Do both the driver and front passenger seats move properly using their power or manual lever functions?",
+        type: "radio",
+        required: true,
+        options: [
+          { value: "yes", label: "Yes – Both seats adjust correctly", points: 5 },
+          { value: "no", label: "No – One or both seats do not adjust properly", points: 0 },
+          { value: "na", label: "Not Applicable – Vehicle has fixed seats or condition cannot be tested", points: 2 }
+        ],
+        subQuestions: [
+          {
+            id: "seat_adjustment_details",
+            question: "Please describe the issue and specify which seat(s) are affected:",
+            type: "text"
+          } 
         ]
       },
       {
@@ -640,37 +661,6 @@ const inspectionSections = [
         ]
       },
       {
-        id: "brake_performance",
-        question: "Brake performance during test:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "excellent", label: "Excellent - Strong stopping", points: 5 },
-          { value: "good", label: "Good - Adequate stopping", points: 4 },
-          { value: "fair", label: "Fair - Weak stopping", points: 2 },
-          { value: "poor", label: "Poor - Minimal stopping", points: 0 }
-        ]
-      },
-      {
-        id: "brake_noises",
-        question: "Are there any brake noises?",
-        type: "yesno",
-        required: true,
-        subQuestions: [
-          {
-            id: "brake_noise_types",
-            question: "Describe brake noises:",
-            type: "checkbox",
-            options: [
-              { value: "squeaking", label: "Squeaking", points: -1 },
-              { value: "grinding", label: "Grinding", points: -3 },
-              { value: "clicking", label: "Clicking", points: -1 },
-              { value: "pulsing", label: "Pulsing/vibration", points: -2 }
-            ]
-          }
-        ]
-      },
-      {
         id: "parking_brake",
         question: "Parking brake functionality:",
         type: "radio",
@@ -703,6 +693,19 @@ const inspectionSections = [
         ]
       },
       {
+        id: "modified_suspension",
+        question: "Does the vehicle have a modified suspension?",
+        type: "yesno",
+        required: true,
+        subQuestions: [
+          {
+            id: "suspension_modifications",
+            question: "Describe the suspension modifications you observed:",
+            type: "text"
+          }
+        ]
+      },
+      {
         id: "rust_condition",
         question: "Rust assessment:",
         type: "checkbox",
@@ -726,88 +729,10 @@ const inspectionSections = [
         ]
       },
       {
-        id: "suspension_issues",
-        question: "Suspension issues:",
-        type: "checkbox",
-        options: [
-          { value: "leaking_shocks", label: "Leaking shocks/struts", points: -2 },
-          { value: "bouncing", label: "Excessive bouncing", points: -2 },
-          { value: "noise", label: "Suspension noise", points: -1 },
-          { value: "uneven_ride", label: "Uneven ride height", points: -2 }
-        ]
-      },
-      {
         id: "undercarriage_photos",
-        question: "Take photos of undercarriage and frame - Include suspension components, exhaust system, transmission, drive shaft, and any visible rust or damage. Take photos from multiple angles to show overall condition.",
+        question: "Take comprehensive photos of undercarriage and frame - Position yourself under the center of the vehicle for wide shots, then move to each side for detailed frame rail photos. Ensure good lighting and keep camera level for clear detail capture.",
         type: "photo",
         required: true
-      }
-    ]
-  },
-  {
-    id: "test_drive",
-    name: "Test Drive Performance",
-    icon: GaugeIcon,
-    description: "Road test performance and driving characteristics",
-    questions: [
-      {
-        id: "acceleration",
-        question: "Acceleration performance:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "excellent", label: "Excellent - Strong acceleration", points: 5 },
-          { value: "good", label: "Good - Adequate acceleration", points: 4 },
-          { value: "fair", label: "Fair - Weak acceleration", points: 2 },
-          { value: "poor", label: "Poor - Very slow", points: 0 }
-        ]
-      },
-      {
-        id: "steering",
-        question: "Steering feel and responsiveness:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "excellent", label: "Excellent - Precise steering", points: 5 },
-          { value: "good", label: "Good - Responsive steering", points: 4 },
-          { value: "fair", label: "Fair - Some play", points: 2 },
-          { value: "poor", label: "Poor - Loose steering", points: 0 }
-        ]
-      },
-      {
-        id: "handling",
-        question: "Overall handling and stability:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "excellent", label: "Excellent - Stable and controlled", points: 5 },
-          { value: "good", label: "Good - Predictable handling", points: 4 },
-          { value: "fair", label: "Fair - Some instability", points: 2 },
-          { value: "poor", label: "Poor - Unstable", points: 0 }
-        ]
-      },
-      {
-        id: "vibration_issues",
-        question: "Are there any vibrations while driving?",
-        type: "yesno",
-        required: true,
-        subQuestions: [
-          {
-            id: "vibration_details",
-            question: "Describe vibration characteristics:",
-            type: "text"
-          },
-          {
-            id: "vibration_speed",
-            question: "At what speed does vibration occur:",
-            type: "text"
-          }
-        ]
-      },
-      {
-        id: "test_drive_notes",
-        question: "Additional test drive observations:",
-        type: "text"
       }
     ]
   }
@@ -883,8 +808,55 @@ const cleanupOldInspectionData = () => {
   }
 };
 
-
-
+// Adding a helper function to get angle names for different sections
+const getAnglesBySection = (sectionId: string) => {
+  switch (sectionId) {
+    case 'exterior':
+      return [
+        { id: 'front', label: 'Front of Vehicle' },
+        { id: 'rear', label: 'Rear of Vehicle' },
+        { id: 'left', label: 'Driver Side' },
+        { id: 'right', label: 'Passenger Side' },
+        { id: 'closeup', label: 'Close-up of Any Damage (if applicable)' },
+        { id: 'top', label: 'Top of Vehicle' }
+      ];
+    case 'interior':
+      return [
+        { id: 'dashboard', label: 'Dashboard' },
+        { id: 'front_seats', label: 'Front Seats' },
+        { id: 'rear_seats', label: 'Rear Seats' },
+        { id: 'trunk', label: 'Trunk/Cargo Area' },
+        { id: 'console', label: 'Center Console' }
+      ];
+    case 'engine':
+      return [
+        { id: 'engine_bay', label: 'Engine Bay' },
+        { id: 'odometer', label: 'Odometer Reading' },
+        { id: 'fluid_levels', label: 'Fluid Levels' },
+        { id: 'leaks_damage', label: 'Any visible leaks or damage (if applicable)' }
+      ];
+    case 'tires':
+      return [
+        { id: 'front_left', label: 'Front Left' },
+        { id: 'front_right', label: 'Front Right' },
+        { id: 'rear_left', label: 'Rear Left' },
+        { id: 'rear_right', label: 'Rear Right' },
+        { id: 'spare', label: 'Spare Tire' }
+      ];
+    case 'undercarriage':
+      return [
+        { id: 'wide_view', label: 'Wide View – Front-to-Back' },
+        { id: 'driver_frame', label: 'Driver-Side Frame Rail' },
+        { id: 'passenger_frame', label: 'Passenger-Side Frame Rail' }
+      ];
+    default:
+      return [
+        { id: 'general', label: 'General Photo' },
+        { id: 'detail', label: 'Detail Photo' },
+        { id: 'other', label: 'Other' }
+      ];
+  }
+};
 
 export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewProps) {
   const inspectionToken = vehicleData.inspection?.accessToken;
@@ -896,12 +868,16 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     }
     return {};
   });
+  console.log('inspectionData', inspectionData);
   
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   const [vinVerificationComplete, setVinVerificationComplete] = useState(false)
+  // Add state for image modal
+  const [modalImage, setModalImage] = useState<string | null>(null)
+  const [isSavingPending, setIsSavingPending] = useState(false)
   const { toast } = useToast()
   
   // Save data to localStorage whenever inspectionData changes
@@ -1006,19 +982,26 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
             dbData.overallNotes = vehicleData.inspection.inspectionNotes;
           }
 
+          // Add VIN verification data if available
+          if (vehicleData.inspection.vinVerification) {
+            dbData.vinVerification = vehicleData.inspection.vinVerification;
+          }
+
           // Only set the data if we have actual data to load
           if (Object.keys(dbData).length > 0) {
             setInspectionData(dbData);
             console.log('Loaded existing inspection data from database:', dbData);
             
-            // Auto-expand sections that have data
-            const sectionsWithData = Object.keys(dbData).filter(sectionId => 
-              sectionId !== 'overallNotes' && dbData[sectionId] && 
-              (dbData[sectionId].questions || dbData[sectionId].photos || dbData[sectionId].completed)
+            // Only auto-expand sections that are marked as completed
+            const completedSections = Object.keys(dbData).filter(sectionId => 
+              sectionId !== 'overallNotes' && dbData[sectionId] && dbData[sectionId].completed
             );
             
-            if (sectionsWithData.length > 0) {
-              setExpandedSections(new Set(sectionsWithData));
+            if (completedSections.length > 0) {
+              setExpandedSections(new Set());
+            } else {
+              // If no sections are completed, keep all sections closed
+              setExpandedSections(new Set());
             }
             
             // Show a toast to inform user that data was loaded from database
@@ -1178,6 +1161,48 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     }
   };
 
+  const handlePhotoRemove = (sectionId: string, questionId: string, photoIndex: number) => {
+    try {
+      setInspectionData((prev) => {
+        // Get the existing photos array
+        const existingPhotos = prev[sectionId]?.questions?.[questionId]?.photos || [];
+        
+        // Create a new array without the photo at the specified index
+        const updatedPhotos = [
+          ...existingPhotos.slice(0, photoIndex),
+          ...existingPhotos.slice(photoIndex + 1)
+        ];
+        
+        // Return the updated state
+        return {
+          ...prev,
+          [sectionId]: {
+            ...prev[sectionId],
+            questions: {
+              ...prev[sectionId]?.questions,
+              [questionId]: {
+                ...prev[sectionId]?.questions?.[questionId],
+                photos: updatedPhotos
+              }
+            }
+          }
+        };
+      });
+      
+      toast({
+        title: "Photo Removed",
+        description: "Photo has been removed successfully"
+      });
+    } catch (error) {
+      console.error('Error removing photo:', error);
+      toast({
+        title: "Remove Failed",
+        description: "Failed to remove photo. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleVinVerification = (field: 'vinNumber' | 'vinMatch', value: string) => {
     setInspectionData((prev) => ({
       ...prev,
@@ -1212,40 +1237,151 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     }
   }, [vinMatchStatus, inspectionData.vinVerification?.vinMatch]);
 
-  const handleSubmitInspection = async () => {
-    // Validate VIN verification first
-    const vinData = inspectionData.vinVerification;
-    if (!vinData?.vinNumber || !vinData?.vinMatch) {
-      toast({
-        title: "VIN Verification Required",
-        description: "Please complete the VIN verification before proceeding.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (vinData.vinMatch === 'no') {
-      toast({
-        title: "Inspection Cannot Proceed",
-        description: "The VIN numbers do not match. This vehicle has been flagged for further review.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate required questions
-    const missingRequired: string[] = [];
+  const generateRecommendations = () => {
+    const recommendations: string[] = [];
     
-    inspectionSections.forEach(section => {
-      section.questions.forEach(question => {
+    inspectionSections.forEach((section) => {
+      const rating = calculateSectionRating(section.id);
+      if (rating <= 2) {
+        recommendations.push(`Address issues in ${section.name.toLowerCase()}`);
+      }
+    });
+    
+    return recommendations;
+  };
+
+  // Check if form is complete
+  const isFormComplete = () => {
+    // Check VIN verification
+    const vinData = inspectionData.vinVerification;
+    if (!vinData?.vinNumber || !vinData?.vinMatch || vinData.vinMatch === 'no') {
+      return false;
+    }
+
+    // Check required questions
+    for (const section of inspectionSections) {
+      for (const question of section.questions) {
         if (question.required) {
           const answer = inspectionData[section.id]?.questions?.[question.id]?.answer;
           if (!answer || (Array.isArray(answer) && answer.length === 0)) {
-            missingRequired.push(`${section.name}: ${question.question}`);
+            return false;
           }
         }
+      }
+    }
+
+    return true;
+  };
+
+  // Handle save and close
+  const handleSaveAndClose = async () => {
+    setIsSavingPending(true);
+    
+    try {
+      // Format inspection data for pending save
+      const formattedData = {
+        sections: inspectionSections.map((section) => ({
+          id: section.id,
+          name: section.name,
+          description: section.description,
+          icon: section.icon.name || section.icon.displayName || 'Icon',
+          questions: section.questions.map((question) => ({
+            id: question.id,
+            question: question.question,
+            type: question.type as 'radio' | 'checkbox' | 'text' | 'rating' | 'photo' | 'yesno' | 'number',
+            options: question.options,
+            required: question.required,
+            answer: inspectionData[section.id]?.questions?.[question.id]?.answer,
+            notes: inspectionData[section.id]?.questions?.[question.id]?.notes,
+            photos: inspectionData[section.id]?.questions?.[question.id]?.photos || [],
+            subQuestions: question.subQuestions?.map((subQ: InspectionQuestion) => ({
+              id: subQ.id,
+              question: subQ.question,
+              type: subQ.type as 'radio' | 'checkbox' | 'text' | 'rating' | 'photo' | 'yesno' | 'number',
+              options: subQ.options,
+              answer: inspectionData[section.id]?.questions?.[question.id]?.subQuestions?.[subQ.id]?.answer,
+              notes: inspectionData[section.id]?.questions?.[question.id]?.subQuestions?.[subQ.id]?.notes,
+              photos: inspectionData[section.id]?.questions?.[question.id]?.subQuestions?.[subQ.id]?.photos || []
+            })) || []
+          })),
+          rating: calculateSectionRating(section.id),
+          photos: inspectionData[section.id]?.photos || [],
+          score: calculateSectionScore(section.id),
+          maxScore: calculateSectionMaxScore(section),
+          completed: inspectionData[section.id]?.completed || false
+        })),
+        overallRating: calculateOverallRating(),
+        overallScore: calculateOverallScore(),
+        maxPossibleScore: calculateMaxPossibleScore(),
+        status: "in-progress" as const,
+        completed: false,
+        inspectionNotes: inspectionData.overallNotes || "",
+        recommendations: generateRecommendations(),
+        vinVerification: inspectionData.vinVerification ? {
+          vinNumber: inspectionData.vinVerification.vinNumber || '',
+          vinMatch: (inspectionData.vinVerification.vinMatch as 'yes' | 'no' | 'not_verified') || 'not_verified'
+        } : undefined,
+      };
+
+      if (vehicleData.inspection?.accessToken) {
+        const response = await api.savePendingInspection(vehicleData.inspection.accessToken, formattedData);
+        
+        if (response.success) {
+          toast({
+            title: "Inspection Saved",
+            description: "Your progress has been saved. You can return to complete the inspection later.",
+          });
+          
+          // Clear localStorage after successful save
+          if (inspectionToken) {
+            clearInspectionData(inspectionToken);
+          }
+          
+          setTimeout(() => {
+            window.location.href = "/inspector/dashboard";
+          }, 2000);
+        } else {
+          throw new Error(response.error || 'Failed to save inspection');
+        }
+      }
+    } catch (error) {
+      console.error("Error saving pending inspection:", error);
+      const errorMessage = typeof error === 'object' && error !== null && 'message' in error
+        ? String(error.message)
+        : 'An unexpected error occurred';
+        
+      toast({
+        title: "Error",
+        description: `Failed to save inspection: ${errorMessage}`,
+        variant: "destructive",
       });
+    } finally {
+      setIsSavingPending(false);
+    }
+  };
+
+  // Handle reset form
+  const handleResetForm = () => {
+    setInspectionData({});
+    if (inspectionToken) {
+      clearInspectionData(inspectionToken);
+    }
+    toast({
+      title: "Form Reset",
+      description: "All form data has been cleared.",
     });
+  };
+
+  const handleSubmitInspection = async () => {
+    // Check if form is complete
+    if (!isFormComplete()) {
+      toast({
+        title: "Incomplete Form",
+        description: "Please complete all required fields before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     
@@ -1437,18 +1573,6 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
       return total + calculateSectionMaxScore(section);
     }, 0);
   };
-  const generateRecommendations = () => {
-    const recommendations: string[] = [];
-    
-    inspectionSections.forEach((section) => {
-      const rating = calculateSectionRating(section.id);
-      if (rating <= 2) {
-        recommendations.push(`Address issues in ${section.name.toLowerCase()}`);
-      }
-    });
-    
-    return recommendations;
-  };
 
   const renderQuestion = (sectionId: string, question: typeof inspectionSections[0]['questions'][0]) => {
     const currentAnswer = inspectionData[sectionId]?.questions?.[question.id]?.answer;
@@ -1456,13 +1580,134 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     const currentPhotos = inspectionData[sectionId]?.questions?.[question.id]?.photos || [];
 
     return (
-      <div key={question.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-6">
+      <div 
+        key={question.id} 
+        className={`bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-6 ${
+          question.type === 'photo' ? 'col-span-1 lg:col-span-2' : ''
+        }`}
+      >
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <Label className="text-base font-semibold text-gray-900 flex items-center gap-2">
               {question.question}
               {question.required && <span className="text-red-500 text-lg">*</span>}
             </Label>
+            
+            {/* Special help guide for frame condition question */}
+            {question.id === "frame_condition" && (
+              <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-blue-800 mb-2">Key Areas to Check</h4>
+                    <ul className="list-disc pl-5 text-sm text-blue-700 space-y-1">
+                      <li>Front and rear sub-frames and crossmembers</li>
+                      <li>Inner rocker panels and floor-pan seams</li>
+                      <li>Suspension mounting points and weld joints</li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-semibold text-blue-800 mb-2">What to Look For</h4>
+                    <ul className="list-disc pl-5 text-sm text-blue-700 space-y-1">
+                      <li>Surface rust – light orange or brown film that flakes off with a fingernail</li>
+                      <li>Pitting or scaling – deeper rust that leaves rough indentations</li>
+                      <li>Structural damage – cracks, bends, holes, or missing metal</li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-semibold text-blue-800 mb-2">Rate It</h4>
+                    <ul className="list-disc pl-5 text-sm text-blue-700 space-y-1">
+                      <li><span className="font-medium">Excellent</span> – original paint, no rust or dents</li>
+                      <li><span className="font-medium">Good</span> – minor surface rust, no pitting</li>
+                      <li><span className="font-medium">Fair</span> – scattered pitting or small dents, no structural compromise</li>
+                      <li><span className="font-medium">Poor</span> – significant rust, scaling, or visible holes; frame still intact</li>
+                      <li><span className="font-medium">Very Poor</span> – cracks, severe bends, or missing sections that weaken integrity</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Special help guide for modified suspension question */}
+            {question.id === "modified_suspension" && (
+              <div className="mt-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-green-800 mb-2">How to spot a suspension modification</h4>
+                  </div>
+                  
+                  <div>
+                    <h5 className="font-medium text-green-700 mb-2">Visual clues</h5>
+                    <ul className="list-disc pl-5 text-sm text-green-700 space-y-1">
+                      <li>Non-OEM coilovers or brightly colored springs (often red, yellow, blue)</li>
+                      <li>Lift blocks, spacers, or aftermarket strut assemblies</li>
+                      <li>Air-bag tanks, compressors, or air lines near wheel wells</li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h5 className="font-medium text-green-700 mb-2">Ride height check</h5>
+                    <ul className="list-disc pl-5 text-sm text-green-700 space-y-1">
+                      <li>Compare front and rear wheel-arch gaps—uneven gaps can signal a lift or drop</li>
+                      <li>Measure ground clearance if stock specs are known</li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h5 className="font-medium text-green-700 mb-2">Component branding</h5>
+                    <ul className="list-disc pl-5 text-sm text-green-700 space-y-1">
+                      <li>Look for logos (Bilstein, Eibach, Rough Country, etc.) on shocks, control arms, or sway bars</li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h5 className="font-medium text-green-700 mb-2">Welds or hardware changes</h5>
+                    <ul className="list-disc pl-5 text-sm text-green-700 space-y-1">
+                      <li>Fresh weld marks, aftermarket brackets, or oversized bolts usually indicate prior alterations</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Special help guide for undercarriage photos */}
+            {question.id === "undercarriage_photos" && (
+              <div className="mt-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-orange-800 mb-2">Photo Guidelines for Undercarriage Inspection</h4>
+                  </div>
+                  
+                  <div>
+                    <h5 className="font-medium text-orange-700 mb-2">Wide View – Front-to-Back</h5>
+                    <ul className="list-disc pl-5 text-sm text-orange-700 space-y-1">
+                      <li>Position yourself under the center of the vehicle</li>
+                      <li>Capture the full length of the frame rails, crossmembers, and drivetrain in one shot</li>
+                      <li>Ensure good lighting—use a work light or flash to avoid dark areas</li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h5 className="font-medium text-orange-700 mb-2">Driver-Side Frame Rail</h5>
+                    <ul className="list-disc pl-5 text-sm text-orange-700 space-y-1">
+                      <li>Move to the driver&apos;s side and take a close, angled shot of the frame rail and floor-pan seam</li>
+                      <li>Include any visible rust, dents, or weld points</li>
+                      <li>Keep the camera level so details are clear for review</li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h5 className="font-medium text-orange-700 mb-2">Passenger-Side Frame Rail</h5>
+                    <ul className="list-disc pl-5 text-sm text-orange-700 space-y-1">
+                      <li>Mirror the previous shot on the passenger&apos;s side</li>
+                      <li>Focus on suspension mounts and crossmember junctions</li>
+                      <li>Step back just enough to fit the entire rail section in frame</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1546,26 +1791,59 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
           )}
 
           {question.type === 'rating' && (
-            <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
-              <div className="flex items-center space-x-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() => handleQuestionAnswer(sectionId, question.id, star)}
-                    className={`p-2 rounded-lg transition-all duration-200 ${
-                      star <= (currentAnswer as number || 0) 
-                        ? "text-yellow-500 bg-yellow-100 hover:bg-yellow-200" 
-                        : "text-gray-300 hover:text-yellow-400 hover:bg-yellow-50"
-                    }`}
-                  >
-                    <Star className="h-6 w-6 fill-current" />
-                  </button>
-                ))}
+            <div className="flex flex-col space-y-4 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => handleQuestionAnswer(sectionId, question.id, star)}
+                      className={`p-2 rounded-lg transition-all duration-200 ${
+                        star <= (currentAnswer as number || 0) 
+                          ? "text-yellow-500 bg-yellow-100 hover:bg-yellow-200" 
+                          : "text-gray-300 hover:text-yellow-400 hover:bg-yellow-50"
+                      }`}
+                    >
+                      <Star className="h-6 w-6 fill-current" />
+                    </button>
+                  ))}
+                </div>
+                <span className="text-lg font-semibold text-gray-700 bg-white px-3 py-1 rounded-full border">
+                  {currentAnswer as number || 0}/5
+                </span>
               </div>
-              <span className="text-lg font-semibold text-gray-700 bg-white px-3 py-1 rounded-full border">
-                {currentAnswer as number || 0}/5
-              </span>
+              
+              {/* Special case for interior cleanliness rating descriptions */}
+              {question.id === "interior_cleanliness" && (
+                <div className="mt-2 space-y-2">
+                  <div className={`p-2 rounded-lg border ${(currentAnswer as number) === 1 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <p className={`text-sm ${(currentAnswer as number) === 1 ? 'font-medium text-red-700' : 'text-gray-500'}`}>
+                      <span className="font-semibold">1/5 – Very Dirty:</span> Interior is heavily soiled, with trash, stains, strong odors, or damage to seats or surfaces.
+                    </p>
+                  </div>
+                  <div className={`p-2 rounded-lg border ${(currentAnswer as number) === 2 ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <p className={`text-sm ${(currentAnswer as number) === 2 ? 'font-medium text-orange-700' : 'text-gray-500'}`}>
+                      <span className="font-semibold">2/5 – Dirty:</span> Noticeable mess, surface stains, or debris throughout; requires significant cleaning.
+                    </p>
+                  </div>
+                  <div className={`p-2 rounded-lg border ${(currentAnswer as number) === 3 ? 'bg-yellow-50 border-yellow-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <p className={`text-sm ${(currentAnswer as number) === 3 ? 'font-medium text-yellow-700' : 'text-gray-500'}`}>
+                      <span className="font-semibold">3/5 – Fair:</span> Moderately clean but may have minor stains, dust, or clutter; average wear.
+                    </p>
+                  </div>
+                  <div className={`p-2 rounded-lg border ${(currentAnswer as number) === 4 ? 'bg-lime-50 border-lime-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <p className={`text-sm ${(currentAnswer as number) === 4 ? 'font-medium text-lime-700' : 'text-gray-500'}`}>
+                      <span className="font-semibold">4/5 – Clean:</span> Overall clean with light signs of use; minimal dust or smudges.
+                    </p>
+                  </div>
+                  <div className={`p-2 rounded-lg border ${(currentAnswer as number) === 5 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                    <p className={`text-sm ${(currentAnswer as number) === 5 ? 'font-medium text-green-700' : 'text-gray-500'}`}>
+                      <span className="font-semibold">5/5 – Very Clean:</span> Spotless interior with no visible dirt, stains, or odors; showroom condition.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1593,38 +1871,85 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
 
           {question.type === 'photo' && (
             <div className="space-y-4">
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border-2 border-dashed border-blue-300">
-                <FileUpload
-                  label="Upload Photo"
-                  accept="image/*"
-                  onUpload={(file) => handlePhotoUpload(sectionId, question.id, file)}
-                  showSuccessState={false}
-                />
-              </div>
-              
-              {currentPhotos.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {currentPhotos.map((photo: PhotoData, index: number) => (
-                    <div key={index} className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-400 transition-all duration-200 group">
-                      <Image
-                        src={`${process.env.NEXT_PUBLIC_API_URL}${photo.path}`}
-                        alt={`Photo ${index + 1}`}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                        width={100}
-                        height={100}
-                      />
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                        <p className="text-white text-xs truncate font-medium">
-                          {photo.originalName}
-                        </p>
-                      </div>
-                      <div className="absolute top-2 right-2 bg-white/90 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <Eye className="h-3 w-3 text-gray-600" />
-                      </div>
+              {/* Multiple photo boxes for different angles */}
+              <div className="flex flex-nowrap overflow-x-auto gap-4 pb-4">
+                {getAnglesBySection(sectionId).map(angle => {
+                  // Find if we already have a photo for this angle
+                  const anglePhotoIndex = currentPhotos.findIndex(
+                    photo => photo.originalName.includes(`[${angle.id}]`)
+                  );
+                  const hasPhoto = anglePhotoIndex > -1;
+                  
+                  return (
+                    <div 
+                      key={angle.id} 
+                      className="flex-shrink-0 w-32 md:w-40 lg:w-48"
+                    >
+                      {hasPhoto ? (
+                        <div 
+                          className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden border-2 border-blue-400 group cursor-pointer"
+                          onClick={() => setModalImage(`${process.env.NEXT_PUBLIC_API_URL}${currentPhotos[anglePhotoIndex].path}`)}
+                        >
+                          <Image
+                            src={`${process.env.NEXT_PUBLIC_API_URL}${currentPhotos[anglePhotoIndex].path}`}
+                            alt={angle.label}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            width={100}
+                            height={100}
+                          />
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                            <p className="text-white text-xs truncate font-medium">
+                              {angle.label}
+                            </p>
+                          </div>
+                          <button 
+                            className="absolute top-2 right-2 bg-red-500 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation(); // Prevent triggering the parent onClick
+                              // Remove this photo logic would go here
+                              // For now, we're just showing the UI
+                              handlePhotoRemove(sectionId, question.id, anglePhotoIndex);
+                            }}
+                          >
+                            <XCircle className="h-3 w-3 text-white" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 hover:border-blue-300 transition-all duration-200">
+                          <label 
+                            htmlFor={`upload-${sectionId}-${question.id}-${angle.id}`} 
+                            className="flex flex-col items-center justify-center cursor-pointer aspect-video p-2"
+                          >
+                            <div className="text-gray-500 text-xs font-medium text-center">
+                              <Camera className="h-5 w-5 mx-auto mb-1" />
+                              {angle.label}
+                            </div>
+                            <input
+                              id={`upload-${sectionId}-${question.id}-${angle.id}`}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  // Rename the file to include the angle ID for identification
+                                  const renamedFile = new File(
+                                    [file], 
+                                    `[${angle.id}]_${file.name}`, 
+                                    { type: file.type }
+                                  );
+                                  handlePhotoUpload(sectionId, question.id, renamedFile);
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -1635,6 +1960,11 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
           if (question.type === 'yesno') {
             return currentAnswer === "no";
           } else if (question.type === 'radio') {
+            // Special handling for seat_adjustment question - only show subquestions when "no" is selected
+            if (question.id === "seat_adjustment") {
+              return currentAnswer === "no";
+            }
+            // Default behavior for other radio questions
             return currentAnswer && currentAnswer !== "";
           } else if (question.type === 'checkbox') {
             return Array.isArray(currentAnswer) && currentAnswer.length > 0;
@@ -1648,7 +1978,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
               <p className="text-sm font-semibold text-blue-800 uppercase tracking-wide">Follow-up Questions</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {question.subQuestions.map((subQ: typeof inspectionSections[0]['questions'][0], subIndex: number) => (
+              {question.subQuestions.map((subQ: { id: string; question: string; type: string; options?:  { value: string; label: string; points?: number }[] }, subIndex: number) => (
                 <div key={subIndex} className={`bg-white rounded-lg p-4 border border-gray-200 shadow-sm ${question.subQuestions!.length === 1 ? 'md:col-span-2' : ''}`}>
                   <Label className="text-sm font-medium text-gray-700 mb-3 block">
                     {subQ.question}
@@ -1700,7 +2030,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
 
                   {subQ.type === 'checkbox' && 'options' in subQ && subQ.options && (
                     <div className="space-y-2">
-                      {subQ.options.map((option) => (
+                      {subQ.options.map((option: { value: string; label: string; points?: number }) => (
                         <div key={option.value} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
                           <Checkbox
                             id={`${subQ.id}-${option.value}`}
@@ -1735,33 +2065,34 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
           </div>
         )}
 
-        {/* Notes */}
-        <div className="mt-6">
-          <Label className="text-sm font-medium text-gray-700 mb-2 block">Additional Notes</Label>
-          <Textarea
-            value={currentNotes || ""}
-            onChange={(e) => setInspectionData(prev => ({
-              ...prev,
-              [sectionId]: {
-                ...prev[sectionId],
-                questions: {
-                  ...prev[sectionId]?.questions,
-                  [question.id]: {
-                    ...prev[sectionId]?.questions?.[question.id],
-                    notes: e.target.value
+        {/* Notes - Keep notes for non-photo questions */}
+        {question.type !== 'photo' && (
+          <div className="mt-6">
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">Additional Notes</Label>
+            <Textarea
+              value={currentNotes || ""}
+              onChange={(e) => setInspectionData(prev => ({
+                ...prev,
+                [sectionId]: {
+                  ...prev[sectionId],
+                  questions: {
+                    ...prev[sectionId]?.questions,
+                    [question.id]: {
+                      ...prev[sectionId]?.questions?.[question.id],
+                      notes: e.target.value
+                    }
                   }
                 }
-              }
-            }))}
-            placeholder="Add any additional notes or observations..."
-            rows={3}
-            className="border-2 border-gray-200 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 rounded-lg resize-none"
-          />
-        </div>
+              }))}
+              placeholder="Add any additional notes or observations..."
+              rows={3}
+              className="border-2 border-gray-200 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 rounded-lg resize-none"
+            />
+          </div>
+        )}
       </div>
     );
   };
-
 
   // Handle marking section as complete with localStorage persistence
   const handleMarkSectionComplete = (sectionId: string) => {
@@ -2219,10 +2550,10 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
         </div>
 
         {/* Submit Button */}
-        <div className="mt-12 flex justify-center">
+        <div className="mt-12 flex justify-center space-x-4">
           <Button
             onClick={handleSubmitInspection}
-            disabled={isSubmitting || !vinVerificationComplete || inspectionData.vinVerification?.vinMatch === 'no'}
+            disabled={isSubmitting || !isFormComplete()}
             className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             {isSubmitting ? (
@@ -2237,8 +2568,64 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
               </>
             )}
           </Button>
+          
+          <Button
+            onClick={handleSaveAndClose}
+            disabled={isSavingPending}
+            variant="outline"
+            className="border-blue-500 text-blue-600 hover:bg-blue-50 px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+          >
+            {isSavingPending ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
+                Saving...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-5 w-5 mr-2" />
+                Save and Close
+              </>
+            )}
+          </Button>
+          
+          <Button
+            onClick={handleResetForm}
+            variant="outline"
+            className="border-gray-500 text-gray-600 hover:bg-gray-50 px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+          >
+            <RefreshCw className="h-5 w-5 mr-2" />
+            Reset Form
+          </Button>
         </div>
       </div>
+      
+      {/* Image Modal/Popup */}
+      {modalImage && (
+        <div 
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+          onClick={() => setModalImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-lg">
+            <Image
+              src={modalImage}
+              alt="Full size preview"
+              className="w-full h-auto object-contain max-h-[90vh]"
+              width={1200}
+              height={800}
+            />
+            <button 
+              className="absolute top-2 right-2 bg-black/50 p-2 rounded-full text-white hover:bg-black/80 transition-colors"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setModalImage(null);
+              }}
+            >
+              <XCircle className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 

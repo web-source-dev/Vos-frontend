@@ -53,6 +53,7 @@ interface InspectionSection {
   maxScore?: number
   photos?: Photo[]
   questions?: Question[]
+  completed?: boolean
 }
 
 interface SafetyIssue {
@@ -782,6 +783,72 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Pending Inspection Details */}
+      {getInspectionStatus() === 'in-progress' && (
+        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-full">
+                <Clock className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <CardTitle className="text-blue-800">Inspection In Progress</CardTitle>
+                <CardDescription className="text-blue-600">
+                  Vehicle inspection is currently being conducted
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          
+          <CardContent className="space-y-6">
+            <div className="bg-white rounded-lg p-4 border border-blue-200">
+              <div className="flex items-center gap-3 mb-3">
+                <User className="h-5 w-5 text-blue-600" />
+                <h4 className="font-semibold text-gray-800">Inspector Information</h4>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">Inspector:</span>
+                  <span className="ml-2 font-medium text-gray-800">
+                    {vehicleData.inspection?.inspector.firstName} {vehicleData.inspection?.inspector.lastName}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Contact:</span>
+                  <span className="ml-2 font-medium text-gray-800">
+                    {vehicleData.inspection?.inspector.email} <br />
+                    {vehicleData.inspection?.inspector.phone}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Status:</span>
+                  <span className="ml-2 font-medium text-blue-600">
+                    In Progress
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Progress:</span>
+                  <span className="ml-2 font-medium text-gray-800">
+                    {vehicleData.inspection?.sections?.filter(s => s.completed).length || 0} of {vehicleData.inspection?.sections?.length || 0} sections completed
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Info className="h-5 w-5 text-blue-600" />
+                <h4 className="font-semibold text-blue-800">Inspection Progress</h4>
+              </div>
+              <p className="text-sm text-blue-700">
+                The inspector has started the vehicle inspection but has not completed all required sections yet. 
+                The inspection will be available for review once it&apos;s fully completed.
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}

@@ -67,6 +67,7 @@ interface CaseData {
   completion?: CompletionData
   status?: string
   currentStage?: number
+  stageStatuses?: { [key: number]: string }
 }
 
 interface CompletionProps {
@@ -326,6 +327,26 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
       onUpdate({
         ...response.data?.case as CaseData
       })
+
+      // Update stage statuses to mark stage 7 as complete
+      const currentStageStatuses = vehicleData.stageStatuses || {};
+      const stageData = {
+        currentStage: vehicleData.currentStage || 8, // Preserve current stage or default to 8
+        stageStatuses: {
+          ...currentStageStatuses,
+          7: 'complete' // Mark stage 7 (Completion) as complete
+        }
+      };
+      
+      // Update stage statuses in the database
+      if (caseId) {
+        try {
+          await api.updateCaseStageByCaseId(caseId, stageData);
+          console.log('Successfully updated stage statuses');
+        } catch (error) {
+          console.error('Failed to update stage statuses:', error);
+        }
+      }
 
       toast({
         title: "Case Completed",

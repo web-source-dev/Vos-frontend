@@ -276,6 +276,7 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
             vehicleData={caseData}
             onUpdate={updateCaseData}
             onComplete={() => advanceToStage(6)}
+            onStageChange={setCurrentStage}
             isEstimator={isEstimator}
           />
         )

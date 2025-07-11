@@ -217,6 +217,18 @@ export async function submitInspection(
   return handleResponse<Inspection>(response);
 }
 
+export async function savePendingInspection(
+  token: string,
+  inspectionData: Partial<Inspection>
+): Promise<APIResponse<Inspection>> {
+  const response = await fetch(`${API_BASE_URL}/api/inspection/${token}/pending`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(inspectionData),
+  });
+  return handleResponse<Inspection>(response);
+}
+
 export async function assignEstimator(
   caseId: string,
   estimatorData: { firstName: string; lastName: string; email: string; phone?: string }
@@ -388,22 +400,7 @@ export async function getCurrentUser(): Promise<APIResponse<User>> {
   return handleResponse<User>(response);
 }
 
-// Veriff API functions
-export async function createVeriffSession(personData: Record<string, unknown>): Promise<APIResponse<{ id: string; url: string; status: string }>> {
-  const options = await defaultOptions();
-  const response = await fetch(`${API_BASE_URL}/api/veriff/session`, {
-    ...options,
-    method: 'POST',
-    body: JSON.stringify(personData)
-  });
-  return handleResponse<{ id: string; url: string; status: string }>(response);
-}
 
-export async function getVeriffSessionStatus(sessionId: string): Promise<APIResponse<{ sessionId: string; status: string; person: Record<string, unknown>; document: Record<string, unknown> }>> {
-  const options = await defaultOptions();
-  const response = await fetch(`${API_BASE_URL}/api/veriff/session/${sessionId}`, options);
-  return handleResponse<{ sessionId: string; status: string; person: Record<string, unknown>; document: Record<string, unknown> }>(response);
-}
 
 export async function uploadDocument(file: File): Promise<APIResponse<{ path: string }>> {
   console.log('Uploading document:', file.name);
@@ -851,19 +848,43 @@ export async function getVehicleSpecs(vin: string): Promise<APIResponse<{
   engine?: string;
   transmission?: string;
 }>> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/vehicle/specs/${vin}`, {
-      ...await defaultOptions(),
-      method: 'GET',
-      headers: {
-        ...(await getAuthHeaders()),
-      },
-    });
+  const response = await fetch(`${API_BASE_URL}/api/vehicle/specs/${vin}`, {
+    method: 'GET',
+    headers: await getAuthHeaders(),
+  });
+  return handleResponse<{
+    year: string;
+    make: string;
+    model: string;
+    trim?: string;
+    body_style?: string;
+    exterior_color?: string;
+    engine?: string;
+    transmission?: string;
+  }>(response);
+}
 
-    return await handleResponse(response);
-  } catch (error) {
-    return handleError(error);
-  }
+export async function getVehicleMakesAndModels(): Promise<APIResponse<{
+  makes: string[];
+  models: { [key: string]: string[] };
+}>> {
+  const response = await fetch(`${API_BASE_URL}/api/vehicle/makes-models`, {
+    method: 'GET',
+    headers: await getAuthHeaders(),
+  });
+  return handleResponse<{
+    makes: string[];
+    models: { [key: string]: string[] };
+  }>(response);
+}
+
+export async function saveCustomVehicle(make: string, model: string): Promise<APIResponse<{ make: string; model: string }>> {
+  const response = await fetch(`${API_BASE_URL}/api/vehicle/custom`, {
+    method: 'POST',
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({ make, model }),
+  });
+  return handleResponse<{ make: string; model: string }>(response);
 }
 
 const api = {
@@ -883,6 +904,7 @@ const api = {
   getInspectionByToken,
   getInspectorInspections,
   submitInspection,
+  savePendingInspection,
   assignEstimator,
   getQuoteByToken,
   submitQuote,
@@ -911,9 +933,7 @@ const api = {
   saveCompletionData,
   getAnalytics,
   
-  // Veriff functions
-  createVeriffSession,
-  getVeriffSessionStatus,
+
   
   // Signing functions
   createBillOfSaleSigningRequest,
@@ -924,6 +944,8 @@ const api = {
   
   // New function
   getVehicleSpecs,
+  getVehicleMakesAndModels,
+  saveCustomVehicle,
 };
 
 export default api;

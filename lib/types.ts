@@ -266,3 +266,49 @@ export interface AuthResponse {
   user?: User;
   error?: string;
 }
+
+export interface Transaction {
+  billOfSale?: {
+    sellerName?: string;
+    sellerAddress?: string;
+    sellerCity?: string;
+    sellerState?: string;
+    sellerZip?: string;
+    sellerPhone?: string;
+    sellerEmail?: string;
+    sellerDLNumber?: string;
+    sellerDLState?: string;
+    vehicleVIN?: string;
+    vehicleYear?: string;
+    vehicleMake?: string;
+    vehicleModel?: string;
+    vehicleMileage?: string;
+    vehicleColor?: string;
+    vehicleBodyStyle?: string;
+    vehicleTitleNumber?: string;
+    vehicleLicensePlate?: string;
+    vehicleLicenseState?: string;
+    saleDate?: string;
+    saleTime?: string;
+    salePrice?: number;
+    paymentMethod?: string;
+    odometerReading?: string;
+    odometerAccurate?: boolean;
+    titleStatus?: string;
+    knownDefects?: string;
+    asIsAcknowledgment?: boolean;
+    sellerDisclosure?: boolean;
+    buyerDisclosure?: boolean;
+    notaryRequired?: boolean;
+    notaryName?: string;
+    notaryCommissionExpiry?: string;
+    witnessName?: string;
+    witnessPhone?: string;
+  };
+  preferredPaymentMethod?: string;
+  documents?: Record<string, string | null>;
+  paymentStatus?: string;
+  submittedAt?: string;
+  completedAt?: string;
+  createdBy?: string;
+}

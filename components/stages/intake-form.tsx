@@ -27,6 +27,10 @@ interface CaseData {
     driverLicenseRear: DocumentDisplay | null
     vehicleTitle: DocumentDisplay | null
   }
+  currentStage?: number
+  stageStatuses?: {
+    [key: number]: 'active' | 'complete' | 'pending'
+  }
 }
 
 interface UserData {
@@ -65,7 +69,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
   const { user, isAuthenticated } = useAuth()
   
   // Vehicle makes and models data
-  const vehicleMakesAndModels = useMemo(() => ({
+  const [vehicleMakesAndModels, setVehicleMakesAndModels] = useState<{ [key: string]: string[] }>({
     "Acura": ["CL", "ILX", "Integra", "Legend", "MDX", "NSX", "RDX", "RL", "RSX", "TL", "TLX", "TSX", "Vigor", "ZDX"],
     "Alfa Romeo": ["4C", "Giulia", "Giulietta", "Stelvio", "Tonale"],
     "Aston Martin": ["DB11", "DB12", "DBS", "Rapide", "Vantage", "Virage"],
@@ -86,7 +90,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
     "Infiniti": ["EX", "FX", "G", "I", "J", "JX", "M", "Q30", "Q40", "Q50", "Q60", "Q70", "QX30", "QX50", "QX60", "QX70", "QX80"],
     "Jaguar": ["E-Pace", "F-Pace", "F-Type", "I-Pace", "S-Type", "X-Type", "XE", "XF", "XJ", "XK"],
     "Jeep": ["Cherokee", "Compass", "Gladiator", "Grand Cherokee", "Liberty", "Patriot", "Renegade", "Wrangler"],
-    "Kia": ["Amanti", "Borrego", "Cadenza", "Carens", "Ceed", "Cerato", "Forte", "K5", "K900", "Magentis", "Mohave", "Niro", "Optima", "Picanto", "ProCeed", "Rio", "Sedona", "Seltos", "Sorento", "Soul", "Spectra", "Sportage", "Stinger", "Telluride"],
+    "Kia": ["Amanti", "Borrego", "Cadenza", "Carens", "Ceed", "Cerato", "Forte", "K5", "K900", "Magentis", "Mohave", "Niro", "Optima", "Picanto", "ProCeed", "Rio", "Sedana", "Seltos", "Sorento", "Soul", "Spectra", "Sportage", "Stinger", "Telluride"],
     "Land Rover": ["Defender", "Discovery", "Discovery Sport", "Evoque", "Freelander", "LR2", "LR3", "LR4", "Range Rover", "Range Rover Evoque", "Range Rover Sport", "Range Rover Velar"],
     "Lexus": ["CT", "ES", "GS", "GX", "HS", "IS", "LC", "LFA", "LS", "LX", "NX", "RC", "RX", "SC", "UX"],
     "Lincoln": ["Aviator", "Continental", "Corsair", "LS", "Mark LT", "MKC", "MKS", "MKT", "MKX", "MKZ", "Navigator", "Town Car", "Zephyr"],
@@ -112,7 +116,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
     "Toyota": ["4Runner", "86", "Avalon", "Camry", "Celica", "Corolla", "Cressida", "Echo", "FJ Cruiser", "Highlander", "Land Cruiser", "Matrix", "MR2", "Prius", "Prius C", "Prius V", "RAV4", "Sequoia", "Sienna", "Solara", "Supra", "Tacoma", "Tercel", "Tundra", "Venza", "Yaris"],
     "Volkswagen": ["Arteon", "Atlas", "Beetle", "CC", "Eos", "Golf", "GTI", "Jetta", "Passat", "Phaeton", "Polo", "Routan", "Tiguan", "Touareg", "Touran"],
     "Volvo": ["C30", "C70", "S40", "S60", "S70", "S80", "S90", "V40", "V50", "V60", "V70", "V90", "XC40", "XC60", "XC70", "XC90"]
-  }), []);
+  });
 
   const [formData, setFormData] = useState<FormData>({
     // Front Office Details
@@ -165,6 +169,11 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
   const [isSaving, setIsSaving] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingVinData, setIsLoadingVinData] = useState(false)
+  const [isLoadingVehicleData, setIsLoadingVehicleData] = useState(false)
+  const [showCustomMake, setShowCustomMake] = useState(false)
+  const [showCustomModel, setShowCustomModel] = useState(false)
+  const [customMake, setCustomMake] = useState('')
+  const [customModel, setCustomModel] = useState('')
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const { toast } = useToast()
 
@@ -259,6 +268,80 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
     }
   }, [vehicleData]);
 
+  // Load vehicle makes and models from API
+  useEffect(() => {
+    const loadVehicleData = async () => {
+      setIsLoadingVehicleData(true);
+      try {
+        const response = await api.getVehicleMakesAndModels();
+        console.log(isLoadingVehicleData);
+        if (response.success && response.data) {
+          setVehicleMakesAndModels(response.data.models);
+        }
+      } catch (error) {
+        console.error('Error loading vehicle data:', error);
+        // Fallback to default data if API fails
+        setVehicleMakesAndModels({
+          'Acura': ['CL', 'ILX', 'Integra', 'Legend', 'MDX', 'NSX', 'RDX', 'RL', 'RSX', 'TL', 'TLX', 'TSX', 'ZDX'],
+          'Alfa Romeo': ['4C', 'Giulia', 'Giulietta', 'Stelvio', 'Tonale'],
+          'Aston Martin': ['DB11', 'DB12', 'DBS', 'Vantage', 'Virage'],
+          'Audi': ['A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'Q3', 'Q4', 'Q5', 'Q7', 'Q8', 'RS', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'TT'],
+          'Bentley': ['Bentayga', 'Continental', 'Flying Spur', 'Mulsanne'],
+          'BMW': ['1 Series', '2 Series', '3 Series', '4 Series', '5 Series', '6 Series', '7 Series', '8 Series', 'i3', 'i4', 'i7', 'i8', 'M2', 'M3', 'M4', 'M5', 'M8', 'X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'X7', 'Z4'],
+          'Buick': ['Cascada', 'Enclave', 'Encore', 'Envision', 'LaCrosse', 'Regal', 'Rendezvous', 'Terraza'],
+          'Cadillac': ['ATS', 'CT4', 'CT5', 'CT6', 'CTS', 'DTS', 'Escalade', 'SRX', 'STS', 'XLR', 'XT4', 'XT5', 'XT6'],
+          'Chevrolet': ['Aveo', 'Blazer', 'Camaro', 'Caprice', 'Captiva', 'Cavalier', 'Cobalt', 'Colorado', 'Corvette', 'Cruze', 'Equinox', 'Express', 'HHR', 'Impala', 'Malibu', 'Monte Carlo', 'Prizm', 'S10', 'Silverado', 'Sonic', 'Spark', 'Suburban', 'Tahoe', 'Tracker', 'TrailBlazer', 'Traverse', 'Trax', 'Uplander', 'Venture'],
+          'Chrysler': ['200', '300', '300M', 'Aspen', 'Cirrus', 'Concorde', 'Crossfire', 'Grand Voyager', 'LHS', 'New Yorker', 'Pacifica', 'PT Cruiser', 'Sebring', 'Town & Country', 'Voyager'],
+          'Citroen': ['C3', 'C4', 'C5'],
+          'Dodge': ['Avenger', 'Caliber', 'Caravan', 'Challenger', 'Charger', 'Dart', 'Durango', 'Grand Caravan', 'Intrepid', 'Journey', 'Magnum', 'Neon', 'Nitro', 'Ram', 'Shadow', 'Spirit', 'Stealth', 'Stratus', 'Viper'],
+          'Ferrari': ['296', '488', '812', 'California', 'F8', 'FF', 'F12', 'GTC4Lusso', 'LaFerrari', 'Portofino', 'Roma', 'SF90'],
+          'Fiat': ['500', '500L', '500X', '124 Spider'],
+          'Ford': ['Bronco', 'Bronco Sport', 'C-Max', 'Contour', 'Crown Victoria', 'EcoSport', 'Edge', 'Escape', 'Expedition', 'Explorer', 'F-150', 'F-250', 'F-350', 'F-450', 'F-550', 'Fiesta', 'Five Hundred', 'Flex', 'Focus', 'Fusion', 'Galaxy', 'GT', 'Ka', 'Kuga', 'Maverick', 'Mondeo', 'Mustang', 'Puma', 'Ranger', 'S-Max', 'Taurus', 'Thunderbird', 'Transit', 'Windstar'],
+          'Genesis': ['G70', 'G80', 'G90', 'GV60', 'GV70', 'GV80'],
+          'GMC': ['Acadia', 'Canyon', 'Envoy', 'Hummer H1', 'Hummer H2', 'Hummer H3', 'Jimmy', 'Safari', 'Savana', 'Sierra', 'Sonoma', 'Terrain', 'Yukon'],
+          'Honda': ['Accord', 'Civic', 'Clarity', 'CR-V', 'CR-Z', 'Element', 'Fit', 'HR-V', 'Insight', 'Odyssey', 'Passport', 'Pilot', 'Prelude', 'Ridgeline', 'S2000'],
+          'Hyundai': ['Accent', 'Azera', 'Elantra', 'Entourage', 'Equus', 'Genesis', 'Ioniq', 'Kona', 'Nexo', 'Palisade', 'Santa Cruz', 'Santa Fe', 'Sonata', 'Tiburon', 'Tucson', 'Veloster', 'Venue', 'Veracruz', 'XG'],
+          'Infiniti': ['EX', 'FX', 'G', 'I', 'J', 'JX', 'M', 'Q30', 'Q40', 'Q50', 'Q60', 'Q70', 'QX30', 'QX50', 'QX55', 'QX60', 'QX70', 'QX80'],
+          'Jaguar': ['E-Pace', 'F-Pace', 'F-Type', 'I-Pace', 'S-Type', 'X-Type', 'XE', 'XF', 'XJ', 'XK'],
+          'Jeep': ['Cherokee', 'Compass', 'Gladiator', 'Grand Cherokee', 'Liberty', 'Patriot', 'Renegade', 'Wrangler'],
+          'Kia': ['Amanti', 'Borrego', 'Cadenza', 'Carens', 'Ceed', 'Cerato', 'Forte', 'K5', 'K900', 'Magentis', 'Mohave', 'Niro', 'Optima', 'Picanto', 'ProCeed', 'Rio', 'Sedana', 'Seltos', 'Sorento', 'Soul', 'Spectra', 'Sportage', 'Stinger', 'Telluride'],
+          'Lamborghini': ['Aventador', 'Countach', 'Diablo', 'Gallardo', 'Huracan', 'Murcielago', 'Reventon', 'Urus', 'Veneno'],
+          'Land Rover': ['Defender', 'Discovery', 'Discovery Sport', 'Evoque', 'Freelander', 'LR2', 'LR3', 'LR4', 'Range Rover', 'Range Rover Sport', 'Range Rover Velar'],
+          'Lexus': ['CT', 'ES', 'GS', 'HS', 'IS', 'LC', 'LFA', 'LS', 'LX', 'NX', 'RC', 'RX', 'SC', 'UX'],
+          'Lincoln': ['Aviator', 'Blackwood', 'Continental', 'Corsair', 'LS', 'Mark LT', 'Mark VIII', 'MKC', 'MKS', 'MKT', 'MKX', 'MKZ', 'Navigator', 'Town Car', 'Zephyr'],
+          'Lotus': ['Elise', 'Europa', 'Evora', 'Exige'],
+          'Maserati': ['Ghibli', 'GranTurismo', 'Levante', 'MC20', 'Quattroporte'],
+          'Mazda': ['2', '3', '5', '6', 'CX-3', 'CX-30', 'CX-5', 'CX-7', 'CX-9', 'MX-30', 'MX-5', 'MX-6', 'Protege', 'RX-7', 'RX-8', 'Tribute'],
+          'McLaren': ['540C', '570S', '600LT', '650S', '675LT', '720S', '750S', '765LT', 'Artura', 'F1', 'GT', 'P1', 'Senna'],
+          'Mercedes-Benz': ['A-Class', 'B-Class', 'C-Class', 'CLA', 'CLS', 'E-Class', 'G-Class', 'GLA', 'GLB', 'GLC', 'GLE', 'GLK', 'GLS', 'M-Class', 'R-Class', 'S-Class', 'SL', 'SLC', 'SLK', 'SLS', 'Sprinter', 'V-Class'],
+          'MINI': ['Clubman', 'Countryman', 'Coupe', 'Hardtop', 'Paceman', 'Roadster'],
+          'Mitsubishi': ['3000GT', 'Diamante', 'Eclipse', 'Endeavor', 'Galant', 'i-MiEV', 'Lancer', 'Mirage', 'Montero', 'Outlander', 'Pajero', 'Raider'],
+          'Nissan': ['350Z', '370Z', 'Altima', 'Armada', 'Frontier', 'GT-R', 'Juke', 'Leaf', 'Maxima', 'Murano', 'NV', 'Pathfinder', 'Quest', 'Rogue', 'Sentra', 'Titan', 'Versa', 'Xterra'],
+          'Oldsmobile': ['Alero', 'Aurora', 'Bravada', 'Cutlass', 'Intrigue', 'Silhouette'],
+          'Peugeot': ['2008', '3008', '5008', '508'],
+          'Pontiac': ['Aztek', 'Bonneville', 'Firebird', 'G3', 'G5', 'G6', 'G8', 'Grand Am', 'Grand Prix', 'GTO', 'Montana', 'Solstice', 'Sunfire', 'Torrent', 'Vibe'],
+          'Porsche': ['911', '918', '924', '928', '944', '968', 'Boxster', 'Cayenne', 'Cayman', 'Macan', 'Panamera', 'Taycan'],
+          'Ram': ['1500', '2500', '3500', 'ProMaster', 'ProMaster City'],
+          'Renault': ['Clio', 'Megane', 'Zoe'],
+          'Rolls-Royce': ['Cullinan', 'Dawn', 'Ghost', 'Phantom', 'Wraith'],
+          'Saab': ['9-3', '9-5', '9-7X'],
+          'Saturn': ['Aura', 'Ion', 'Outlook', 'Relay', 'Sky', 'Vue'],
+          'Scion': ['FR-S', 'iA', 'iM', 'iQ', 'tC', 'xA', 'xB', 'xD'],
+          'Subaru': ['Ascent', 'BRZ', 'Crosstrek', 'Forester', 'Impreza', 'Legacy', 'Outback', 'SVX', 'Tribeca', 'WRX', 'XV'],
+          'Suzuki': ['Aerio', 'Equator', 'Forenza', 'Grand Vitara', 'Kizashi', 'Reno', 'SX4', 'Verona', 'XL-7'],
+          'Tesla': ['Model 3', 'Model S', 'Model X', 'Model Y', 'Roadster'],
+          'Toyota': ['4Runner', '86', 'Avalon', 'Camry', 'Celica', 'Corolla', 'Cressida', 'Echo', 'FJ Cruiser', 'Highlander', 'Land Cruiser', 'Matrix', 'MR2', 'Paseo', 'Previa', 'Prius', 'Prius C', 'Prius V', 'RAV4', 'Sequoia', 'Sienna', 'Solara', 'Supra', 'Tacoma', 'Tercel', 'Tundra', 'Venza', 'Yaris'],
+          'Volkswagen': ['Arteon', 'Atlas', 'Beetle', 'CC', 'Eos', 'Golf', 'GTI', 'Jetta', 'Passat', 'Phaeton', 'Polo', 'Routan', 'Scirocco', 'Tiguan', 'Touareg', 'Touran'],
+          'Volvo': ['C30', 'C70', 'S40', 'S60', 'S70', 'S80', 'S90', 'V40', 'V50', 'V60', 'V70', 'V90', 'XC40', 'XC60', 'XC70', 'XC90']
+        });
+      } finally {
+        setIsLoadingVehicleData(false);
+      }
+    };
+
+    loadVehicleData();
+  }, []);
+
   // Auto-save changes
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -292,14 +375,105 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
 
   // Handle make selection and reset model
   const handleMakeChange = (make: string) => {
+    if (make === 'other') {
+      setShowCustomMake(true);
+      setFormData((prev) => ({
+        ...prev,
+        vehicle: {
+          ...prev.vehicle,
+          make: '',
+          model: "", // Reset model when make changes
+        },
+      }));
+    } else {
+      setShowCustomMake(false);
+      setCustomMake('');
+      setFormData((prev) => ({
+        ...prev,
+        vehicle: {
+          ...prev.vehicle,
+          make: make,
+          model: "", // Reset model when make changes
+        },
+      }));
+    }
+  };
+
+  const handleCustomMakeChange = (value: string) => {
+    setCustomMake(value);
     setFormData((prev) => ({
       ...prev,
       vehicle: {
         ...prev.vehicle,
-        make: make,
+        make: value,
         model: "", // Reset model when make changes
       },
     }));
+  };
+
+  const handleModelChange = (model: string) => {
+    if (model === 'other') {
+      setShowCustomModel(true);
+      setFormData((prev) => ({
+        ...prev,
+        vehicle: {
+          ...prev.vehicle,
+          model: ''
+        },
+      }));
+    } else {
+      setShowCustomModel(false);
+      setCustomModel('');
+      setFormData((prev) => ({
+        ...prev,
+        vehicle: {
+          ...prev.vehicle,
+          model
+        },
+      }));
+    }
+  };
+
+  const handleCustomModelChange = (value: string) => {
+    setCustomModel(value);
+    setFormData((prev) => ({
+      ...prev,
+      vehicle: {
+        ...prev.vehicle,
+        model: value
+      },
+    }));
+  };
+
+  const saveCustomVehicle = async (make: string, model: string) => {
+    try {
+      const response = await api.saveCustomVehicle(make, model);
+      if (response.success) {
+        // Update the local state with the new make/model
+        if (!vehicleMakesAndModels[make]) {
+          setVehicleMakesAndModels(prev => ({
+            ...prev,
+            [make]: [model]
+          }));
+        } else if (!vehicleMakesAndModels[make].includes(model)) {
+          setVehicleMakesAndModels(prev => ({
+            ...prev,
+            [make]: [...prev[make], model].sort()
+          }));
+        }
+        toast({
+          title: "Custom vehicle saved",
+          description: `${make} ${model} has been added to the vehicle database for future use.`,
+        });
+      }
+    } catch (error) {
+      console.error('Error saving custom vehicle:', error);
+      toast({
+        title: "Error saving vehicle",
+        description: "Failed to save custom vehicle. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Get available models for selected make
@@ -428,6 +602,11 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
     try {
       setIsSubmitting(true)
 
+      // Save custom vehicle if it was used
+      if (showCustomMake && customMake && formData.vehicle.make === customMake) {
+        await saveCustomVehicle(customMake, formData.vehicle.model);
+      }
+
       const caseData = {
         customer: formData.customer,
         vehicle: formData.vehicle,
@@ -451,7 +630,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
         // Create new case
         response = await api.createCustomerCase(caseData);
         if (response.success && response.data) {
-          caseId = response.data._id;
+          caseId = (response.data as unknown as { _id: string })._id;
         }
       }
 
@@ -460,12 +639,13 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
         if (response.data) {
           onUpdate(response.data as CaseData);
           
-          // Update the case stage to 2 (Schedule Inspection)
-          if (caseId) {
+          // For new cases, mark stage 1 as complete and advance to stage 2
+          if (caseId && !vehicleData?._id) {
             const stageData = {
               currentStage: 2,
               stageStatuses: {
-                1: 'complete' // Mark stage 1 (Intake) as complete
+                1: 'complete', // Mark stage 1 (Intake) as complete
+                2: 'active'    // Mark stage 2 (Schedule Inspection) as active
               }
             };
             
@@ -479,6 +659,33 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
               }
             } else {
               console.error('Failed to update case stage:', stageResponse.error);
+            }
+          } else if (caseId && vehicleData?._id) {
+            // For existing cases, preserve all existing stage progress and just ensure stage 1 is marked complete
+            const currentStage = vehicleData.currentStage || 1;
+            const currentStageStatuses = vehicleData.stageStatuses || {};
+            
+            // Only update if stage 1 is not already complete
+            if (currentStageStatuses[1] !== 'complete') {
+              const stageData = {
+                currentStage: currentStage, // Preserve current stage
+                stageStatuses: {
+                  ...currentStageStatuses,
+                  1: 'complete' // Ensure stage 1 is marked complete
+                }
+              };
+              
+              const stageResponse = await api.updateCaseStageByCaseId(caseId, stageData);
+              
+              if (stageResponse.success) {
+                console.log('Successfully preserved case stage progress');
+                // If we have updated stage data, update the UI with it
+                if (stageResponse.data) {
+                  onUpdate(stageResponse.data as CaseData);
+                }
+              } else {
+                console.error('Failed to update case stage:', stageResponse.error);
+              }
             }
           }
         }
@@ -701,7 +908,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
                   <TooltipTrigger asChild>
                     <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
+                  <TooltipContent side="top" className="max-w-xs">
                     <p className="text-sm">Select the current title status of the vehicle</p>
                   </TooltipContent>
                 </Tooltip>
@@ -721,7 +928,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
                         <TooltipTrigger asChild>
                           <HelpCircle className="h-3 w-3 text-muted-foreground ml-2 cursor-help" />
                         </TooltipTrigger>
-                        <TooltipContent side="right" className="max-w-xs">
+                        <TooltipContent side="bottom right" className="max-w-xs">
                           <p className="text-sm">The vehicle has never been in a major accident and holds a standard title with no damage history.</p>
                         </TooltipContent>
                       </Tooltip>
@@ -832,18 +1039,6 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
                     onCheckedChange={(value) => handleInputChange("vehicle", "titleInOwnName", value)}
                   />
                 </div>
-                
-                {formData.vehicle.titleInOwnName && (
-                  <div className="space-y-2">
-                    <Label htmlFor="titleNumber">Title Number</Label>
-                    <Input
-                      id="titleNumber"
-                      value={formData.vehicle.titleNumber || ""}
-                      onChange={(e) => handleInputChange("vehicle", "titleNumber", e.target.value)}
-                      placeholder="Enter title number"
-                    />
-                  </div>
-                )}
               </div>
             )}
 
@@ -932,14 +1127,25 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
                       {make}
                     </SelectItem>
                   ))}
+                  <SelectItem value="other">Other (Custom)</SelectItem>
                 </SelectContent>
               </Select>
+              {showCustomMake && (
+                <div className="mt-2">
+                  <Input
+                    placeholder="Enter custom make"
+                    value={customMake}
+                    onChange={(e) => handleCustomMakeChange(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="vehicleModel">Model *</Label>
               <Select
                 value={formData.vehicle.model}
-                onValueChange={(value) => handleInputChange("vehicle", "model", value)}
+                onValueChange={(value) => handleModelChange(value)}
                 disabled={!formData.vehicle.make}
               >
                 <SelectTrigger>
@@ -951,8 +1157,19 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
                       {model}
                     </SelectItem>
                   ))}
+                  <SelectItem value="other">Other (Custom)</SelectItem>
                 </SelectContent>
               </Select>
+              {showCustomModel && (
+                <div className="mt-2">
+                  <Input
+                    placeholder="Enter custom model"
+                    value={customModel}
+                    onChange={(e) => handleCustomModelChange(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Estimated value field (auto-populated from API) */}

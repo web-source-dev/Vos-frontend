@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useToast } from "@/hooks/use-toast"
-import { DollarSign, FileText, CheckCircle, Edit, RefreshCw } from "lucide-react"
+import { DollarSign, FileText, CheckCircle, Edit, RefreshCw, Info } from "lucide-react"
 import api from '@/lib/api'
 
 // TypeScript interfaces for quote preparation data
@@ -59,6 +60,8 @@ interface CaseData {
   quote?: QuoteData
   createdAt?: string
   updatedAt?: string
+  stageStatuses?: { [key: number]: string }
+  currentStage?: number
 }
 
 interface QuotePreparationProps {
@@ -242,6 +245,28 @@ export function QuotePreparation({
           ...vehicleData,
           quote: response.data as unknown as QuoteData,
         })
+
+        // Update stage statuses to mark stage 4 as complete and stage 5 as active
+        const currentStageStatuses = vehicleData.stageStatuses || {};
+        const stageData = {
+          currentStage: vehicleData.currentStage || 5, // Preserve current stage or default to 5
+          stageStatuses: {
+            ...currentStageStatuses,
+            4: 'complete', // Mark stage 4 (Quote Preparation) as complete
+            5: 'active'    // Mark stage 5 (Offer Decision) as active
+          }
+        };
+        
+        // Update stage statuses in the database
+        const caseId = vehicleData.id || vehicleData._id;
+        if (caseId) {
+          try {
+            await api.updateCaseStageByCaseId(caseId, stageData);
+            console.log('Successfully updated stage statuses');
+          } catch (error) {
+            console.error('Failed to update stage statuses:', error);
+          }
+        }
 
         toast({
           title: isUpdating ? "Quote Updated" : "Quote Created",
@@ -463,7 +488,23 @@ export function QuotePreparation({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="expiryDate">Quote Expiry Date *</Label>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="expiryDate">Quote Expiry Date *</Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">
+                      <Info className="h-3 w-3 text-blue-600" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-sm">
+                      All quotes are valid for 48 hours from the time they&apos;re issued. If not accepted within that window, a new inspection may be required and the quote is subject to change based on updated vehicle condition.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <Input
               id="expiryDate"
               type="date"

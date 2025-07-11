@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { FileText, CreditCard, Upload, CheckCircle, X, Camera, Send, FileSignature, Info, Loader2 } from "lucide-react"
+import { FileText, CreditCard, Upload, CheckCircle, X, Send, FileSignature, Info, Loader2 } from "lucide-react"
 import api from '@/lib/api'
 import Image from "next/image"
 import { 
@@ -25,7 +25,6 @@ import { formatDate } from "@/lib/utils"
 import {  pdfjs } from 'react-pdf'
 import dynamic from 'next/dynamic'
 
-import { VeriffResult, VeriffSessionResponse } from '@/lib/veriff-types';
 import { Customer, Vehicle, Quote } from "@/lib/types";
 
 // Dynamically import react-signature-canvas to avoid SSR issues
@@ -44,8 +43,7 @@ interface OfferDecisionData {
 
 interface TransactionData {
   billOfSale?: BillOfSaleData
-  bankDetails?: BankDetailsData
-  taxInfo?: TaxInfoData
+  preferredPaymentMethod?: string
   documents?: DocumentData
   paymentStatus?: string
   submittedAt?: string
@@ -89,34 +87,8 @@ interface BillOfSaleData {
   witnessPhone?: string
 }
 
-interface BankDetailsData {
-  accountHolderName?: string
-  routingNumber?: string
-  accountNumber?: string
-  accountType?: string
-  bankName?: string
-  bankPhone?: string
-  accountOpenedDate?: string
-  electronicConsentAgreed?: boolean
-}
-
-interface TaxInfoData {
-  ssn?: string
-  taxId?: string
-  reportedIncome?: boolean
-  form1099Agreed?: boolean
-}
-
 interface DocumentData {
   [key: string]: string | null
-}
-
-interface TransactionData {
-  billOfSale?: BillOfSaleData
-  bankDetails?: BankDetailsData
-  taxInfo?: TaxInfoData
-  documents?: DocumentData
-  paymentStatus?: string
 }
 
 interface CaseData {
@@ -129,6 +101,9 @@ interface CaseData {
   transaction?: TransactionData;
   currentStage?: number;
   status?: string;
+  stageStatuses?: {
+    [key: number]: 'active' | 'complete' | 'pending';
+  };
 }
 
 interface PaperworkProps {
@@ -141,9 +116,6 @@ interface PaperworkProps {
 }
 
 export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,isAgent = false, isEstimator = false }: PaperworkProps) {
-  const [verificationStatus, setVerificationStatus] = useState<'pending' | 'approved' | 'declined' | 'error'>('pending')
-  const [isVerifying, setIsVerifying] = useState(false)
-  const veriffContainerRef = useRef<HTMLDivElement>(null)
   const [documentSigned, setDocumentSigned] = useState(false)
   
   const [billOfSale, setBillOfSale] = useState({
@@ -202,48 +174,19 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
     witnessPhone: "",
   })
 
-  const [bankDetails, setBankDetails] = useState({
-    accountHolderName: "",
-    routingNumber: "",
-    accountNumber: "",
-    accountType: "checking",
-    bankName: "",
-    bankPhone: "",
-    accountOpenedDate: "",
-    electronicConsentAgreed: false,
-  })
-
-  const [taxInfo, setTaxInfo] = useState({
-    ssn: "",
-    taxId: "",
-    reportedIncome: false,
-    form1099Agreed: false,
-  })
-
   const [documentsUploaded, setDocumentsUploaded] = useState<{
     [key: string]: boolean;
   }>({
-    idRescan: false,
     signedBillOfSale: false,
-    titlePhoto: false,
-    insuranceDeclaration: false,
-    sellerSignature: false,
-    additionalDocument: false,
   })
 
   const [documentPreviews, setDocumentPreviews] = useState<{
     [key: string]: string | null;
   }>({
-    idRescan: null,
     signedBillOfSale: null,
-    titlePhoto: null,
-    insuranceDeclaration: null,
-    sellerSignature: null,
-    additionalDocument: null,
   })
 
   const [paymentStatus, setPaymentStatus] = useState("pending") // pending, processing, completed
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [hasExistingData, setHasExistingData] = useState(false)
@@ -287,6 +230,8 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
     signedDocumentUrl?: string;
     signedAt?: string;
   } | null>(null);
+
+  const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<string>("Wire");
 
   // Set up PDF.js worker
   pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
@@ -336,20 +281,13 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
         saleTime: new Date().toTimeString().split(" ")[0].slice(0, 5), // Always set current time
       }
 
-      // Pre-populate bank details with current date for account opened
-      const prePopulatedBankDetails = {
-        accountOpenedDate: new Date().toISOString().slice(0, 7), // Current year-month
-      }
-
       if (vehicleData.transaction?.billOfSale) {
         // Override with existing transaction data, but preserve pre-populated data for missing fields
         setBillOfSale(prev => {
-          // Create a properly typed object with all properties from the existing state
           return {
             ...prev,
-            ...prePopulatedBillOfSale,
-            ...(vehicleData.transaction?.billOfSale || {}),
-            // Ensure these fields are always populated with strings to avoid type errors
+            ...Object.fromEntries(Object.entries(prePopulatedBillOfSale).map(([k, v]) => [k, v ?? ""])),
+            ...Object.fromEntries(Object.entries(vehicleData.transaction?.billOfSale || {}).map(([k, v]) => [k, v ?? ""])),
             vehicleVIN: vehicleData.vehicle?.vin || vehicleData.transaction?.billOfSale?.vehicleVIN || "",
             vehicleYear: vehicleData.vehicle?.year || vehicleData.transaction?.billOfSale?.vehicleYear || "",
             vehicleMake: vehicleData.vehicle?.make || vehicleData.transaction?.billOfSale?.vehicleMake || "",
@@ -361,10 +299,10 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
             vehicleTitleNumber: vehicleData.vehicle?.titleNumber || vehicleData.transaction?.billOfSale?.vehicleTitleNumber || "",
             saleDate: vehicleData.transaction?.billOfSale?.saleDate || new Date().toISOString().split("T")[0],
             saleTime: vehicleData.transaction?.billOfSale?.saleTime || new Date().toTimeString().split(" ")[0].slice(0, 5),
-            // Set default values for all required properties to avoid type errors
             titleStatus: vehicleData.transaction?.billOfSale?.titleStatus || vehicleData.vehicle?.titleStatus || "clean",
             odometerReading: vehicleData.transaction?.billOfSale?.odometerReading || vehicleData.vehicle?.currentMileage || "",
             odometerAccurate: vehicleData.transaction?.billOfSale?.odometerAccurate ?? true,
+            knownDefects: vehicleData.transaction?.billOfSale?.knownDefects || vehicleData.vehicle?.knownDefects || "",
           };
         });
         setHasExistingData(true)
@@ -373,8 +311,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
         setBillOfSale(prev => {
           return {
             ...prev,
-            ...prePopulatedBillOfSale,
-            // Ensure all required fields have string values
+            ...Object.fromEntries(Object.entries(prePopulatedBillOfSale).map(([k, v]) => [k, v ?? ""])),
             vehicleVIN: prePopulatedBillOfSale.vehicleVIN || "",
             vehicleYear: prePopulatedBillOfSale.vehicleYear || "",
             vehicleMake: prePopulatedBillOfSale.vehicleMake || "",
@@ -383,30 +320,10 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
             vehicleColor: prePopulatedBillOfSale.vehicleColor || "",
             vehicleBodyStyle: prePopulatedBillOfSale.vehicleBodyStyle || "",
             titleStatus: prePopulatedBillOfSale.titleStatus || "clean",
+            knownDefects: prePopulatedBillOfSale.knownDefects || "",
+            vehicleTitleNumber: prePopulatedBillOfSale.vehicleTitleNumber || "",
           };
         });
-      }
-
-      if (vehicleData.transaction?.bankDetails) {
-        setBankDetails(prev => ({
-          ...prev,
-          ...prePopulatedBankDetails,
-          ...vehicleData.transaction!.bankDetails,
-          // Ensure account opened date is preserved
-          accountOpenedDate: vehicleData.transaction!.bankDetails!.accountOpenedDate || new Date().toISOString().slice(0, 7),
-        }))
-      } else {
-        setBankDetails(prev => ({
-          ...prev,
-          ...prePopulatedBankDetails
-        }))
-      }
-
-      if (vehicleData.transaction?.taxInfo) {
-        setTaxInfo(prev => ({
-          ...prev,
-          ...vehicleData.transaction!.taxInfo
-        }))
       }
 
       if (vehicleData.transaction?.documents) {
@@ -598,165 +515,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
     }))
   }
 
-  const handleBankDetailsChange = (field: string, value: string | boolean) => {
-    setBankDetails((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
-  }
-
-  const handleTaxInfoChange = (field: string, value: string | boolean) => {
-    setTaxInfo((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
-  }
-
-
-  const handleVeriffVerification = async () => {
-    setIsVerifying(true)
-    setVerificationStatus('pending')
-    
-    try {
-      // Create Veriff session
-      const response = await api.createVeriffSession({
-        person: {
-          givenName: vehicleData.customer?.firstName || 'John',
-          lastName: vehicleData.customer?.lastName || 'Doe',
-          email: vehicleData.customer?.email1 || 'customer@example.com',
-        },
-        document: {
-          type: 'DRIVERS_LICENSE',
-          country: 'US',
-        },
-      })
-
-      if (!response.success) {
-        throw new Error('Failed to create verification session')
-      }
-
-      // Launch Veriff modal using the session URL
-      if (window.Veriff && response.data?.url) {
-        const veriff = window.Veriff({
-          host: 'https://stationapi.veriff.com',
-          parentId: veriffContainerRef.current?.id || 'veriff-container',
-          onSession: function(err: Error | null, response: VeriffSessionResponse) {
-            if (err) {
-              console.error('Veriff session error:', err);
-              setVerificationStatus('error');
-              setIsVerifying(false);
-              toast({
-                title: "Verification Error",
-                description: "Failed to start identity verification.",
-                variant: "destructive",
-              });
-            } else {
-              console.log('Veriff session created:', response);
-            }
-          },
-          onVeriff: (response: VeriffResult) => {
-            console.log('Veriff response:', response);
-            handleVerificationResult(response);
-          },
-        });
-
-        // Set person parameters
-        veriff.setParams({
-          person: {
-            givenName: vehicleData.customer?.firstName || 'John',
-            lastName: vehicleData.customer?.lastName || 'Doe'
-          },
-          vendorData: vehicleData.id || vehicleData._id || 'case_id'
-        });
-
-        // Mount the Veriff widget
-        veriff.mount();
-      }
-    } catch (error) {
-      console.error('Error starting Veriff verification:', error);
-      setVerificationStatus('error');
-      setIsVerifying(false);
-      toast({
-        title: "Verification Error",
-        description: "Failed to start identity verification. Please try again.",
-        variant: "destructive",
-      });
-    }
-  }
-
-  const handleVerificationResult = async (response: VeriffResult) => {
-    try {
-      const resultResponse = await fetch('/api/veriff/result', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sessionId: response.sessionId,
-          verificationData: response,
-        }),
-      });
-
-      if (!resultResponse.ok) {
-        throw new Error('Failed to process verification result');
-      }
-
-      const result = await resultResponse.json();
-      
-      if (result.status === 'approved') {
-        setVerificationStatus('approved');
-        setIsVerifying(false);
-        
-        // Mark ID rescan as uploaded and create a placeholder image
-        setDocumentsUploaded(prev => ({
-          ...prev,
-          idRescan: true
-        }));
-        
-        // Create a placeholder image for the verified ID
-        const placeholderUrl = 'data:image/svg+xml;base64,' + btoa(`
-          <svg width="400" height="128" xmlns="http://www.w3.org/2000/svg">
-            <rect width="100%" height="100%" fill="#f0f9ff"/>
-            <rect x="10" y="10" width="80" height="100" fill="#3b82f6" rx="5"/>
-            <text x="50" y="70" text-anchor="middle" fill="white" font-family="Arial" font-size="12">ID</text>
-            <text x="120" y="40" fill="#1e40af" font-family="Arial" font-size="14" font-weight="bold">Identity Verified</text>
-            <text x="120" y="60" fill="#64748b" font-family="Arial" font-size="12">${vehicleData.customer?.firstName} ${vehicleData.customer?.lastName}</text>
-            <text x="120" y="80" fill="#64748b" font-family="Arial" font-size="12">Veriff Verification Complete</text>
-            <circle cx="350" cy="30" r="15" fill="#10b981"/>
-            <text x="350" y="35" text-anchor="middle" fill="white" font-family="Arial" font-size="12">✓</text>
-          </svg>
-        `);
-        
-        setDocumentPreviews(prev => ({
-          ...prev,
-          idRescan: placeholderUrl
-        }));
-
-        toast({
-          title: "Identity Verified",
-          description: "Your identity has been verified successfully!",
-        });
-      } else {
-        setVerificationStatus('declined');
-        setIsVerifying(false);
-        toast({
-          title: "Verification Failed",
-          description: "Identity verification was not successful. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Error processing verification result:', error);
-      setVerificationStatus('error');
-      setIsVerifying(false);
-      toast({
-        title: "Error",
-        description: "Failed to process verification result.",
-        variant: "destructive",
-      });
-    }
-  }
-
   const removeDocument = (docType: string) => {
     setDocumentsUploaded(prev => ({
       ...prev,
@@ -796,10 +554,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
       if (isEstimator || isAdmin || isAgent) {
         const paperworkData = {
           billOfSale,
-          bankDetails,
-          taxInfo,
-          documentsUploaded,
-          documents: documentPreviews,
+          preferredPaymentMethod,
           submittedAt: new Date(),
           status: "pending",
         }
@@ -845,68 +600,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
     }
   }
 
-  const handleVerifyAndSubmit = async () => {
-    setIsSubmitting(true);
-    try {
-      // Set payment status to 'processing' and save paperwork
-      setPaymentStatus('processing');
-      const paymentData = {
-        billOfSale,
-        bankDetails,
-        taxInfo,
-        documentsUploaded,
-        documents: documentPreviews,
-        submittedAt: new Date(),
-        status: 'processing',
-        paymentStatus: 'processing',
-      };
-      let response;
-      if ((isEstimator || isAdmin || isAgent) && vehicleData._id) {
-        response = await api.savePaperworkByCaseId(vehicleData._id, paymentData);
-      } else if (vehicleData.quote && vehicleData.quote.accessToken && vehicleData.quote.accessToken !== '') {
-        response = await api.updatePaperwork(vehicleData.quote.accessToken, JSON.stringify(paymentData));
-      }
-      if (response && response.success) {
-        setFormSaved(true);
-        if (response.data) {
-          let updatedTransaction;
-          if ('transaction' in response.data) {
-            updatedTransaction = response.data.transaction;
-          } else {
-            updatedTransaction = response.data;
-          }
-          onUpdate({
-            ...vehicleData,
-            transaction: updatedTransaction as TransactionData,
-          });
-        }
-        toast({
-          title: 'Payment Submitted',
-          description: 'Payment is being processed. This may take a few moments.',
-        });
-        // Simulate payment processing delay, then mark as completed
-        setTimeout(() => {
-          setPaymentStatus('completed');
-          toast({
-            title: 'Payment Completed',
-            description: 'Payment has been completed successfully.',
-          });
-        }, 2000); // 2 seconds for demo
-      } else {
-        throw new Error(response?.error || 'Failed to submit payment');
-      }
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: 'Error',
-        description: 'Failed to submit payment. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleComplete = async () => {
     if (paymentStatus !== "completed") {
       toast({
@@ -918,11 +611,9 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
     }
 
     try {
-      // First save the current paperwork data with documents
       const completeData = {
         billOfSale,
-        bankDetails,
-        taxInfo,
+        preferredPaymentMethod,
         documentsUploaded,
         documents: documentPreviews,
         submittedAt: new Date(),
@@ -955,6 +646,27 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
           ...vehicleData,
           transaction: updatedTransaction as TransactionData
         });
+      }
+
+      // Update stage statuses to mark stage 6 as complete
+      const currentStageStatuses = vehicleData.stageStatuses || {};
+      const stageData = {
+        currentStage: vehicleData.currentStage || 7, // Preserve current stage or default to 7
+        stageStatuses: {
+          ...currentStageStatuses,
+          6: 'complete' // Mark stage 6 (Paperwork) as complete
+        }
+      };
+      
+      // Update stage statuses in the database
+      const caseId = vehicleData.id || vehicleData._id;
+      if (caseId) {
+        try {
+          await api.updateCaseStageByCaseId(caseId, stageData);
+          console.log('Successfully updated stage statuses');
+        } catch (error) {
+          console.error('Failed to update stage statuses:', error);
+        }
       }
 
       // Proceed to next stage
@@ -1089,10 +801,8 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
       // Save only the basic paperwork data without documents or payment status
       const paperworkData = {
         billOfSale,
-        bankDetails,
-        taxInfo,
+        preferredPaymentMethod,
         submittedAt: new Date(),
-        // Do NOT set status or paymentStatus here
       }
 
       console.log(vehicleData);
@@ -1840,148 +1550,25 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
-              ACH Payment Details
+              Preferred Payment Method
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="accountHolderName">Account Holder Name *</Label>
-              <Input
-                id="accountHolderName"
-                value={bankDetails.accountHolderName}
-                onChange={(e) => handleBankDetailsChange("accountHolderName", e.target.value)}
-                placeholder="Full name on account"
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="bankName">Bank Name *</Label>
-                <Input
-                  id="bankName"
-                  value={bankDetails.bankName}
-                  onChange={(e) => handleBankDetailsChange("bankName", e.target.value)}
-                  placeholder="Bank name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="bankPhone">Bank Phone</Label>
-                <Input
-                  id="bankPhone"
-                  value={bankDetails.bankPhone}
-                  onChange={(e) => handleBankDetailsChange("bankPhone", e.target.value)}
-                  placeholder="Bank phone number"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="routingNumber">Routing Number *</Label>
-              <Input
-                id="routingNumber"
-                value={bankDetails.routingNumber}
-                onChange={(e) => handleBankDetailsChange("routingNumber", e.target.value)}
-                placeholder="9-digit routing number"
-                maxLength={9}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="accountNumber">Account Number *</Label>
-              <Input
-                id="accountNumber"
-                type="password"
-                value={bankDetails.accountNumber}
-                onChange={(e) => handleBankDetailsChange("accountNumber", e.target.value)}
-                placeholder="Account number"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="accountType">Account Type</Label>
+              <Label htmlFor="preferredPaymentMethod">Preferred Payment Method *</Label>
               <Select
-                value={bankDetails.accountType}
-                onValueChange={(value) => handleBankDetailsChange("accountType", value)}
+                value={preferredPaymentMethod}
+                onValueChange={setPreferredPaymentMethod}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select account type" />
+                  <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="checking">Checking</SelectItem>
-                  <SelectItem value="savings">Savings</SelectItem>
+                  <SelectItem value="Wire">Wire</SelectItem>
+                  <SelectItem value="ACH">ACH</SelectItem>
+                  <SelectItem value="Check">Check</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="accountOpenedDate">Account Opened (approx.)</Label>
-              <Input
-                id="accountOpenedDate"
-                type="month"
-                value={bankDetails.accountOpenedDate}
-                onChange={(e) => handleBankDetailsChange("accountOpenedDate", e.target.value)}
-              />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="electronicConsentAgreed" 
-                checked={bankDetails.electronicConsentAgreed}
-                onCheckedChange={(checked) => handleBankDetailsChange("electronicConsentAgreed", Boolean(checked))}
-              />
-              <Label htmlFor="electronicConsentAgreed" className="text-sm">
-                I authorize electronic funds transfer to my account and acknowledge that I am authorized to sign on this account.
-              </Label>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Tax Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Tax Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-3 bg-gray-50 rounded-lg mb-4">
-              <p className="text-sm">
-                The IRS requires us to collect tax identification information for transactions exceeding $600. The appropriate tax documents (Form 1099-MISC) will be issued based on the information provided.
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="ssn">Social Security Number</Label>
-                <Input
-                  id="ssn"
-                  type="password"
-                  value={taxInfo.ssn}
-                  onChange={(e) => handleTaxInfoChange("ssn", e.target.value)}
-                  placeholder="XXX-XX-XXXX"
-                />
-                <p className="text-xs text-muted-foreground">Required for individuals</p>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="taxId">Tax ID Number (EIN)</Label>
-                <Input
-                  id="taxId"
-                  value={taxInfo.taxId}
-                  onChange={(e) => handleTaxInfoChange("taxId", e.target.value)}
-                  placeholder="Business Tax ID"
-                />
-                <p className="text-xs text-muted-foreground">Required for businesses</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="form1099Agreed" 
-                checked={taxInfo.form1099Agreed}
-                onCheckedChange={(checked) => handleTaxInfoChange("form1099Agreed", Boolean(checked))}
-              />
-              <Label htmlFor="form1099Agreed" className="text-sm">
-                I understand that the information provided will be used to issue tax forms as required by law.
-              </Label>
             </div>
           </CardContent>
         </Card>
@@ -2028,74 +1615,10 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>ID Verification *</Label>
-                <Button
-                  onClick={() => handleVeriffVerification()}
-                  disabled={isVerifying}
-                  variant="outline"
-                  className={`w-full h-12 border-2 border-dashed ${
-                    isVerifying
-                      ? "border-blue-300 bg-blue-50 text-blue-700"
-                      : verificationStatus === 'approved'
-                        ? "border-green-300 bg-green-50 text-green-700"
-                        : documentsUploaded.idRescan 
-                          ? "border-green-300 bg-green-50 text-green-700"
-                          : "border-gray-300 hover:border-gray-400"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {isVerifying ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                        <span>Verifying Identity...</span>
-                      </>
-                    ) : verificationStatus === 'approved' ? (
-                      <>
-                        <CheckCircle className="h-4 w-4" />
-                        <span>✓ Identity Verified</span>
-                      </>
-                    ) : documentsUploaded.idRescan ? (
-                      <>
-                        <CheckCircle className="h-4 w-4" />
-                        <span>✓ ID Uploaded</span>
-                      </>
-                    ) : (
-                      <>
-                        <Camera className="h-4 w-4" />
-                        <span>Verify Identity with Veriff</span>
-                      </>
-                    )}
-                  </div>
-                </Button>
-                
-                {isVerifying && (
-                  <div className="mt-2 p-3 border border-blue-200 rounded-lg bg-blue-50">
-                    <div className="flex items-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                      <span className="text-sm text-blue-700">Verifying identity with Veriff...</span>
-                    </div>
-                  </div>
-                )}
-                
-                {verificationStatus === 'approved' && (
-                  <div className="mt-2 p-3 border border-green-200 rounded-lg bg-green-50">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span className="text-sm text-green-700">Identity verified successfully!</span>
-                    </div>
-                  </div>
-                )}
-                
-                {renderDocumentPreview("idRescan")}
-              </div>
-              
-              <div className="space-y-2 flex flex-col justify-center">
-                <Label>Signed Bill of Sale *</Label>
-                <Button onClick={handlePrintBillOfSale} className="w-full">Print Bill of Sale</Button>
-                {renderDocumentPreview("signedBillOfSale")}
-              </div>
+            <div className="space-y-2">
+              <Label>Signed Bill of Sale *</Label>
+              <Button onClick={handlePrintBillOfSale} className="w-full">Print Bill of Sale</Button>
+              {renderDocumentPreview("signedBillOfSale")}
             </div>
           </CardContent>
         </Card>
@@ -2117,27 +1640,12 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
       )}
 
       <div className="flex justify-between">
-        <Button
-          onClick={handleVerifyAndSubmit}
-          variant="outline"
-          size="lg"
-          disabled={isSubmitting || paymentStatus === "processing"}
-        >
-          {isSubmitting ? "Saving..." : paymentStatus === "pending" ? "Verify & Submit" : "Payment Submitted"}
-        </Button>
+        <div></div>
 
         <Button onClick={handleComplete} size="lg" className="px-8">
           Continue to Completion
         </Button>
       </div>
-
-      {/* Veriff Container - Hidden but required for SDK */}
-      <div 
-        id="veriff-container" 
-        ref={veriffContainerRef}
-        className="hidden"
-      />
-
       {/* Add Seller Signature Dialog */}
       <Dialog open={showSellerSignDialog} onOpenChange={setShowSellerSignDialog}>
         <DialogContent className="sm:max-w-[800px]">

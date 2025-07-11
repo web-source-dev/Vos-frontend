@@ -212,22 +212,6 @@ interface TransactionData {
     witnessName?: string
     witnessPhone?: string
   }
-  bankDetails?: {
-    accountHolderName?: string
-    routingNumber?: string
-    accountNumber?: string
-    accountType?: string
-    bankName?: string
-    bankPhone?: string
-    accountOpenedDate?: string
-    electronicConsentAgreed?: boolean
-  }
-  taxInfo?: {
-    ssn?: string
-    taxId?: string
-    reportedIncome?: boolean
-    form1099Agreed?: boolean
-  }
   documents?: {
     [key: string]: string | null
   }
@@ -988,11 +972,14 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
                             </div>
                           )}
                           
-                          {vehicleData.transaction.bankDetails?.accountHolderName && (
+                          {vehicleData.transaction.documents && Object.keys(vehicleData.transaction.documents).length > 0 && (
                             <div className="p-2 bg-blue-50 rounded border border-blue-200">
-                              <p><strong>Bank Details:</strong> {vehicleData.transaction.bankDetails.accountHolderName}</p>
-                              <p className="text-xs">{vehicleData.transaction.bankDetails.bankName} • {vehicleData.transaction.bankDetails.accountType}</p>
-                              <p className="text-xs">Routing: {vehicleData.transaction.bankDetails.routingNumber} • Account: {vehicleData.transaction.bankDetails.accountNumber?.slice(-4)}</p>
+                              <p><strong>Documents:</strong></p>
+                              <ul className="list-disc list-inside text-xs">
+                                {Object.entries(vehicleData.transaction.documents).map(([key, value]) => (
+                                  <li key={key}>{key}: {value || 'Not provided'}</li>
+                                ))}
+                              </ul>
                             </div>
                           )}
                         </div>
