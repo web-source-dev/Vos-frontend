@@ -278,12 +278,21 @@ export async function updateOfferDecision(token: string, offerDecision: Record<s
 }
 
 export async function updateOfferDecisionByCaseId(caseId: string, offerDecision: Record<string, unknown>): Promise<APIResponse<Quote>> {
+  console.log('updateOfferDecisionByCaseId called with caseId:', caseId);
+  console.log('offerDecision:', offerDecision);
+  
   const options = await defaultOptions();
+  console.log('Auth headers:', options.headers);
+  
   const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/offer-decision`, {
     ...options,
     method: 'PUT',
     body: JSON.stringify({ offerDecision }),
   });
+  
+  console.log('Response status:', response.status);
+  console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+  
   return handleResponse<Quote>(response);
 }
 
@@ -435,19 +444,92 @@ export async function getUsersByRole(role: string): Promise<APIResponse<User[]>>
   }
 }
 
+/**
+ * Generate Bill of Sale PDF
+ * @param caseId - Case ID
+ */
 export async function generateBillOfSalePDF(caseId: string): Promise<Blob> {
-  const options = await defaultOptions();
-  const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/bill-of-sale`, {
-    ...options,
-    method: 'GET',
-  });
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw { error: error.error || 'Failed to generate Bill of Sale', status: response.status };
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/bill-of-sale`, {
+      method: 'GET',
+      headers: {
+        ...headers,
+        'Accept': 'application/pdf',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return await response.blob();
+  } catch (error) {
+    console.error('Error generating Bill of Sale PDF:', error);
+    throw error;
   }
-  
-  return response.blob();
+}
+
+export async function generateQuoteSummary(caseId: string, quoteData?: any): Promise<APIResponse<Blob>> {
+  try {
+    const headers = await getAuthHeaders();
+    
+    if (quoteData) {
+      // POST request with quote data
+      const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/quote-summary`, {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json',
+          'Accept': 'application/pdf',
+        },
+        body: JSON.stringify({ quoteData }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          success: false,
+          error: errorData.error || `HTTP error! status: ${response.status}`
+        };
+      }
+
+      const blob = await response.blob();
+      return {
+        success: true,
+        data: blob
+      };
+    } else {
+      // GET request without quote data (fallback)
+      const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/quote-summary`, {
+        method: 'GET',
+        headers: {
+          ...headers,
+          'Accept': 'application/pdf',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          success: false,
+          error: errorData.error || `HTTP error! status: ${response.status}`
+        };
+      }
+
+      const blob = await response.blob();
+      return {
+        success: true,
+        data: blob
+      };
+    }
+  } catch (error) {
+    console.error('Error generating quote summary:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to generate quote summary'
+    };
+  }
 }
 
 export async function sendCustomerEmail(caseId: string, emailType: 'quote' | 'decision' | 'thank-you'): Promise<APIResponse<void>> {
@@ -613,231 +695,9 @@ export async function getAnalytics(timeRange: string = '30d'): Promise<APIRespon
 }
 
 /**
- * Create and send a Bill of Sale signing request to a customer
- * @param caseId - The ID of the case
- * @param signingData - Data for the signing request
+ * Fetch vehicle specs from VIN
+ * @param vin - Vehicle Identification Number
  */
-export async function createBillOfSaleSigningRequest(
-  caseId: string,
-  signingData: {
-    recipientEmail: string;
-    recipientName: string;
-    documentType: string;
-  }
-): Promise<APIResponse<{ signUrl: string; expiresAt: string }>> {
-  try {
-    const options = await defaultOptions();
-    const url = `${API_BASE_URL}/api/cases/${caseId}/sign-request`;
-    
-    const response = await fetch(url, {
-      ...options,
-      method: 'POST',
-      body: JSON.stringify(signingData),
-    });
-    
-    return await handleResponse(response);
-  } catch (error) {
-    return handleError(error);
-  }
-}
-
-/**
- * Get signing session data
- * @param token - Signing session token
- */
-export async function getSigningSession(token: string): Promise<APIResponse<{
-  session: {
-    id: string;
-    token: string;
-    status: string;
-    documentType: string;
-    expiresAt: string;
-    createdAt: string;
-  };
-  recipient: {
-    name: string;
-    email: string;
-  };
-  case: {
-    id: string;
-    customer: {
-      firstName: string;
-      lastName: string;
-    };
-    vehicle: {
-      year: string;
-      make: string;
-      model: string;
-      vin?: string;
-    };
-  };
-  documentUrl: string | null;
-}>> {
-  try {
-    const options = await defaultOptions();
-    const url = `${API_BASE_URL}/api/signing/${token}`;
-    
-    console.log('Fetching signing session from:', url);
-    
-    const response = await fetch(url, {
-      ...options,
-      method: 'GET'
-    });
-    
-    const result = await handleResponse<{
-      session: {
-        id: string;
-        token: string;
-        status: string;
-        documentType: string;
-        expiresAt: string;
-        createdAt: string;
-      };
-      recipient: {
-        name: string;
-        email: string;
-      };
-      case: {
-        id: string;
-        customer: {
-          firstName: string;
-          lastName: string;
-        };
-        vehicle: {
-          year: string;
-          make: string;
-          model: string;
-          vin?: string;
-        };
-      };
-      documentUrl: string | null;
-    }>(response);
-    
-    console.log('Signing session response:', result);
-    return result;
-  } catch (error) {
-    console.error('Error fetching signing session:', error);
-    return handleError(error);
-  }
-}
-
-/**
- * Check signing status by case ID
- * @param caseId - Case ID
- */
-export async function getSigningStatusByCaseId(caseId: string): Promise<APIResponse<{ 
-  status: string; 
-  signedDocumentUrl?: string;
-  signedAt?: string;
-}>> {
-  try {
-    const options = await defaultOptions();
-    const url = `${API_BASE_URL}/api/cases/${caseId}/signing-status`;
-    
-    console.log('Checking signing status for case:', caseId);
-    console.log('URL:', url);
-    
-    const response = await fetch(url, {
-      ...options,
-      method: 'GET'
-    });
-    
-    const result = await handleResponse<{ 
-      status: string; 
-      signedDocumentUrl?: string;
-      signedAt?: string;
-    }>(response);
-    
-    console.log('Signing status response:', result);
-    return result;
-  } catch (error) {
-    console.error('Error checking signing status:', error);
-    return handleError(error);
-  }
-}
-
-/**
- * Submit signed document
- * @param signToken - Signing token
- * @param signatureData - Signature data
- */
-export async function submitSignedDocument(
-  signToken: string,
-  signatureData: {
-    signature: string;
-    signedAt: string;
-    position?: {
-      x: number;
-      y: number;
-      page: number;
-    };
-    signerType?: string;
-  }
-): Promise<APIResponse<{ 
-  status: string;
-  signedDocumentUrl: string;
-  signedAt: string;
-}>> {
-  try {
-    const options = await defaultOptions();
-    const url = `${API_BASE_URL}/api/signing/${signToken}/submit`;
-    
-    console.log('Submitting signed document to:', url);
-    
-    const response = await fetch(url, {
-      ...options,
-      method: 'POST',
-      body: JSON.stringify(signatureData)
-    });
-    
-    const result = await handleResponse<{ 
-      status: string;
-      signedDocumentUrl: string;
-      signedAt: string;
-    }>(response);
-    
-    console.log('Submit signed document response:', result);
-    return result;
-  } catch (error) {
-    console.error('Error submitting signed document:', error);
-    return handleError(error);
-  }
-}
-
-/**
- * Add a signature directly to a PDF document
- * @param caseId - The ID of the case
- * @param signatureData - The signature data to embed in the PDF
- */
-export async function addSignatureToPdf(
-  caseId: string,
-  signatureData: {
-    signatureImage: string;
-    signaturePosition: {
-      x: number;
-      y: number;
-      page: number;
-    };
-    signerType: 'customer' | 'seller';
-    useCustomerSignedDocument?: boolean;
-  }
-): Promise<APIResponse<{ documentUrl: string }>> {
-  try {
-    const options = await defaultOptions();
-    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/add-signature`, {
-      ...options,
-      method: 'POST',
-      body: JSON.stringify(signatureData)
-    });
-    
-    return await handleResponse<{ documentUrl: string }>(response);
-  } catch (error) {
-    console.error('Error adding signature to PDF:', error);
-    return handleError(error);
-  }
-}
-
-// Fetch vehicle specs from VIN
 export async function getVehicleSpecs(vin: string): Promise<APIResponse<{
   year: string;
   make: string;
@@ -887,6 +747,49 @@ export async function saveCustomVehicle(make: string, model: string): Promise<AP
   return handleResponse<{ make: string; model: string }>(response);
 }
 
+/**
+ * Upload OBD2 scan PDF to a specific case
+ * @param caseId - Case ID
+ * @param file - PDF file to upload
+ */
+export async function uploadOBD2ScanToCase(caseId: string, file: File): Promise<APIResponse<{
+  filePath: string;
+  filename: string;
+  extractedCodes: string[];
+  matchingCodes: any[];
+  unknownCodes: string[];
+  totalCodesFound: number;
+  criticalCodesFound: number;
+}>> {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers = await getAuthHeaders();
+    delete headers['Content-Type']; // Let browser set correct content type for FormData
+
+    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/obd2-scan`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: formData
+    });
+
+    return handleResponse<{
+      filePath: string;
+      filename: string;
+      extractedCodes: string[];
+      matchingCodes: any[];
+      unknownCodes: string[];
+      totalCodesFound: number;
+      criticalCodesFound: number;
+    }>(response);
+  } catch (error) {
+    console.error('Error uploading OBD2 scan:', error);
+    return handleError(error);
+  }
+}
+
 const api = {
   // Auth functions
   loginUser,
@@ -927,20 +830,13 @@ const api = {
   deleteUser,
   updateQuoteByCaseId,
   generateBillOfSalePDF,
+  generateQuoteSummary,
   sendCustomerEmail,
   savePaperworkByCaseId,
   getVehiclePricing,
   saveCompletionData,
   getAnalytics,
-  
-
-  
-  // Signing functions
-  createBillOfSaleSigningRequest,
-  getSigningSession,
-  getSigningStatusByCaseId,
-  submitSignedDocument,
-  addSignatureToPdf,
+  uploadOBD2ScanToCase,
   
   // New function
   getVehicleSpecs,

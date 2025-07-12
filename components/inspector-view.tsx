@@ -28,6 +28,7 @@ import {
   XCircle,
   Camera,
   RefreshCw,
+  Activity,
 } from "lucide-react"
 import api from "@/lib/api"
 import { RadioGroup } from "@/components/ui/radio-group"
@@ -489,6 +490,31 @@ const inspectionSections = [
         question: "Take photos of engine compartment - Include overall engine bay, close-ups of any leaks or damage, fluid levels, and any visible components that need attention.",
         type: "photo",
         required: true
+      }
+    ]
+  },
+  {
+    id: "obd2",
+    name: "OBD2 Scan",
+    icon: Activity,
+    description: "Diagnostic scan for vehicle computer codes and system status",
+    questions: [
+      {
+        id: "obd2_scan_completed",
+        question: "I have connected the OBD2 reader and scanned the vehicle for diagnostic codes.",
+        type: "checkbox",
+        required: true,
+        options: [
+          { value: "completed", label: "OBD2 scan completed", points: 5 }
+        ]
+      },
+      {
+        id: "obd2_bypass",
+        question: "No OBD2 reader available for this inspection",
+        type: "checkbox",
+        options: [
+          { value: "bypass", label: "Bypass OBD2 scan requirement", points: 0 }
+        ]
       }
     ]
   },
@@ -1263,8 +1289,23 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
       for (const question of section.questions) {
         if (question.required) {
           const answer = inspectionData[section.id]?.questions?.[question.id]?.answer;
-          if (!answer || (Array.isArray(answer) && answer.length === 0)) {
-            return false;
+          
+          // Special handling for OBD2 section
+          if (section.id === 'obd2' && question.id === 'obd2_scan_completed') {
+            const bypassAnswer = inspectionData[section.id]?.questions?.obd2_bypass?.answer;
+            const bypassSelected = Array.isArray(bypassAnswer) && bypassAnswer.includes('bypass');
+            
+            // OBD2 section is complete if either scan is completed OR bypass is selected
+            if (!answer || (Array.isArray(answer) && answer.length === 0)) {
+              if (!bypassSelected) {
+                return true;
+              }
+            }
+          } else {
+            // Regular required question check
+            if (!answer || (Array.isArray(answer) && answer.length === 0)) {
+              return true;
+            }
           }
         }
       }
@@ -1574,10 +1615,33 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     }, 0);
   };
 
+  // Helper function to check if a section is actually complete
+  const isSectionComplete = (sectionId: string) => {
+    // Special handling for OBD2 section
+    if (sectionId === 'obd2') {
+      const scanCompleted = Array.isArray(inspectionData[sectionId]?.questions?.obd2_scan_completed?.answer) && 
+        inspectionData[sectionId]?.questions?.obd2_scan_completed?.answer.includes('completed');
+      const bypassSelected = Array.isArray(inspectionData[sectionId]?.questions?.obd2_bypass?.answer) && 
+        inspectionData[sectionId]?.questions?.obd2_bypass?.answer.includes('bypass');
+      
+      return scanCompleted || bypassSelected;
+    }
+    
+    // For other sections, check if they're marked as completed
+    return inspectionData[sectionId]?.completed || false;
+  };
+
   const renderQuestion = (sectionId: string, question: typeof inspectionSections[0]['questions'][0]) => {
     const currentAnswer = inspectionData[sectionId]?.questions?.[question.id]?.answer;
     const currentNotes = inspectionData[sectionId]?.questions?.[question.id]?.notes;
     const currentPhotos = inspectionData[sectionId]?.questions?.[question.id]?.photos || [];
+
+    // Special logic for OBD2 section
+    const isOBD2Section = sectionId === 'obd2';
+    const bypassChecked = isOBD2Section && Array.isArray(inspectionData[sectionId]?.questions?.obd2_bypass?.answer) && 
+      inspectionData[sectionId]?.questions?.obd2_bypass?.answer.includes('bypass');
+    const scanCompleted = isOBD2Section && Array.isArray(inspectionData[sectionId]?.questions?.obd2_scan_completed?.answer) && 
+      inspectionData[sectionId]?.questions?.obd2_scan_completed?.answer.includes('completed');
 
     return (
       <div 
@@ -1739,31 +1803,59 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
 
           {question.type === 'checkbox' && question.options && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {question.options.map((option) => (
-                <div key={option.value} className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all duration-200">
-                  <Checkbox
-                    id={`${question.id}-${option.value}`}
-                    checked={Array.isArray(currentAnswer) && currentAnswer.includes(option.value)}
-                    onCheckedChange={(checked) => {
-                      const currentArray = Array.isArray(currentAnswer) ? currentAnswer : [];
-                      const newArray = checked
-                        ? [...currentArray, option.value]
-                        : currentArray.filter((item: string) => item !== option.value);
-                      handleQuestionAnswer(sectionId, question.id, newArray);
-                    }}
-                  />
-                  <Label htmlFor={`${question.id}-${option.value}`} className="text-sm font-medium text-gray-700 cursor-pointer flex-1">
-                    {option.label}
-                  </Label>
-                  {option.points && (
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      option.points > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              {question.options.map((option) => {
+                // Special logic for OBD2 section
+                let isDisabled = false;
+                let disabledReason = '';
+                
+                if (isOBD2Section) {
+                  if (question.id === 'obd2_scan_completed' && bypassChecked) {
+                    isDisabled = true;
+                    disabledReason = 'Bypass selected - scan not required';
+                  } else if (question.id === 'obd2_bypass' && scanCompleted) {
+                    isDisabled = true;
+                    disabledReason = 'Scan completed - bypass not needed';
+                  }
+                }
+                
+                return (
+                  <div key={option.value} className={`flex items-center space-x-3 p-3 rounded-lg border transition-all duration-200 ${
+                    isDisabled 
+                      ? 'border-gray-100 bg-gray-50 opacity-60' 
+                      : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                  }`}>
+                    <Checkbox
+                      id={`${question.id}-${option.value}`}
+                      checked={Array.isArray(currentAnswer) && currentAnswer.includes(option.value)}
+                      disabled={isDisabled}
+                      onCheckedChange={(checked) => {
+                        const currentArray = Array.isArray(currentAnswer) ? currentAnswer : [];
+                        const newArray = checked
+                          ? [...currentArray, option.value]
+                          : currentArray.filter((item: string) => item !== option.value);
+                        handleQuestionAnswer(sectionId, question.id, newArray);
+                      }}
+                    />
+                    <Label htmlFor={`${question.id}-${option.value}`} className={`text-sm font-medium cursor-pointer flex-1 ${
+                      isDisabled ? 'text-gray-400' : 'text-gray-700'
                     }`}>
-                      {option.points > 0 ? '+' : ''}{option.points} pts
-                    </span>
-                  )}
-                </div>
-              ))}
+                      {option.label}
+                      {isDisabled && (
+                        <span className="block text-xs text-gray-500 mt-1">
+                          {disabledReason}
+                        </span>
+                      )}
+                    </Label>
+                    {option.points && !isDisabled && (
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        option.points > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        {option.points > 0 ? '+' : ''}{option.points} pts
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -2096,6 +2188,23 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
 
   // Handle marking section as complete with localStorage persistence
   const handleMarkSectionComplete = (sectionId: string) => {
+    // Special handling for OBD2 section - check if it's actually complete
+    if (sectionId === 'obd2') {
+      const scanCompleted = Array.isArray(inspectionData[sectionId]?.questions?.obd2_scan_completed?.answer) && 
+        inspectionData[sectionId]?.questions?.obd2_scan_completed?.answer.includes('completed');
+      const bypassSelected = Array.isArray(inspectionData[sectionId]?.questions?.obd2_bypass?.answer) && 
+        inspectionData[sectionId]?.questions?.obd2_bypass?.answer.includes('bypass');
+      
+      if (!scanCompleted && !bypassSelected) {
+        toast({
+          title: "Section Incomplete",
+          description: "Please either complete the OBD2 scan or select the bypass option before marking this section as complete.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
     setInspectionData((prev) => ({
       ...prev,
       [sectionId]: {
@@ -2432,7 +2541,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
             <span className="text-sm font-medium text-gray-700">Inspection Progress</span>
             <span className="text-sm text-gray-500">
               {inspectionSections.filter(section => 
-                inspectionData[section.id]?.completed
+                isSectionComplete(section.id)
               ).length} of {inspectionSections.length} sections completed
             </span>
           </div>
@@ -2441,7 +2550,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
               className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500"
               style={{ 
                 width: `${(inspectionSections.filter(section => 
-                  inspectionData[section.id]?.completed
+                  isSectionComplete(section.id)
                 ).length / inspectionSections.length) * 100}%` 
               }}
             ></div>
@@ -2472,7 +2581,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
                   <div className="flex items-center space-x-4">
                     {/* Section Status */}
                     <div className="text-right">
-                      {inspectionData[section.id]?.completed ? (
+                      {isSectionComplete(section.id) ? (
                         <div className="flex items-center space-x-2">
                           <CheckCircle className="h-5 w-5 text-green-500" />
                           <span className="text-sm font-medium text-green-700">Completed</span>

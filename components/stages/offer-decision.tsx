@@ -106,34 +106,15 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
       console.log('Vehicle data:', vehicleData);
       console.log('Is estimator:', isEstimator);
 
-      let response;
-      if (isEstimator) {
-        // For estimators, use the case ID-based endpoint
-        const caseId = vehicleData.id || vehicleData._id;
-        console.log('Using case ID:', caseId);
-        if (!caseId) {
-          throw new Error("Case ID not found");
-        }
-        response = await api.updateOfferDecisionByCaseId(caseId, decisionData);
-        console.log('API response:', response);
-      } else if (quote.accessToken) {
-        // For token-based access, use the original endpoint
-        console.log('Using token-based endpoint with token:', quote.accessToken);
-        response = await api.updateOfferDecision(quote.accessToken, decisionData);
-        console.log('API response:', response);
-      } else {
-        // Fallback to local update
-        console.log('Using fallback local update');
-        onUpdate({ offerDecision: decisionData });
-        setDecision("accepted");
-        toast({
-          title: "Offer Accepted",
-          description: `Customer accepted the offer of $${offerAmount.toLocaleString()}. Title documentation pending.`,
-        });
-        // Call onComplete to advance to next stage
-        onComplete();
-        return;
+      // Always use case ID-based endpoint for authenticated users
+      const caseId = vehicleData.id || vehicleData._id;
+      console.log('Using case ID:', caseId);
+      if (!caseId) {
+        throw new Error("Case ID not found");
       }
+      
+      const response = await api.updateOfferDecisionByCaseId(caseId, decisionData);
+      console.log('API response:', response);
 
       if (response.success) {
         console.log('API call successful, updating UI');
@@ -156,14 +137,11 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
         console.log('Stage data to update:', stageData);
         
         // Update stage statuses in the database
-        const caseId = vehicleData.id || vehicleData._id;
-        if (caseId) {
-          try {
-            const stageResponse = await api.updateCaseStageByCaseId(caseId, stageData);
-            console.log('Stage update response:', stageResponse);
-          } catch (error) {
-            console.error('Failed to update stage statuses:', error);
-          }
+        try {
+          const stageResponse = await api.updateCaseStageByCaseId(caseId, stageData);
+          console.log('Stage update response:', stageResponse);
+        } catch (error) {
+          console.error('Failed to update stage statuses:', error);
         }
         
         setDecision("accepted");
@@ -206,34 +184,15 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
       console.log('Vehicle data:', vehicleData);
       console.log('Is estimator:', isEstimator);
 
-      let response;
-      if (isEstimator) {
-        // For estimators, use the case ID-based endpoint
-        const caseId = vehicleData.id || vehicleData._id;
-        console.log('Using case ID for decline:', caseId);
-        if (!caseId) {
-          throw new Error("Case ID not found");
-        }
-        response = await api.updateOfferDecisionByCaseId(caseId, decisionData);
-        console.log('Decline API response:', response);
-      } else if (quote.accessToken) {
-        // For token-based access, use the original endpoint
-        console.log('Using token-based endpoint for decline with token:', quote.accessToken);
-        response = await api.updateOfferDecision(quote.accessToken, decisionData);
-        console.log('Decline API response:', response);
-      } else {
-        // Fallback to local update
-        console.log('Using fallback local update for decline');
-        onUpdate({ offerDecision: decisionData });
-        setDecision("declined");
-        setShowDeclineDialog(false);
-        toast({
-          title: "Offer Declined",
-          description: "Customer has declined the offer. Case marked as closed.",
-        });
-        // For declined offers, don't advance to next stage
-        return;
+      // Always use case ID-based endpoint for authenticated users
+      const caseId = vehicleData.id || vehicleData._id;
+      console.log('Using case ID for decline:', caseId);
+      if (!caseId) {
+        throw new Error("Case ID not found");
       }
+      
+      const response = await api.updateOfferDecisionByCaseId(caseId, decisionData);
+      console.log('Decline API response:', response);
 
       if (response.success) {
         console.log('Decline API call successful, updating UI');
@@ -259,14 +218,11 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
         console.log('Stage data for declined offer:', stageData);
         
         // Update stage statuses in the database
-        const caseId = vehicleData.id || vehicleData._id;
-        if (caseId) {
-          try {
-            const stageResponse = await api.updateCaseStageByCaseId(caseId, stageData);
-            console.log('Stage update response for declined offer:', stageResponse);
-          } catch (error) {
-            console.error('Failed to update stage statuses for declined offer:', error);
-          }
+        try {
+          const stageResponse = await api.updateCaseStageByCaseId(caseId, stageData);
+          console.log('Stage update response for declined offer:', stageResponse);
+        } catch (error) {
+          console.error('Failed to update stage statuses for declined offer:', error);
         }
         
         toast({
@@ -476,58 +432,58 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
             </CardContent>
           </Card>
             <Card className="border-green-200 hover:bg-green-50 transition-colors">
-              <CardContent className="p-6 text-center">
-                <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
-                <h3 className="font-semibold text-green-800 mb-2">Accept Offer</h3>
-                <p className="text-sm text-green-700 mb-4">Customer accepts the current offer amount</p>
-                <Button onClick={handleAccept} className="w-full bg-green-600 hover:bg-green-700" disabled={isSubmitting}>
-                  Accept ${offerAmount.toLocaleString()}
-                </Button>
-              </CardContent>
-            </Card>
+            <CardContent className="p-6 text-center">
+              <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
+              <h3 className="font-semibold text-green-800 mb-2">Accept Offer</h3>
+              <p className="text-sm text-green-700 mb-4">Customer accepts the current offer amount</p>
+              <Button onClick={handleAccept} className="w-full bg-green-600 hover:bg-green-700" disabled={isSubmitting}>
+                Accept ${offerAmount.toLocaleString()}
+              </Button>
+            </CardContent>
+          </Card>
 
-            <Card className="border-red-200 hover:bg-red-50 transition-colors">
-              <CardContent className="p-6 text-center">
-                <X className="h-12 w-12 text-red-600 mx-auto mb-4" />
-                <h3 className="font-semibold text-red-800 mb-2">Decline Offer</h3>
-                <p className="text-sm text-red-700 mb-4">Customer declines the current offer</p>
-                <Dialog open={showDeclineDialog} onOpenChange={setShowDeclineDialog}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" className="w-full border-red-300 text-red-700" disabled={isSubmitting}>
-                      Decline Offer
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Confirm Decline</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <p className="text-sm text-muted-foreground">
-                        Are you sure the customer wants to decline this offer? This will close the case.
-                      </p>
-                      <div className="space-y-2">
-                        <Label htmlFor="declineReason">Reason for Decline (Optional)</Label>
-                        <Textarea
-                          id="declineReason"
-                          value={declineReason}
-                          onChange={(e) => setDeclineReason(e.target.value)}
-                          placeholder="Customer's reason for declining..."
-                          rows={3}
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setShowDeclineDialog(false)} className="flex-1" disabled={isSubmitting}>
-                          Cancel
-                        </Button>
-                        <Button onClick={handleDecline} variant="destructive" className="flex-1" disabled={isSubmitting}>
-                          Confirm Decline
-                        </Button>
-                      </div>
+          <Card className="border-red-200 hover:bg-red-50 transition-colors">
+            <CardContent className="p-6 text-center">
+              <X className="h-12 w-12 text-red-600 mx-auto mb-4" />
+              <h3 className="font-semibold text-red-800 mb-2">Decline Offer</h3>
+              <p className="text-sm text-red-700 mb-4">Customer declines the current offer</p>
+              <Dialog open={showDeclineDialog} onOpenChange={setShowDeclineDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="w-full border-red-300 text-red-700" disabled={isSubmitting}>
+                    Decline Offer
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Confirm Decline</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Are you sure the customer wants to decline this offer? This will close the case.
+                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="declineReason">Reason for Decline (Optional)</Label>
+                      <Textarea
+                        id="declineReason"
+                        value={declineReason}
+                        onChange={(e) => setDeclineReason(e.target.value)}
+                        placeholder="Customer's reason for declining..."
+                        rows={3}
+                      />
                     </div>
-                  </DialogContent>
-                </Dialog>
-              </CardContent>
-            </Card>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => setShowDeclineDialog(false)} className="flex-1" disabled={isSubmitting}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleDecline} variant="destructive" className="flex-1" disabled={isSubmitting}>
+                        Confirm Decline
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardContent>
+          </Card>
           </div>
         </div>
       )}
