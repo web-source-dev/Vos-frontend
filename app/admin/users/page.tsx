@@ -1,7 +1,7 @@
 "use client"
 
 import { UserManagement } from "@/components/admin/user-management"
-import { AdminLayout } from "@/components/admin/admin-layout"
+import { AdminLayout } from "@/components/admin-layout"
 
 export default function AdminUsers() {
   return (

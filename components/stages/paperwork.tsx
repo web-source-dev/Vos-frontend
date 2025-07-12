@@ -526,7 +526,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
         // Update document previews
         setDocumentPreviews(prev => ({
           ...prev,
-          signedBillOfSale: response.data.path
+          signedBillOfSale: response.data?.path || ''
         }))
         
         // Mark as uploaded

@@ -1,7 +1,7 @@
 "use client"
 
 import { ReportsDashboard } from "@/components/admin/reports-dashboard"
-import { AdminLayout } from "@/components/admin/admin-layout"
+import { AdminLayout } from "@/components/admin-layout"
 
 export default function AdminReports() {
   return (

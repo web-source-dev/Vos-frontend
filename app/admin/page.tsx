@@ -1,7 +1,7 @@
 "use client"
 
 import { AdminOverview } from "@/components/admin/admin-overview"
-import { AdminLayout } from "@/components/admin/admin-layout"
+import { AdminLayout } from "@/components/admin-layout"
 
 export default function AdminDashboard() {
   return (

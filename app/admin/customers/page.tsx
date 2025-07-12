@@ -1,6 +1,6 @@
 "use client"
 import { CustomerDashboard } from '@/components/customer-dashboard'
-import { AdminLayout } from '@/components/admin/admin-layout'
+import { AdminLayout } from '@/components/admin-layout'
 
 export default function VosSystem() {
 
