@@ -470,7 +470,7 @@ export async function generateBillOfSalePDF(caseId: string): Promise<Blob> {
   }
 }
 
-export async function generateQuoteSummary(caseId: string, quoteData?: any): Promise<APIResponse<Blob>> {
+export async function generateQuoteSummary(caseId: string, quoteData?: Record<string, unknown>): Promise<APIResponse<Blob>> {
   try {
     const headers = await getAuthHeaders();
     
@@ -756,7 +756,12 @@ export async function uploadOBD2ScanToCase(caseId: string, file: File): Promise<
   filePath: string;
   filename: string;
   extractedCodes: string[];
-  matchingCodes: any[];
+  matchingCodes: Array<{
+    code: string;
+    description: string;
+    criticality: number;
+    estimatedRepairCost: string;
+  }>;
   unknownCodes: string[];
   totalCodesFound: number;
   criticalCodesFound: number;
@@ -779,13 +784,34 @@ export async function uploadOBD2ScanToCase(caseId: string, file: File): Promise<
       filePath: string;
       filename: string;
       extractedCodes: string[];
-      matchingCodes: any[];
+      matchingCodes: Array<{
+        code: string;
+        description: string;
+        criticality: number;
+        estimatedRepairCost: string;
+      }>;
       unknownCodes: string[];
       totalCodesFound: number;
       criticalCodesFound: number;
     }>(response);
   } catch (error) {
     console.error('Error uploading OBD2 scan:', error);
+    return handleError(error);
+  }
+}
+
+export async function sendCustomerIntakeEmail(customerEmail: string, customerName: string): Promise<APIResponse<{ emailSent: boolean; formUrl: string }>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/send-customer-form`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ customerEmail, customerName }),
+    });
+
+    return await handleResponse<{ emailSent: boolean; formUrl: string }>(response);
+  } catch (error) {
     return handleError(error);
   }
 }
@@ -842,6 +868,7 @@ const api = {
   getVehicleSpecs,
   getVehicleMakesAndModels,
   saveCustomVehicle,
+  sendCustomerIntakeEmail,
 };
 
 export default api;

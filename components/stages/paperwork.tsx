@@ -13,7 +13,6 @@ import { useToast } from "@/hooks/use-toast"
 import { FileText, CreditCard, Upload, CheckCircle, X, Loader2 } from "lucide-react"
 import api from '@/lib/api'
 import Image from "next/image"
-import { formatDate } from "@/lib/utils"
 
 import { Customer, Vehicle, Quote } from "@/lib/types";
 
@@ -24,6 +23,7 @@ interface OfferDecisionData {
 
 interface TransactionData {
   billOfSale?: BillOfSaleData
+  bankDetails?: BankDetailsData
   preferredPaymentMethod?: string
   documents?: DocumentData
   paymentStatus?: string
@@ -66,6 +66,12 @@ interface BillOfSaleData {
   notaryCommissionExpiry?: string
   witnessName?: string
   witnessPhone?: string
+}
+
+interface BankDetailsData {
+  bankName?: string
+  loanNumber?: string
+  payoffAmount?: number
 }
 
 interface DocumentData {
@@ -402,23 +408,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
       </div>
     )
   }
-
-  // Add a helper function to get source label
-  const getSourceLabel = (sourceKey?: string) => {
-    if (!sourceKey) return "Not specified";
-    
-    const sources: Record<string, string> = {
-      "contact_form": "Contact Us Form Submission",
-      "walk_in": "Walk-In",
-      "phone": "Phone",
-      "online": "Online",
-      "on_the_road": "On the Road",
-      "social_media": "Social Media",
-      "other": "Other"
-    };
-    
-    return sources[sourceKey] || sourceKey;
-  };
 
   const handleBillOfSaleChange = (field: string, value: string | boolean | number) => {
     setBillOfSale((prev) => ({
@@ -1093,7 +1082,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
-              Preferred Payment Method
+              Payment Information
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1112,6 +1101,75 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
                   <SelectItem value="Check">Check</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Bank Details */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Bank Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="bankName">Bank Name</Label>
+              <Input
+                id="bankName"
+                value={vehicleData.transaction?.bankDetails?.bankName || ""}
+                onChange={(e) => {
+                  const updatedTransaction = {
+                    ...vehicleData.transaction,
+                    bankDetails: {
+                      ...vehicleData.transaction?.bankDetails,
+                      bankName: e.target.value
+                    }
+                  };
+                  onUpdate({ transaction: updatedTransaction });
+                }}
+                placeholder="Enter bank name"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="loanNumber">Loan Number</Label>
+              <Input
+                id="loanNumber"
+                value={vehicleData.transaction?.bankDetails?.loanNumber || ""}
+                onChange={(e) => {
+                  const updatedTransaction = {
+                    ...vehicleData.transaction,
+                    bankDetails: {
+                      ...vehicleData.transaction?.bankDetails,
+                      loanNumber: e.target.value
+                    }
+                  };
+                  onUpdate({ transaction: updatedTransaction });
+                }}
+                placeholder="Enter loan number"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="payoffAmount">Payoff Amount</Label>
+              <Input
+                id="payoffAmount"
+                type="number"
+                value={vehicleData.transaction?.bankDetails?.payoffAmount || ""}
+                onChange={(e) => {
+                  const updatedTransaction = {
+                    ...vehicleData.transaction,
+                    bankDetails: {
+                      ...vehicleData.transaction?.bankDetails,
+                      payoffAmount: parseFloat(e.target.value) || 0
+                    }
+                  };
+                  onUpdate({ transaction: updatedTransaction });
+                }}
+                placeholder="0.00"
+              />
             </div>
           </CardContent>
         </Card>

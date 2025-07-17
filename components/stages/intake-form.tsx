@@ -381,7 +381,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
         ...prev,
         vehicle: {
           ...prev.vehicle,
-          make: '',
+          make: 'other', // Keep 'other' as the value to maintain display
           model: "", // Reset model when make changes
         },
       }));
@@ -401,14 +401,8 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
 
   const handleCustomMakeChange = (value: string) => {
     setCustomMake(value);
-    setFormData((prev) => ({
-      ...prev,
-      vehicle: {
-        ...prev.vehicle,
-        make: value,
-        model: "", // Reset model when make changes
-      },
-    }));
+    // Don't update the form data make field - keep it as "other" for display
+    // The actual custom value will be used when saving
   };
 
   const handleModelChange = (model: string) => {
@@ -418,7 +412,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
         ...prev,
         vehicle: {
           ...prev.vehicle,
-          model: ''
+          model: 'other' // Keep 'other' as the value to maintain display
         },
       }));
     } else {
@@ -436,13 +430,8 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
 
   const handleCustomModelChange = (value: string) => {
     setCustomModel(value);
-    setFormData((prev) => ({
-      ...prev,
-      vehicle: {
-        ...prev.vehicle,
-        model: value
-      },
-    }));
+    // Don't update the form data model field - keep it as "other" for display
+    // The actual custom value will be used when saving
   };
 
   const saveCustomVehicle = async (make: string, model: string) => {
@@ -928,7 +917,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
                         <TooltipTrigger asChild>
                           <HelpCircle className="h-3 w-3 text-muted-foreground ml-2 cursor-help" />
                         </TooltipTrigger>
-                        <TooltipContent side="bottom right" className="max-w-xs">
+                        <TooltipContent side="bottom" className="max-w-xs">
                           <p className="text-sm">The vehicle has never been in a major accident and holds a standard title with no damage history.</p>
                         </TooltipContent>
                       </Tooltip>
@@ -1257,7 +1246,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
 
         <Card>
         <CardHeader>
-            <CardTitle>Add Note about customer</CardTitle>
+            <CardTitle>Customer Notes</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <Textarea

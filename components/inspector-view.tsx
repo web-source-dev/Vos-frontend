@@ -29,10 +29,22 @@ import {
   Camera,
   RefreshCw,
   Activity,
+  AlertTriangle,
 } from "lucide-react"
 import api from "@/lib/api"
 import { RadioGroup } from "@/components/ui/radio-group"
 import React from "react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface VehicleData {
   customer?: {
@@ -217,6 +229,7 @@ const inspectionSections = [
         question: "Check all glass components:",
         type: "checkbox",
         options: [
+          { value: "no_damage", label: "No glass damage - All components in good condition", points: 5 },
           { value: "windshield_cracked", label: "Windshield cracked", points: -3 },
           { value: "windshield_chipped", label: "Windshield chipped", points: -1 },
           { value: "side_windows_damaged", label: "Side windows damaged", points: -2 },
@@ -246,21 +259,29 @@ const inspectionSections = [
         ]
       },
       {
-        id: "bumpers_condition",
-        question: "Bumper condition assessment:",
+        id: "front_bumper_condition",
+        question: "Front bumper condition:",
         type: "radio",
         required: true,
         options: [
-          { value: "front_excellent", label: "Front - Excellent - No damage", points: 5 },
-          { value: "front_good", label: "Front - Good - Minor scratches", points: 4 },
-          { value: "front_fair", label: "Front - Fair - Some damage", points: 3 },
-          { value: "front_poor", label: "Front - Poor - Significant damage", points: 2 },
-          { value: "front_very_poor", label: "Front - Very Poor - Major damage", points: 1 },
-          { value: "rear_excellent", label: "Rear - Excellent - No damage", points: 5 },
-          { value: "rear_good", label: "Rear - Good - Minor scratches", points: 4 },
-          { value: "rear_fair", label: "Rear - Fair - Some damage", points: 3 },
-          { value: "rear_poor", label: "Rear - Poor - Significant damage", points: 2 },
-          { value: "rear_very_poor", label: "Rear - Very Poor - Major damage", points: 1 }
+          { value: "excellent", label: "Excellent - No damage", points: 5 },
+          { value: "good", label: "Good - Minor scratches", points: 4 },
+          { value: "fair", label: "Fair - Some damage", points: 3 },
+          { value: "poor", label: "Poor - Significant damage", points: 2 },
+          { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
+        ]
+      },
+      {
+        id: "rear_bumper_condition",
+        question: "Rear bumper condition:",
+        type: "radio",
+        required: true,
+        options: [
+          { value: "excellent", label: "Excellent - No damage", points: 5 },
+          { value: "good", label: "Good - Minor scratches", points: 4 },
+          { value: "fair", label: "Fair - Some damage", points: 3 },
+          { value: "poor", label: "Poor - Significant damage", points: 2 },
+          { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
         ]
       },
       {
@@ -522,71 +543,250 @@ const inspectionSections = [
     id: "tires",
     name: "Tires & Wheels",
     icon: CircleDotIcon,
-    description: "Tire condition, tread depth, and wheel assessment",
+    description: "Detailed tire condition, tread depth, and wheel assessment for each tire",
     questions: [
       {
-        id: "tire_condition",
-        question: "Overall tire condition:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "excellent", label: "Excellent - Like new", points: 5 },
-          { value: "good", label: "Good - Adequate tread", points: 4 },
-          { value: "fair", label: "Fair - Some wear", points: 3 },
-          { value: "poor", label: "Poor - Low tread", points: 2 },
-          { value: "very_poor", label: "Very Poor - Bald/unsafe", points: 0 }
-        ]
-      },
-      {
-        id: "tire_tread_depth",
-        question: "Measure tire tread depth (32nds of an inch):",
-        type: "number",
+        id: "front_left_tire",
+        question: "Front Left Tire Assessment:",
+        type: "section",
         required: true,
         subQuestions: [
           {
-            id: "front_left_tread",
-            question: "Front left tire tread depth:",
+            id: "front_left_no_damage",
+            question: "No damage to tire or rim",
+            type: "checkbox",
+            options: [
+              { value: "no_damage", label: "No damage to tire or rim", points: 5 }
+            ]
+          },
+          {
+            id: "front_left_sidewall_damage",
+            question: "Sidewall Damage:",
+            type: "radio",
+            options: [
+              { value: "none", label: "No sidewall damage", points: 0 },
+              { value: "minor", label: "Minor scratches/scuffs", points: -1 },
+              { value: "moderate", label: "Moderate damage", points: -2 },
+              { value: "severe", label: "Severe damage", points: -3 }
+            ]
+          },
+          {
+            id: "front_left_tread_depth",
+            question: "Tread Depth (32nds of an inch):",
             type: "number"
           },
           {
-            id: "front_right_tread",
-            question: "Front right tire tread depth:",
-            type: "number"
+            id: "front_left_rim_condition",
+            question: "Condition of Rim:",
+            type: "radio",
+            options: [
+              { value: "excellent", label: "Excellent - No damage", points: 5 },
+              { value: "good", label: "Good - Minor scratches", points: 4 },
+              { value: "fair", label: "Fair - Some damage", points: 3 },
+              { value: "poor", label: "Poor - Significant damage", points: 2 },
+              { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
+            ]
           },
           {
-            id: "rear_left_tread",
-            question: "Rear left tire tread depth:",
-            type: "number"
-          },
-          {
-            id: "rear_right_tread",
-            question: "Rear right tire tread depth:",
-            type: "number"
+            id: "front_left_tire_brand",
+            question: "Tire Brand:",
+            type: "text"
           }
         ]
       },
       {
-        id: "tire_damage",
-        question: "Check for tire damage:",
-        type: "checkbox",
-        options: [
-          { value: "sidewall_damage", label: "Sidewall damage", points: -3 },
-          { value: "bulges", label: "Bulges or bubbles", points: -4 },
-          { value: "cracks", label: "Cracks in rubber", points: -2 },
-          { value: "punctures", label: "Punctures or plugs", points: -2 },
-          { value: "uneven_wear", label: "Uneven wear patterns", points: -2 }
+        id: "front_right_tire",
+        question: "Front Right Tire Assessment:",
+        type: "section",
+        required: true,
+        subQuestions: [
+          {
+            id: "front_right_no_damage",
+            question: "No damage to tire or rim",
+            type: "checkbox",
+            options: [
+              { value: "no_damage", label: "No damage to tire or rim", points: 5 }
+            ]
+          },
+          {
+            id: "front_right_sidewall_damage",
+            question: "Sidewall Damage:",
+            type: "radio",
+            options: [
+              { value: "none", label: "No sidewall damage", points: 0 },
+              { value: "minor", label: "Minor scratches/scuffs", points: -1 },
+              { value: "moderate", label: "Moderate damage", points: -2 },
+              { value: "severe", label: "Severe damage", points: -3 }
+            ]
+          },
+          {
+            id: "front_right_tread_depth",
+            question: "Tread Depth (32nds of an inch):",
+            type: "number"
+          },
+          {
+            id: "front_right_rim_condition",
+            question: "Condition of Rim:",
+            type: "radio",
+            options: [
+              { value: "excellent", label: "Excellent - No damage", points: 5 },
+              { value: "good", label: "Good - Minor scratches", points: 4 },
+              { value: "fair", label: "Fair - Some damage", points: 3 },
+              { value: "poor", label: "Poor - Significant damage", points: 2 },
+              { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
+            ]
+          },
+          {
+            id: "front_right_tire_brand",
+            question: "Tire Brand:",
+            type: "text"
+          }
         ]
       },
       {
-        id: "wheel_condition",
-        question: "Wheel condition:",
+        id: "rear_left_tire",
+        question: "Rear Left Tire Assessment:",
+        type: "section",
+        required: true,
+        subQuestions: [
+          {
+            id: "rear_left_no_damage",
+            question: "No damage to tire or rim",
+            type: "checkbox",
+            options: [
+              { value: "no_damage", label: "No damage to tire or rim", points: 5 }
+            ]
+          },
+          {
+            id: "rear_left_sidewall_damage",
+            question: "Sidewall Damage:",
+            type: "radio",
+            options: [
+              { value: "none", label: "No sidewall damage", points: 0 },
+              { value: "minor", label: "Minor scratches/scuffs", points: -1 },
+              { value: "moderate", label: "Moderate damage", points: -2 },
+              { value: "severe", label: "Severe damage", points: -3 }
+            ]
+          },
+          {
+            id: "rear_left_tread_depth",
+            question: "Tread Depth (32nds of an inch):",
+            type: "number"
+          },
+          {
+            id: "rear_left_rim_condition",
+            question: "Condition of Rim:",
+            type: "radio",
+            options: [
+              { value: "excellent", label: "Excellent - No damage", points: 5 },
+              { value: "good", label: "Good - Minor scratches", points: 4 },
+              { value: "fair", label: "Fair - Some damage", points: 3 },
+              { value: "poor", label: "Poor - Significant damage", points: 2 },
+              { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
+            ]
+          },
+          {
+            id: "rear_left_tire_brand",
+            question: "Tire Brand:",
+            type: "text"
+          }
+        ]
+      },
+      {
+        id: "rear_right_tire",
+        question: "Rear Right Tire Assessment:",
+        type: "section",
+        required: true,
+        subQuestions: [
+          {
+            id: "rear_right_no_damage",
+            question: "No damage to tire or rim",
+            type: "checkbox",
+            options: [
+              { value: "no_damage", label: "No damage to tire or rim", points: 5 }
+            ]
+          },
+          {
+            id: "rear_right_sidewall_damage",
+            question: "Sidewall Damage:",
+            type: "radio",
+            options: [
+              { value: "none", label: "No sidewall damage", points: 0 },
+              { value: "minor", label: "Minor scratches/scuffs", points: -1 },
+              { value: "moderate", label: "Moderate damage", points: -2 },
+              { value: "severe", label: "Severe damage", points: -3 }
+            ]
+          },
+          {
+            id: "rear_right_tread_depth",
+            question: "Tread Depth (32nds of an inch):",
+            type: "number"
+          },
+          {
+            id: "rear_right_rim_condition",
+            question: "Condition of Rim:",
+            type: "radio",
+            options: [
+              { value: "excellent", label: "Excellent - No damage", points: 5 },
+              { value: "good", label: "Good - Minor scratches", points: 4 },
+              { value: "fair", label: "Fair - Some damage", points: 3 },
+              { value: "poor", label: "Poor - Significant damage", points: 2 },
+              { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
+            ]
+          },
+          {
+            id: "rear_right_tire_brand",
+            question: "Tire Brand:",
+            type: "text"
+          }
+        ]
+      },
+      {
+        id: "spare_tire_assessment",
+        question: "Spare Tire Assessment (if applicable):",
+        type: "section",
+        required: false,
+        subQuestions: [
+          {
+            id: "spare_tire_present",
+            question: "Spare tire present:",
+            type: "radio",
+            options: [
+              { value: "yes", label: "Yes", points: 2 },
+              { value: "no", label: "No", points: -1 },
+              { value: "na", label: "Not applicable", points: 0 }
+            ]
+          },
+          {
+            id: "spare_tire_condition",
+            question: "Spare tire condition:",
+            type: "radio",
+            options: [
+              { value: "excellent", label: "Excellent - Like new", points: 3 },
+              { value: "good", label: "Good - Adequate", points: 2 },
+              { value: "fair", label: "Fair - Some wear", points: 1 },
+              { value: "poor", label: "Poor - Low tread", points: 0 },
+              { value: "very_poor", label: "Very Poor - Unsafe", points: -1 }
+            ]
+          },
+          {
+            id: "spare_tire_brand",
+            question: "Spare tire brand:",
+            type: "text"
+          }
+        ]
+      },
+      {
+        id: "overall_tire_condition",
+        question: "Overall tire condition assessment:",
         type: "radio",
         required: true,
         options: [
-          { value: "excellent", label: "Excellent - No damage", points: 5 },
-          { value: "good", label: "Good - Minor scratches", points: 4 },
-          { value: "fair", label: "Fair - Some damage", points: 3 },
-          { value: "poor", label: "Poor - Significant damage", points: 2 }
+          { value: "excellent", label: "Excellent - All tires like new", points: 5 },
+          { value: "good", label: "Good - All tires adequate", points: 4 },
+          { value: "fair", label: "Fair - Some wear on tires", points: 3 },
+          { value: "poor", label: "Poor - Multiple tires need replacement", points: 2 },
+          { value: "very_poor", label: "Very Poor - Unsafe tires", points: 0 }
         ]
       },
       {
@@ -863,11 +1063,12 @@ const getAnglesBySection = (sectionId: string) => {
       ];
     case 'tires':
       return [
-        { id: 'front_left', label: 'Front Left' },
-        { id: 'front_right', label: 'Front Right' },
-        { id: 'rear_left', label: 'Rear Left' },
-        { id: 'rear_right', label: 'Rear Right' },
-        { id: 'spare', label: 'Spare Tire' }
+        { id: 'front_left', label: 'Front Left Tire & Rim' },
+        { id: 'front_right', label: 'Front Right Tire & Rim' },
+        { id: 'rear_left', label: 'Rear Left Tire & Rim' },
+        { id: 'rear_right', label: 'Rear Right Tire & Rim' },
+        { id: 'spare', label: 'Spare Tire (if applicable)' },
+        { id: 'tread_depth', label: 'Tread Depth Measurements' }
       ];
     case 'undercarriage':
       return [
@@ -1088,8 +1289,14 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
         
         // Check if answer should trigger sub-questions based on question type
         if (question.type === 'yesno') {
-          // For yes/no questions, only show sub-questions if answer is "yes"
-          shouldClearSubQuestions = answer !== "yes";
+          // For yes/no questions, show sub-questions based on specific question logic
+          if (question.id === "interior_odors" || question.id === "engine_leaks") {
+            // For these questions, show sub-questions when "yes" is selected
+            shouldClearSubQuestions = answer !== "yes";
+          } else {
+            // For other yes/no questions, show sub-questions when "no" is selected
+            shouldClearSubQuestions = answer !== "no";
+          }
         } else if (question.type === 'radio') {
           // For radio questions, check if the selected option should trigger sub-questions
           // This would need to be defined in the question configuration
@@ -1643,18 +1850,122 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     const scanCompleted = isOBD2Section && Array.isArray(inspectionData[sectionId]?.questions?.obd2_scan_completed?.answer) && 
       inspectionData[sectionId]?.questions?.obd2_scan_completed?.answer.includes('completed');
 
-    return (
-      <div 
-        key={question.id} 
-        className={`bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-6 ${
-          question.type === 'photo' ? 'col-span-1 lg:col-span-2' : ''
-        }`}
-      >
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1">
+    // Handle section type questions (like tire assessments)
+    if (question.type === 'section') {
+      return (
+        <div 
+          key={question.id} 
+          className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-4 col-span-1 lg:col-span-2"
+        >
+          <div className="mb-4">
             <Label className="text-base font-semibold text-gray-900 flex items-center gap-2">
               {question.question}
               {question.required && <span className="text-red-500 text-lg">*</span>}
+            </Label>
+          </div>
+
+          {/* Compact grid layout for tire assessments */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {question.subQuestions && question.subQuestions.map((subQ, subIndex: number) => (
+              <div key={subIndex} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <Label className="text-xs font-medium text-gray-700 mb-2 block">
+                  {subQ.question}
+                </Label>
+                
+                {subQ.type === 'text' && (
+                  <Input
+                    value={inspectionData[sectionId]?.questions?.[question.id]?.subQuestions?.[subQ.id]?.answer as string || ""}
+                    onChange={(e) => handleSubQuestionAnswer(sectionId, question.id, subQ.id, e.target.value)}
+                    placeholder="Enter details..."
+                    className="border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 rounded-md text-sm h-8"
+                  />
+                )}
+                
+                {subQ.type === 'number' && (
+                  <Input
+                    type="number"
+                    value={inspectionData[sectionId]?.questions?.[question.id]?.subQuestions?.[subQ.id]?.answer as string || ""}
+                    onChange={(e) => handleSubQuestionAnswer(sectionId, question.id, subQ.id, e.target.value)}
+                    placeholder="Enter value"
+                    className="border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 rounded-md font-mono text-sm h-8"
+                  />
+                )}
+
+                {subQ.type === 'radio' && 'options' in subQ && subQ.options && (
+                  <RadioGroup 
+                    value={inspectionData[sectionId]?.questions?.[question.id]?.subQuestions?.[subQ.id]?.answer as string || ""} 
+                    onValueChange={(value) => handleSubQuestionAnswer(sectionId, question.id, subQ.id, value)}
+                    className="space-y-1"
+                  >
+                    {subQ.options.map((option) => (
+                      <div key={option.value} className="flex items-center space-x-2 p-1 rounded hover:bg-gray-100 transition-colors">
+                        <RadioGroupItem value={option.value} id={`${subQ.id}-${option.value}`} className="h-3 w-3" />
+                        <Label htmlFor={`${subQ.id}-${option.value}`} className="text-xs text-gray-700 cursor-pointer flex-1">
+                          {option.label}
+                        </Label>
+                        {option.points && (
+                          <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                            option.points > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            {option.points > 0 ? '+' : ''}{option.points}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </RadioGroup>
+                )}
+
+                {subQ.type === 'checkbox' && 'options' in subQ && subQ.options && (
+                  <div className="space-y-1">
+                    {subQ.options.map((option) => (
+                      <div key={option.value} className="flex items-center space-x-2 p-1 rounded hover:bg-gray-100 transition-colors">
+                        <Checkbox
+                          id={`${subQ.id}-${option.value}`}
+                          checked={Array.isArray(inspectionData[sectionId]?.questions?.[question.id]?.subQuestions?.[subQ.id]?.answer) && 
+                                   (inspectionData[sectionId]?.questions?.[question.id]?.subQuestions?.[subQ.id]?.answer as string[])?.includes(option.value)}
+                          onCheckedChange={(checked) => {
+                            const currentAnswer = inspectionData[sectionId]?.questions?.[question.id]?.subQuestions?.[subQ.id]?.answer;
+                            const currentArray = Array.isArray(currentAnswer) ? currentAnswer : [];
+                            const newArray = checked
+                              ? [...currentArray, option.value]
+                              : currentArray.filter((item: string) => item !== option.value);
+                            handleSubQuestionAnswer(sectionId, question.id, subQ.id, newArray);
+                          }}
+                          className="h-3 w-3"
+                        />
+                        <Label htmlFor={`${subQ.id}-${option.value}`} className="text-xs text-gray-700 cursor-pointer flex-1">
+                          {option.label}
+                        </Label>
+                        {option.points && (
+                          <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                            option.points > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            {option.points > 0 ? '+' : ''}{option.points}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div 
+        key={question.id} 
+        className={`bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-4 sm:p-6 ${
+          question.type === 'photo' ? 'col-span-1' : ''
+        }`}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1 min-w-0">
+            <Label className="text-sm sm:text-base font-semibold text-gray-900 flex items-center gap-2">
+              <span className="truncate">{question.question}</span>
+              {question.required && <span className="text-red-500 text-lg flex-shrink-0">*</span>}
             </Label>
             
             {/* Special help guide for frame condition question */}
@@ -2050,6 +2361,11 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
         {question.subQuestions && question.subQuestions.length > 0 && (() => {
           // Check if sub-questions should be shown based on parent question type and answer
           if (question.type === 'yesno') {
+            // For yes/no questions, show sub-questions when "yes" is selected (except for specific cases)
+            if (question.id === "interior_odors" || question.id === "engine_leaks") {
+              return currentAnswer === "yes";
+            }
+            // Default behavior for other yes/no questions
             return currentAnswer === "no";
           } else if (question.type === 'radio') {
             // Special handling for seat_adjustment question - only show subquestions when "no" is selected
@@ -2287,6 +2603,56 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {/* Inspection Due By */}
+        {vehicleData.inspection?.dueByDate && (
+          <Card className="mb-8 border-2 border-red-200 bg-red-50">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <Clock className="h-6 w-6 text-red-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-red-800">Inspection Due By</h2>
+                  <p className="text-red-600 text-sm">Please complete by the deadline</p>
+                </div>
+              </div>
+              <div className="bg-white p-4 rounded-lg border border-red-200">
+                <p className="text-lg font-semibold text-red-800">
+                  {new Date(vehicleData.inspection.dueByDate).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                  {vehicleData.inspection.dueByTime && ` at ${vehicleData.inspection.dueByTime}`}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {/* Notes for Inspector */}
+        {vehicleData.inspection?.notesForInspector && (
+          <Card className="mb-8 border-2 border-yellow-200 bg-yellow-50">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-yellow-100 rounded-full">
+                  <ClipboardList className="h-6 w-6 text-yellow-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-yellow-800">Notes for Inspector</h2>
+                  <p className="text-yellow-600 text-sm">Special instructions from the front desk</p>
+                </div>
+              </div>
+              <div className="bg-white p-4 rounded-lg border border-yellow-200">
+                <p className="text-sm text-yellow-800 whitespace-pre-wrap">
+                  {vehicleData.inspection.notesForInspector}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* VIN Verification Section */}
         <Card className="mb-8 border-2 border-blue-200 bg-blue-50">
           <CardContent className="p-6">
@@ -2424,55 +2790,8 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
           </CardContent>
         </Card>
 
-        {/* Notes for Inspector */}
-        {vehicleData.inspection?.notesForInspector && (
-          <Card className="mb-8 border-2 border-yellow-200 bg-yellow-50">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-yellow-100 rounded-full">
-                  <ClipboardList className="h-6 w-6 text-yellow-600" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-yellow-800">Notes for Inspector</h2>
-                  <p className="text-yellow-600 text-sm">Special instructions from the front desk</p>
-                </div>
-              </div>
-              <div className="bg-white p-4 rounded-lg border border-yellow-200">
-                <p className="text-sm text-yellow-800 whitespace-pre-wrap">
-                  {vehicleData.inspection.notesForInspector}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
-        {/* Inspection Due By */}
-        {vehicleData.inspection?.dueByDate && (
-          <Card className="mb-8 border-2 border-red-200 bg-red-50">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-red-100 rounded-full">
-                  <Clock className="h-6 w-6 text-red-600" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-red-800">Inspection Due By</h2>
-                  <p className="text-red-600 text-sm">Please complete by the deadline</p>
-                </div>
-              </div>
-              <div className="bg-white p-4 rounded-lg border border-red-200">
-                <p className="text-lg font-semibold text-red-800">
-                  {new Date(vehicleData.inspection.dueByDate).toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                  {vehicleData.inspection.dueByTime && ` at ${vehicleData.inspection.dueByTime}`}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+
 
         {/* Overall Rating and Score Display */}
         <div className="mb-8 bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
@@ -2558,29 +2877,28 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
         </div>
 
         {/* Sections */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {inspectionSections.map((section) => (
-            <div key={section.id} className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+            <div key={section.id} className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
               {/* Section Header */}
               <div 
-                className="p-6 cursor-pointer transition-all duration-200 hover:bg-gray-50"
+                className="p-4 sm:p-6 cursor-pointer transition-all duration-200 hover:bg-gray-50"
                 onClick={() => toggleSection(section.id)}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white text-xl shadow-lg">
-                      {React.createElement(section.icon, { className: "h-6 w-6" })}
+                  <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg sm:rounded-xl flex items-center justify-center text-white text-lg sm:text-xl shadow-lg flex-shrink-0">
+                      {React.createElement(section.icon, { className: "h-5 w-5 sm:h-6 sm:w-6" })}
                     </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900">{section.name}</h3>
-                      <p className="text-gray-600 text-sm">{section.description}</p>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{section.name}</h3>
+                      <p className="text-gray-600 text-xs sm:text-sm line-clamp-2">{section.description}</p>
                     </div>
-                 
                   </div>
                   
-                  <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
                     {/* Section Status */}
-                    <div className="text-right">
+                    <div className="text-right hidden sm:block">
                       {isSectionComplete(section.id) ? (
                         <div className="flex items-center space-x-2">
                           <CheckCircle className="h-5 w-5 text-green-500" />
@@ -2611,12 +2929,21 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
                         </div>
                       )}
                     </div>
+
+                    {/* Mobile Status Indicator */}
+                    <div className="sm:hidden">
+                      {isSectionComplete(section.id) ? (
+                        <CheckCircle className="h-5 w-5 text-green-500" />
+                      ) : (
+                        <Clock className="h-5 w-5 text-yellow-500" />
+                      )}
+                    </div>
                     
                     {/* Toggle Icon */}
                     <div className={`transition-transform duration-200 ${
                       expandedSections.has(section.id) ? 'rotate-90' : ''
                     }`}>
-                      <ChevronRight className="h-6 w-6 text-gray-400" />
+                      <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6 text-gray-400" />
                     </div>
                   </div>
                 </div>
@@ -2625,16 +2952,16 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
               {/* Section Content */}
               {expandedSections.has(section.id) && (
                 <div className="border-t border-gray-200 bg-gray-50">
-                  <div className="p-6">
+                  <div className="p-4 sm:p-6">
 
                     {/* Questions Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 gap-4 sm:gap-6">
                       {section.questions.map((question) => renderQuestion(section.id, question))}
                     </div>
 
                     {/* Section Actions */}
-                    <div className="mt-8 flex items-center justify-between pt-6 border-t border-gray-200">
-                      <div className="flex items-center space-x-4">
+                    <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 sm:pt-6 border-t border-gray-200 space-y-4 sm:space-y-0">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                         <div className="text-sm text-gray-600">
                           <span className="font-medium">Score:</span> {calculateSectionScore(section.id)}/{calculateSectionMaxScore(section)} points
                         </div>
@@ -2645,7 +2972,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
                       
                       <Button
                         onClick={() => handleMarkSectionComplete(section.id)}
-                        className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+                        className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-4 sm:px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
                       >
                         <CheckCircle className="h-4 w-4 mr-2" />
                         Mark Section Complete
@@ -2659,21 +2986,23 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
         </div>
 
         {/* Submit Button */}
-        <div className="mt-12 flex justify-center space-x-4">
+        <div className="mt-8 sm:mt-12 flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
           <Button
             onClick={handleSubmitInspection}
             disabled={isSubmitting || !isFormComplete()}
-            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            className="w-full sm:w-auto bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             {isSubmitting ? (
               <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                Submitting Inspection...
+                <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white mr-2"></div>
+                <span className="hidden sm:inline">Submitting Inspection...</span>
+                <span className="sm:hidden">Submitting...</span>
               </>
             ) : (
               <>
-                <CheckCircle className="h-5 w-5 mr-2" />
-                Submit Inspection
+                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                <span className="hidden sm:inline">Submit Inspection</span>
+                <span className="sm:hidden">Submit</span>
               </>
             )}
           </Button>
@@ -2682,29 +3011,55 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
             onClick={handleSaveAndClose}
             disabled={isSavingPending}
             variant="outline"
-            className="border-blue-500 text-blue-600 hover:bg-blue-50 px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+            className="w-full sm:w-auto border-blue-500 text-blue-600 hover:bg-blue-50 px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all duration-200 shadow-lg hover:shadow-xl"
           >
             {isSavingPending ? (
               <>
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
-                Saving...
+                <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-blue-600 mr-2"></div>
+                <span className="hidden sm:inline">Saving...</span>
+                <span className="sm:hidden">Saving...</span>
               </>
             ) : (
               <>
-                <CheckCircle className="h-5 w-5 mr-2" />
-                Save and Close
+                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                <span className="hidden sm:inline">Save and Close</span>
+                <span className="sm:hidden">Save</span>
               </>
             )}
           </Button>
           
-          <Button
-            onClick={handleResetForm}
-            variant="outline"
-            className="border-gray-500 text-gray-600 hover:bg-gray-50 px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl"
-          >
-            <RefreshCw className="h-5 w-5 mr-2" />
-            Reset Form
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto border-gray-500 text-gray-600 hover:bg-gray-50 px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                <RefreshCw className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                <span className="hidden sm:inline">Reset Form</span>
+                <span className="sm:hidden">Reset</span>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="sm:max-w-md">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-500" />
+                  Reset Form
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to reset the form? All data related to this form will be lost.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                <AlertDialogCancel className="w-full sm:w-auto">Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleResetForm}
+                  className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Reset Form
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
       

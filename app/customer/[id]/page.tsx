@@ -10,11 +10,10 @@ import { QuotePreparation } from "@/components/stages/quote-preparation"
 import { OfferDecision } from "@/components/stages/offer-decision"
 import { Paperwork } from "@/components/stages/paperwork"
 import { Completion } from "@/components/stages/completion"
-import { InspectorView } from "@/components/inspector-view"
 import { CaseSummary } from "@/components/stages/case-summary"
 import { useAuth } from "@/lib/auth"
 import api from "@/lib/api"
-import { Case, Inspection, InspectionSection } from "@/lib/types"
+import { Case, Inspection } from "@/lib/types"
 
 interface CustomerDetailProps {
   params: {
@@ -27,13 +26,7 @@ interface CaseData extends Case {
   inspection?: Inspection & { accessToken?: string };
 }
 // Interface for inspection submission data that matches the API expectations
-interface InspectionSubmissionData {
-  sections: InspectionSection[];
-  overallRating?: number;
-  overallScore?: number;
-  inspectionNotes?: string;
-  recommendations?: string[];
-}
+
 
 export default function CustomerDetail({ params }: CustomerDetailProps) {
   const router = useRouter()
@@ -141,8 +134,8 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
-          <p className="text-gray-600">Loading case data...</p>
+          <div className="animate-spin rounded-full h-10 w-10 md:h-12 md:w-12 border-b-2 border-gray-900 mb-3 md:mb-4"></div>
+          <p className="text-gray-600 text-sm md:text-base">Loading case data...</p>
         </div>
       </div>
     );
@@ -152,9 +145,9 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <p className="text-red-600 mb-4">{error || "Case not found"}</p>
+          <p className="text-red-600 mb-4 text-sm md:text-base">{error || "Case not found"}</p>
           <button
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="px-3 py-2 md:px-4 md:py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm md:text-base"
             onClick={() => router.push('/')}
           >
             Back to Dashboard
@@ -175,20 +168,20 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
       return (
         <div className="flex items-center justify-center h-screen">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
-            <p className="text-gray-600">Redirecting to accessible stage...</p>
+            <div className="animate-spin rounded-full h-10 w-10 md:h-12 md:w-12 border-b-2 border-gray-900 mb-3 md:mb-4"></div>
+            <p className="text-gray-600 text-sm md:text-base">Redirecting to accessible stage...</p>
           </div>
         </div>
       );
     }
     
-    // If user has no accessible stages at all
+    // If no accessible stages, show error
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <p className="text-red-600 mb-4">You don&apos;t have permission to access any stages in this case.</p>
+          <p className="text-red-600 mb-4 text-sm md:text-base">You don&apos;t have access to this case.</p>
           <button
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="px-3 py-2 md:px-4 md:py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm md:text-base"
             onClick={() => router.push('/')}
           >
             Back to Dashboard
@@ -199,18 +192,16 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
   }
 
   const renderCurrentStage = () => {
-    // Show summary by default (stage 0)
-    if (currentStage === 0) {
-      return (
-        <CaseSummary
-          vehicleData={caseData}
-          onStageChange={setCurrentStage}
-          accessibleStages={getAccessibleStages()}
-        />
-      )
-    }
-
     switch (currentStage) {
+      case 0:
+        return (
+          <CaseSummary
+            vehicleData={caseData}
+            onStageChange={setCurrentStage}
+            accessibleStages={getAccessibleStages()}
+          />
+        )
+
       case 1:
         return (
           <IntakeForm
@@ -219,6 +210,7 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
             onComplete={() => advanceToStage(2)}
           />
         )
+
       case 2:
         return (
           <ScheduleInspection
@@ -227,42 +219,21 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
             onComplete={() => advanceToStage(3)}
           />
         )
+
       case 3:
-        if (isInspector) {
           return (
-            <InspectorView
+            <InspectionForm
               vehicleData={caseData}
-              onSubmit={async (inspectionData: InspectionSubmissionData) => {
-                try {
-                  const response = await api.submitInspection(
-                    caseData.inspection?.accessToken || '',
-                    inspectionData
-                  );
-                  if (response.success) {
-                    updateCaseData({ inspection: response.data as Inspection });
-                    advanceToStage(4);
-                  }
-                } catch (error) {
-                  console.error('Error submitting inspection:', error);
-                }
-              }}
-              onBack={() => router.push('/')}
+              onUpdate={updateCaseData}
+              onComplete={() => advanceToStage(4)}
+              onOpenInspectorView={() => router.push(`/inspection/${caseData.inspection?.accessToken}`)}
             />
-          );
-        } else {
-        return (
-          <InspectionForm
-            vehicleData={caseData}
-            onUpdate={updateCaseData}
-            onComplete={() => advanceToStage(4)}
-            onOpenInspectorView={() => router.push(`/inspection/${caseData.inspection?.accessToken}`)}
-          />
-          );
-        }
+          )
+
       case 4:
         return (
           <QuotePreparation
-            vehicleData={caseData as CaseData}
+            vehicleData={caseData}
             onUpdate={updateCaseData}
             onComplete={() => advanceToStage(5)}
             isEstimator={isEstimator}
@@ -270,6 +241,7 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
             isAgent={isAgent}
           />
         )
+
       case 5:
         return (
           <OfferDecision
@@ -280,9 +252,10 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
             isEstimator={isEstimator}
           />
         )
+
       case 6:
         // Map caseData to the local CaseData interface expected by Paperwork
-        const mappedCaseData: import('@/components/stages/paperwork').CaseData = {
+        const mappedCaseData: CaseData = {
           id: caseData.id,
           _id: (caseData as CaseData)._id,
           customer: typeof caseData.customer === 'object' ? caseData.customer : undefined,
@@ -292,17 +265,20 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
           transaction: typeof caseData.transaction === 'object' ? caseData.transaction : undefined,
           currentStage: caseData.currentStage,
           status: caseData.status,
-        };
+          stageStatuses: caseData.stageStatuses,
+        }
+
         return (
           <Paperwork
             vehicleData={mappedCaseData}
-            onUpdate={updateCaseData as (data: Partial<CaseData>) => Promise<void>}
+            onUpdate={updateCaseData}
             onComplete={() => advanceToStage(7)}
             isEstimator={isEstimator}
             isAdmin={isAdmin}
             isAgent={isAgent}
           />
         )
+
       case 7:
         return (
           <Completion 
@@ -312,6 +288,7 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
             isEstimator={isEstimator}
           />
         )
+
       default:
         return (
           <IntakeForm
@@ -331,11 +308,10 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
       onStageChange={setCurrentStage}
       onBackToDashboard={handleBackToDashboard}
       accessibleStages={getAccessibleStages()}
-      isInspector={isInspector}
-      isAdmin={isAdmin}
-      isAgent={isAgent}
     >
-      {renderCurrentStage()}
+      <div className="space-y-4 md:space-y-6">
+        {renderCurrentStage()}
+      </div>
     </VosLayout>
   )
 } 

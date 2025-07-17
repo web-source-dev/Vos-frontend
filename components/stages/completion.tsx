@@ -54,6 +54,7 @@ interface CompletionData {
   }
   pdfGenerated?: boolean
   completedAt?: string
+  titleConfirmation?: boolean
 }
 
 interface CaseData {
@@ -87,6 +88,7 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
     keysHandedOver: false,
     documentsReceived: false,
   })
+  const [titleConfirmation, setTitleConfirmation] = useState(false)
   const { toast } = useToast()
   const [isCompleting, setIsCompleting] = useState(false)
 
@@ -99,6 +101,7 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
         keysHandedOver: vehicleData.completion.leaveBehinds?.keysHandedOver || false,
         documentsReceived: vehicleData.completion.leaveBehinds?.documentsReceived || false,
       })
+      setTitleConfirmation(vehicleData.completion.titleConfirmation || false)
     }
   }, [vehicleData.completion])
 
@@ -289,7 +292,7 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
     }
   }
 
-  const allLeaveBehindsComplete = Object.values(leaveBehinds).every(Boolean)
+  const allLeaveBehindsComplete = Object.values(leaveBehinds).every(Boolean) && titleConfirmation
 
   const handleComplete = async () => {
     try {
@@ -367,54 +370,54 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div className="text-center">
-        <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-          <CheckCircle className="h-8 w-8 text-green-600" />
+        <div className="mx-auto w-12 h-12 md:w-16 md:h-16 bg-green-100 rounded-full flex items-center justify-center mb-3 md:mb-4">
+          <CheckCircle className="h-6 w-6 md:h-8 md:w-8 text-green-600" />
         </div>
-        <h1 className="text-3xl font-bold text-green-800">Transaction Complete!</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-green-800">Transaction Complete!</h1>
         <p className="text-muted-foreground mt-2">Vehicle purchase has been successfully completed</p>
       </div>
 
       {/* Transaction Summary */}
       <Card className="border-green-200 bg-green-50">
-        <CardHeader>
-          <CardTitle className="text-green-800">Final Transaction Summary</CardTitle>
+        <CardHeader className="pb-3 md:pb-4">
+          <CardTitle className="text-green-800 text-base md:text-lg">Final Transaction Summary</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <CardContent className="space-y-3 md:space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
             <div>
-              <Label className="text-sm font-medium text-green-700">Customer</Label>
-              <p className="text-lg font-semibold">{customerName}</p>
+              <Label className="text-xs md:text-sm font-medium text-green-700">Customer</Label>
+              <p className="text-base md:text-lg font-semibold">{customerName}</p>
             </div>
             <div>
-              <Label className="text-sm font-medium text-green-700">Vehicle</Label>
-              <p className="text-lg font-semibold">{vehicleDescription}</p>
+              <Label className="text-xs md:text-sm font-medium text-green-700">Vehicle</Label>
+              <p className="text-base md:text-lg font-semibold">{vehicleDescription}</p>
             </div>
             <div>
-              <Label className="text-sm font-medium text-green-700">VIN</Label>
-              <p className="text-lg font-semibold">{vehicleData.vehicle?.vin || 'Not provided'}</p>
+              <Label className="text-xs md:text-sm font-medium text-green-700">VIN</Label>
+              <p className="text-base md:text-lg font-semibold">{vehicleData.vehicle?.vin || 'Not provided'}</p>
             </div>
             <div>
-              <Label className="text-sm font-medium text-green-700">Final Amount</Label>
-              <p className="text-2xl font-bold text-green-600">${finalAmount.toLocaleString()}</p>
+              <Label className="text-xs md:text-sm font-medium text-green-700">Final Amount</Label>
+              <p className="text-xl md:text-2xl font-bold text-green-600">${finalAmount.toLocaleString()}</p>
             </div>
           </div>
 
           <Separator />
 
-          <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="grid grid-cols-3 gap-3 md:gap-4 text-center">
             <div>
-              <Badge className="bg-green-100 text-green-800 mb-2">Inspection</Badge>
-              <p className="text-sm">Completed</p>
+              <Badge className="bg-green-100 text-green-800 mb-2 text-xs">Inspection</Badge>
+              <p className="text-xs md:text-sm">Completed</p>
             </div>
             <div>
-              <Badge className="bg-green-100 text-green-800 mb-2">Payment</Badge>
-              <p className="text-sm">{vehicleData.transaction?.paymentStatus === 'completed' ? 'Completed' : 'Processing'}</p>
+              <Badge className="bg-green-100 text-green-800 mb-2 text-xs">Payment</Badge>
+              <p className="text-xs md:text-sm">{vehicleData.transaction?.paymentStatus === 'completed' ? 'Completed' : 'Processing'}</p>
             </div>
             <div>
-              <Badge className="bg-green-100 text-green-800 mb-2">Status</Badge>
-              <p className="text-sm">Complete</p>
+              <Badge className="bg-green-100 text-green-800 mb-2 text-xs">Status</Badge>
+              <p className="text-xs md:text-sm">Complete</p>
             </div>
           </div>
         </CardContent>
@@ -422,20 +425,20 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
 
       {/* Leave-Behind Checklist */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Car className="h-5 w-5" />
+        <CardHeader className="pb-3 md:pb-4">
+          <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+            <Car className="h-4 w-4 md:h-5 md:w-5" />
             Leave-Behind Checklist
             {isSaving && (
-              <div className="flex items-center gap-2 text-sm text-blue-600">
-                <Save className="h-4 w-4 animate-spin" />
+              <div className="flex items-center gap-2 text-xs md:text-sm text-blue-600">
+                <Save className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
                 Saving...
               </div>
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground mb-4">Ensure all items are completed before customer leaves:</p>
+        <CardContent className="space-y-3 md:space-y-4">
+          <p className="text-xs md:text-sm text-muted-foreground mb-3 md:mb-4">Ensure all items are completed before customer leaves:</p>
 
           <div className="space-y-3">
             <div className="flex items-center space-x-3">
@@ -446,8 +449,8 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
                 onChange={(e) => handleLeaveBehindsChange("vehicleLeft", e.target.checked)}
                 className="rounded"
               />
-              <label htmlFor="vehicleLeft" className="flex items-center gap-2 text-sm">
-                <Car className="h-4 w-4" />
+              <label htmlFor="vehicleLeft" className="flex items-center gap-2 text-xs md:text-sm">
+                <Car className="h-3 w-3 md:h-4 md:w-4" />
                 Vehicle left at designated location
               </label>
             </div>
@@ -460,8 +463,8 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
                 onChange={(e) => handleLeaveBehindsChange("keysHandedOver", e.target.checked)}
                 className="rounded"
               />
-              <label htmlFor="keysHandedOver" className="flex items-center gap-2 text-sm">
-                <Key className="h-4 w-4" />
+              <label htmlFor="keysHandedOver" className="flex items-center gap-2 text-xs md:text-sm">
+                <Key className="h-3 w-3 md:h-4 md:w-4" />
                 All keys handed over (including spare keys)
               </label>
             </div>
@@ -474,16 +477,35 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
                 onChange={(e) => handleLeaveBehindsChange("documentsReceived", e.target.checked)}
                 className="rounded"
               />
-              <label htmlFor="documentsReceived" className="flex items-center gap-2 text-sm">
-                <FileText className="h-4 w-4" />
+              <label htmlFor="documentsReceived" className="flex items-center gap-2 text-xs md:text-sm">
+                <FileText className="h-3 w-3 md:h-4 md:w-4" />
                 All required documents received and verified
+              </label>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                id="titleConfirmation"
+                checked={titleConfirmation}
+                onChange={(e) => {
+                  setTitleConfirmation(e.target.checked)
+                  saveCompletionData({
+                    titleConfirmation: e.target.checked
+                  })
+                }}
+                className="rounded"
+              />
+              <label htmlFor="titleConfirmation" className="flex items-center gap-2 text-xs md:text-sm">
+                <FileText className="h-3 w-3 md:h-4 md:w-4" />
+                Has the bank issued the title to VOS?
               </label>
             </div>
           </div>
 
           {allLeaveBehindsComplete && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-800 font-medium">
+            <div className="p-2 md:p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-xs md:text-sm text-green-800 font-medium">
                 ✓ All checklist items completed! Customer is ready to leave.
               </p>
             </div>
@@ -493,30 +515,30 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
 
       {/* Customer Follow-up */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Heart className="h-5 w-5" />
+        <CardHeader className="pb-3 md:pb-4">
+          <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+            <Heart className="h-4 w-4 md:h-5 md:w-5" />
             Customer Follow-up
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="p-4 bg-blue-50 rounded-lg">
-            <h4 className="font-semibold text-blue-800 mb-2">Thank You & Review Request</h4>
-            <p className="text-sm text-blue-700 mb-3">
+        <CardContent className="space-y-3 md:space-y-4">
+          <div className="p-3 md:p-4 bg-blue-50 rounded-lg">
+            <h4 className="font-semibold text-blue-800 mb-2 text-sm md:text-base">Thank You & Review Request</h4>
+            <p className="text-xs md:text-sm text-blue-700 mb-3">
               Send a personalized thank you message and request a review to help improve our service.
             </p>
 
-            <Button onClick={handleSendThankYou} disabled={thankYouSent} className="w-full">
-              <Mail className="h-4 w-4 mr-2" />
+            <Button onClick={handleSendThankYou} disabled={thankYouSent} className="w-full text-xs md:text-sm">
+              <Mail className="h-3 w-3 md:h-4 md:w-4 mr-2" />
               {thankYouSent ? "Thank You Sent ✓" : "Send Thank You + Review Request"}
             </Button>
           </div>
 
           {thankYouSent && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="p-2 md:p-3 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <p className="text-sm text-green-800 font-medium">Thank you message sent successfully!</p>
+                <CheckCircle className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
+                <p className="text-xs md:text-sm text-green-800 font-medium">Thank you message sent successfully!</p>
               </div>
               <p className="text-xs text-green-700 mt-1">
                 Customer will receive an email with review links and contact information.
@@ -528,20 +550,20 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
 
       {/* Case File Download */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Download className="h-5 w-5" />
+        <CardHeader className="pb-3 md:pb-4">
+          <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+            <Download className="h-4 w-4 md:h-5 md:w-5" />
             Case Documentation
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between p-4 border rounded-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 md:p-4 border rounded-lg gap-3">
             <div>
-              <h4 className="font-medium">Complete Case File</h4>
-              <p className="text-sm text-muted-foreground">Download all documents, photos, and transaction details</p>
+              <h4 className="font-medium text-sm md:text-base">Complete Case File</h4>
+              <p className="text-xs md:text-sm text-muted-foreground">Download all documents, photos, and transaction details</p>
             </div>
-            <Button onClick={handleDownloadCaseFile} variant="outline" disabled={isGeneratingPDF}>
-              <Download className="h-4 w-4 mr-2" />
+            <Button onClick={handleDownloadCaseFile} variant="outline" disabled={isGeneratingPDF} className="text-xs md:text-sm">
+              <Download className="h-3 w-3 md:h-4 md:w-4 mr-2" />
               {isGeneratingPDF ? "Generating PDF..." : "Download PDF"}
             </Button>
           </div>
@@ -555,7 +577,7 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
             onClick={handleComplete} 
             disabled={isCompleting} 
             size="lg" 
-            className="px-8"
+            className="px-6 md:px-8 text-sm md:text-base"
           >
             {isCompleting ? "Completing..." : "Complete Case"}
           </Button>

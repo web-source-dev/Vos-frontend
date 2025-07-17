@@ -206,6 +206,7 @@ export interface Case {
     };
     pdfGenerated?: boolean;
     completedAt?: string;
+    titleConfirmation?: boolean;
   };
   lastActivity?: {
     description: string;
@@ -304,6 +305,11 @@ export interface Transaction {
     notaryCommissionExpiry?: string;
     witnessName?: string;
     witnessPhone?: string;
+  };
+  bankDetails?: {
+    bankName?: string;
+    loanNumber?: string;
+    payoffAmount?: number;
   };
   preferredPaymentMethod?: string;
   documents?: Record<string, string | null>;

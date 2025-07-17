@@ -1,6 +1,6 @@
 "use client"
 
-import { ReactNode } from "react"
+import { ReactNode, useState } from "react"
 import Link from "next/link"
 import {
   SidebarProvider,
@@ -42,6 +42,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard, current: true },
@@ -52,17 +53,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   ]
 
   function getInitials(firstName: string, lastName: string) {
+    console.log(sidebarOpen)
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
   }
 
   return (
-    <SidebarProvider defaultOpen>
+    <SidebarProvider defaultOpen={false} onOpenChange={setSidebarOpen}>
       <div className="flex min-h-screen w-full">
         <Sidebar className="border-r">
           <SidebarHeader className="p-4 border-b">
             <div className="flex items-center gap-2">
               <Car className="h-6 w-6 text-blue-600" />
-              <h1 className="text-lg font-semibold">VOS System</h1>
+              <h1 className="text-lg font-semibold hidden sm:block">VOS System</h1>
+              <h1 className="text-lg font-semibold sm:hidden">VOS</h1>
             </div>
           </SidebarHeader>
 
@@ -76,8 +79,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                         item.current ? "bg-blue-50 text-blue-700" : ""
                       }`}
                     >
-                      <item.icon className="h-5 w-5" />
-                      {item.name}
+                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="hidden sm:inline">{item.name}</span>
+                      <span className="sm:hidden text-xs">{item.name}</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
@@ -91,15 +95,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="w-full justify-start px-2">
                     <div className="flex items-center gap-2 w-full">
-                      <Avatar className="h-8 w-8">
+                      <Avatar className="h-8 w-8 flex-shrink-0">
                         <AvatarImage src="/placeholder-user.jpg" />
                         <AvatarFallback>{getInitials(user.firstName, user.lastName)}</AvatarFallback>
                       </Avatar>
-                      <div className="flex flex-col text-left">
-                        <span className="text-sm font-medium">{`${user.firstName} ${user.lastName}`}</span>
-                        <span className="text-xs text-muted-foreground">{user.role}</span>
+                      <div className="flex flex-col text-left hidden sm:block">
+                        <span className="text-sm font-medium truncate">{`${user.firstName} ${user.lastName}`}</span>
+                        <span className="text-xs text-muted-foreground capitalize">{user.role}</span>
                       </div>
-                      <ChevronDown className="h-4 w-4 ml-auto" />
+                      <div className="flex flex-col text-left sm:hidden">
+                        <span className="text-xs font-medium truncate">{`${user.firstName} ${user.lastName}`}</span>
+                        <span className="text-xs text-muted-foreground capitalize">{user.role}</span>
+                      </div>
+                      <ChevronDown className="h-4 w-4 ml-auto flex-shrink-0" />
                     </div>
                   </Button>
                 </DropdownMenuTrigger>
@@ -121,22 +129,29 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <SidebarInset className="flex-1">
           <header className="flex h-16 items-center gap-4 border-b bg-white px-4 md:px-6">
             <SidebarTrigger className="-ml-2" />
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold">Dashboard</h2>
+            <div className="flex items-center gap-2 flex-1">
+              <h2 className="text-lg font-semibold hidden sm:block">Dashboard</h2>
+              <h2 className="text-base font-semibold sm:hidden">Dashboard</h2>
             </div>
-            {user && user.role === "admin" && (
-              <Badge className="ml-auto mr-4" variant="secondary">Admin</Badge>
-            )}
-            {!user && (
-              <div className="ml-auto">
-                <Link href="/login">
-                  <Button variant="outline" size="sm">Sign in</Button>
-                </Link>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {user && user.role === "admin" && (
+                <Badge className="hidden sm:inline-flex" variant="secondary">Admin</Badge>
+              )}
+              {user && user.role === "admin" && (
+                <Badge className="sm:hidden" variant="secondary">A</Badge>
+              )}
+              {!user && (
+                <div className="ml-auto">
+                  <Link href="/login">
+                    <Button variant="outline" size="sm" className="hidden sm:inline-flex">Sign in</Button>
+                    <Button variant="outline" size="sm" className="sm:hidden">Login</Button>
+                  </Link>
+                </div>
+              )}
+            </div>
           </header>
 
-          <main className="flex-1 p-0">
+          <main className="flex-1 p-0 overflow-x-hidden">
             {children}
           </main>
         </SidebarInset>

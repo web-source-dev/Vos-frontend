@@ -169,34 +169,34 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
 
       {/* Completed Inspection Details */}
       {getInspectionStatus() === 'completed' && (
         <Card className="border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
-          <CardHeader className="pb-4">
+          <CardHeader className="pb-3 md:pb-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-green-100 rounded-full">
-                <CheckCircle className="h-6 w-6 text-green-600" />
+                <CheckCircle className="h-5 w-5 md:h-6 md:w-6 text-green-600" />
               </div>
               <div>
-                <CardTitle className="text-green-800">Inspection Completed</CardTitle>
-                <CardDescription className="text-green-600">
+                <CardTitle className="text-green-800 text-base md:text-lg">Inspection Completed</CardTitle>
+                <CardDescription className="text-green-600 text-xs md:text-sm">
                   Comprehensive vehicle assessment finished successfully
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
           
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4 md:space-y-6">
             {/* VIN Verification Status */}
             {vehicleData.inspection?.vinVerification && (
-              <div className="bg-white rounded-lg p-4 border border-green-200">
+              <div className="bg-white rounded-lg p-3 md:p-4 border border-green-200">
                 <div className="flex items-center gap-3 mb-3">
-                  <Car className="h-5 w-5 text-green-600" />
-                  <h4 className="font-semibold text-gray-800">VIN Verification</h4>
+                  <Car className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
+                  <h4 className="font-semibold text-gray-800 text-sm md:text-base">VIN Verification</h4>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 text-xs md:text-sm">
                   <div>
                     <span className="text-gray-500">VIN Entered:</span>
                     <span className="ml-2 font-medium text-gray-800 font-mono">
@@ -219,8 +219,8 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                   </div>
                 </div>
                 {vehicleData.inspection.vinVerification.vinMatch === 'no' && (
-                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
-                    <p className="text-sm text-red-700">
+                  <div className="mt-3 p-2 md:p-3 bg-red-50 border border-red-200 rounded">
+                    <p className="text-xs md:text-sm text-red-700">
                       <strong>Warning:</strong> VIN numbers do not match. This vehicle was flagged for further review.
                     </p>
                   </div>
@@ -230,13 +230,13 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
 
             {/* Notes for Inspector */}
             {vehicleData.inspection?.notesForInspector && (
-              <div className="bg-white rounded-lg p-4 border border-yellow-200">
+              <div className="bg-white rounded-lg p-3 md:p-4 border border-yellow-200">
                 <div className="flex items-center gap-3 mb-3">
-                  <ClipboardList className="h-5 w-5 text-yellow-600" />
-                  <h4 className="font-semibold text-gray-800">Notes for Inspector</h4>
+                  <ClipboardList className="h-4 w-4 md:h-5 md:w-5 text-yellow-600" />
+                  <h4 className="font-semibold text-gray-800 text-sm md:text-base">Notes for Inspector</h4>
                 </div>
-                <div className="bg-yellow-50 p-3 rounded border border-yellow-200">
-                  <p className="text-sm text-yellow-800 whitespace-pre-wrap">
+                <div className="bg-yellow-50 p-2 md:p-3 rounded border border-yellow-200">
+                  <p className="text-xs md:text-sm text-yellow-800 whitespace-pre-wrap">
                     {vehicleData.inspection.notesForInspector}
                   </p>
                 </div>
@@ -244,12 +244,12 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
             )}
 
             {/* Inspector Information */}
-            <div className="bg-white rounded-lg p-4 border border-green-200">
+            <div className="bg-white rounded-lg p-3 md:p-4 border border-green-200">
               <div className="flex items-center gap-3 mb-3">
-                <User className="h-5 w-5 text-green-600" />
-                <h4 className="font-semibold text-gray-800">Inspector Details</h4>
+                <User className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
+                <h4 className="font-semibold text-gray-800 text-sm md:text-base">Inspector Details</h4>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 text-xs md:text-sm">
                 <div>
                   <span className="text-gray-500">Inspector:</span>
                   <span className="ml-2 font-medium text-gray-800">
@@ -281,7 +281,7 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                       {[1, 2, 3, 4, 5].map((star) => (
                         <Star
                           key={star}
-                          className={`h-4 w-4 ${
+                          className={`h-3 w-3 md:h-4 md:w-4 ${
                             star <= (vehicleData.inspection?.overallRating || 0)
                               ? 'text-yellow-400 fill-current'
                               : 'text-gray-300'
@@ -289,7 +289,7 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                         />
                       ))}
                     </div>
-                    <span className="font-medium text-gray-800 ml-1">
+                    <span className="font-medium text-gray-800 ml-1 text-xs md:text-sm">
                       {vehicleData.inspection?.overallRating}/5
                     </span>
                   </div>
@@ -298,20 +298,20 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
             </div>
 
             {/* Inspection Summary Stats */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 md:p-4 border border-blue-200">
               <div className="flex items-center gap-2 mb-3">
-                <BarChart3 className="h-5 w-5 text-blue-600" />
-                <h4 className="font-semibold text-blue-800">Inspection Summary</h4>
+                <BarChart3 className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
+                <h4 className="font-semibold text-blue-800 text-sm md:text-base">Inspection Summary</h4>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 text-xs md:text-sm">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">
+                  <div className="text-xl md:text-2xl font-bold text-blue-600">
                     {vehicleData.inspection?.sections?.length || 0}
                   </div>
                   <div className="text-gray-600">Sections Inspected</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-600">
+                  <div className="text-xl md:text-2xl font-bold text-yellow-600">
                     {(vehicleData.inspection?.overallRating || 0).toFixed(1)}
                   </div>
                   <div className="text-gray-600">Average Rating</div>
@@ -322,10 +322,10 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
             </div>
 
             {/* Inspection Sections */}
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               <div className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5 text-green-600" />
-                <h4 className="font-semibold text-gray-800">Detailed Inspection Results</h4>
+                <ClipboardList className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
+                <h4 className="font-semibold text-gray-800 text-sm md:text-base">Detailed Inspection Results</h4>
               </div>
               
               <div className="space-y-3">
@@ -338,7 +338,7 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                     <div key={index} className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all duration-200">
                       {/* Section Header - Clickable */}
                       <div 
-                        className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b cursor-pointer hover:bg-gray-50 transition-colors"
+                        className="flex items-center justify-between p-3 md:p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b cursor-pointer hover:bg-gray-50 transition-colors"
                         onClick={() => toggleSection(section.id)}
                       >
                         <div className="flex items-center gap-3">
@@ -348,16 +348,16 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                               <Image
                                 src={`${process.env.NEXT_PUBLIC_API_URL}${displayPhoto.path}`}
                                 alt={`${section.name} preview`}
-                                className="w-8 h-8 object-cover rounded"
+                                className="w-6 h-6 md:w-8 md:h-8 object-cover rounded"
                                 width={32}
                                 height={32}
                               />
                             ) : (
-                              <span className="text-lg">{section.icon}</span>
+                              <span className="text-base md:text-lg">{section.icon}</span>
                             )}
                           </div>
-                          <div>
-                            <h5 className="font-semibold text-gray-800">{section.name}</h5>
+                          <div className="min-w-0 flex-1">
+                            <h5 className="font-semibold text-gray-800 text-sm md:text-base">{section.name}</h5>
                             <div className="flex items-center gap-2 mt-1">
                               <div className="flex">
                                 {[1, 2, 3, 4, 5].map((star) => (
@@ -371,7 +371,7 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                                   />
                                 ))}
                               </div>
-                              <span className="text-sm font-medium text-gray-600">
+                              <span className="text-xs md:text-sm font-medium text-gray-600">
                                 {section.rating}/5
                               </span>
                               {section.score && section.maxScore && (
@@ -383,7 +383,7 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 md:gap-3">
                           {/* Section Stats */}
                           <div className="text-right">
                             <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -398,7 +398,7 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                                 {section.questions?.length || 0} questions
                               </span>
                             </div>
-                            <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${
+                            <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${
                               (section.rating || 0) >= 4 
                                 ? 'bg-green-100 text-green-800' 
                                 : (section.rating || 0) >= 3 
@@ -412,9 +412,9 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                           {/* Toggle Icon */}
                           <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
                             {isExpanded ? (
-                              <ChevronDown className="h-5 w-5 text-gray-400" />
+                              <ChevronDown className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
                             ) : (
-                              <ChevronRight className="h-5 w-5 text-gray-400" />
+                              <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
                             )}
                           </div>
                         </div>
@@ -422,26 +422,26 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                       
                       {/* Section Content - Collapsible */}
                       {isExpanded && (
-                        <div className="p-4 space-y-4 bg-gray-50">
+                        <div className="p-3 md:p-4 space-y-3 md:space-y-4 bg-gray-50">
                           {/* Questions and Answers */}
                           {section.questions && section.questions.length > 0 && (
                             <div className="space-y-3">
-                              <h6 className="font-medium text-gray-700 text-sm flex items-center gap-2">
-                                <ClipboardList className="h-4 w-4" />
+                              <h6 className="font-medium text-gray-700 text-xs md:text-sm flex items-center gap-2">
+                                <ClipboardList className="h-3 w-3 md:h-4 md:w-4" />
                                 Assessment Details
                               </h6>
-                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
                                 {section.questions.map((question: Question, qIndex: number) => (
-                                  <div key={qIndex} className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                                  <div key={qIndex} className="bg-white rounded-lg p-3 md:p-4 border border-gray-200 shadow-sm">
                                     <div className="flex items-start justify-between">
                                       <div className="flex-1">
-                                        <p className="text-sm font-medium text-gray-800 mb-2">
+                                        <p className="text-xs md:text-sm font-medium text-gray-800 mb-2">
                                           {question.question}
                                         </p>
                                         
                                         {/* Answer Display */}
                                         {question.answer && (
-                                          <div className="text-sm text-gray-600 mb-3">
+                                          <div className="text-xs md:text-sm text-gray-600 mb-3">
                                             {question.type === 'radio' && (
                                               <span className="inline-flex items-center px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs">
                                                 {question.options?.find((opt: QuestionOption) => opt.value === question.answer)?.label || question.answer}
@@ -490,7 +490,7 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                                               </span>
                                             )}
                                             {question.type === 'text' && (
-                                              <p className="text-sm text-gray-700 mt-1 bg-white p-2 rounded border">{question.answer}</p>
+                                              <p className="text-xs md:text-sm text-gray-700 mt-1 bg-white p-2 rounded border">{question.answer}</p>
                                             )}
                                           </div>
                                         )}
@@ -637,14 +637,14 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
               if (sectionPhotos.length === 0) return null;
               
               return (
-                <div key={`photos-${index}`} className="space-y-4">
+                <div key={`photos-${index}`} className="space-y-3 md:space-y-4">
                   <div className="flex items-center gap-2">
-                    <Camera className="h-5 w-5 text-green-600" />
-                    <h4 className="font-semibold text-gray-800">{section.name} - All Photos</h4>
+                    <Camera className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
+                    <h4 className="font-semibold text-gray-800 text-sm md:text-base">{section.name} - All Photos</h4>
                   </div>
                   
-                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  <div className="bg-green-50 rounded-lg p-3 md:p-4 border border-green-200">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
                       {sectionPhotos.map((photo: Photo, photoIndex: number) => (
                         <div key={photoIndex} className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200 hover:border-green-400 transition-all duration-200 group">
                           <Image
@@ -676,15 +676,15 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
 
             {/* Safety Issues */}
             {vehicleData.inspection?.safetyIssues && vehicleData.inspection.safetyIssues.length > 0 && (
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                  <h4 className="font-semibold text-gray-800">Safety Issues</h4>
+                  <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-red-600" />
+                  <h4 className="font-semibold text-gray-800 text-sm md:text-base">Safety Issues</h4>
                 </div>
                 
                 <div className="grid gap-3">
                   {vehicleData.inspection.safetyIssues.map((issue: SafetyIssue, index: number) => (
-                    <div key={index} className="bg-red-50 rounded-lg p-4 border border-red-200">
+                    <div key={index} className="bg-red-50 rounded-lg p-3 md:p-4 border border-red-200">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
@@ -695,9 +695,9 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                             }>
                               {issue.severity?.toUpperCase()}
                             </Badge>
-                            <span className="text-sm font-medium text-red-800">{issue.location}</span>
+                            <span className="text-xs md:text-sm font-medium text-red-800">{issue.location}</span>
                           </div>
-                          <p className="text-sm text-red-700 mb-2">{issue.description}</p>
+                          <p className="text-xs md:text-sm text-red-700 mb-2">{issue.description}</p>
                           {issue.estimatedCost && (
                             <p className="text-xs text-red-600">
                               Estimated Cost: ${issue.estimatedCost.toLocaleString()}
@@ -713,15 +713,15 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
 
             {/* Maintenance Items */}
             {vehicleData.inspection?.maintenanceItems && vehicleData.inspection.maintenanceItems.length > 0 && (
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 <div className="flex items-center gap-2">
-                  <ClipboardCheck className="h-5 w-5 text-orange-600" />
-                  <h4 className="font-semibold text-gray-800">Maintenance Recommendations</h4>
+                  <ClipboardCheck className="h-4 w-4 md:h-5 md:w-5 text-orange-600" />
+                  <h4 className="font-semibold text-gray-800 text-sm md:text-base">Maintenance Recommendations</h4>
                 </div>
                 
                 <div className="grid gap-3">
                   {vehicleData.inspection.maintenanceItems.map((item: MaintenanceItem, index: number) => (
-                    <div key={index} className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                    <div key={index} className="bg-orange-50 rounded-lg p-3 md:p-4 border border-orange-200">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
@@ -732,9 +732,9 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                               {item.priority?.toUpperCase()}
                             </Badge>
                           </div>
-                          <p className="text-sm font-medium text-orange-800 mb-1">{item.description}</p>
+                          <p className="text-xs md:text-sm font-medium text-orange-800 mb-1">{item.description}</p>
                           {item.recommendedAction && (
-                            <p className="text-sm text-orange-700 mb-2">{item.recommendedAction}</p>
+                            <p className="text-xs md:text-sm text-orange-700 mb-2">{item.recommendedAction}</p>
                           )}
                           {item.estimatedCost && (
                             <p className="text-xs text-orange-600">
@@ -751,32 +751,32 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
 
             {/* Overall Inspection Notes */}
             {vehicleData.inspection?.inspectionNotes && (
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 <div className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5 text-blue-600" />
-                  <h4 className="font-semibold text-gray-800">Overall Inspection Notes</h4>
+                  <MessageSquare className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
+                  <h4 className="font-semibold text-gray-800 text-sm md:text-base">Overall Inspection Notes</h4>
                 </div>
                 
-                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                  <p className="text-sm text-blue-800 leading-relaxed">{vehicleData.inspection.inspectionNotes}</p>
+                <div className="bg-blue-50 rounded-lg p-3 md:p-4 border border-blue-200">
+                  <p className="text-xs md:text-sm text-blue-800 leading-relaxed">{vehicleData.inspection.inspectionNotes}</p>
                 </div>
               </div>
             )}
 
             {/* Recommendations */}
             {vehicleData.inspection?.recommendations && vehicleData.inspection.recommendations.length > 0 && (
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 <div className="flex items-center gap-2">
-                  <Info className="h-5 w-5 text-green-600" />
-                  <h4 className="font-semibold text-gray-800">Recommendations</h4>
+                  <Info className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
+                  <h4 className="font-semibold text-gray-800 text-sm md:text-base">Recommendations</h4>
                 </div>
                 
-                <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                <div className="bg-green-50 rounded-lg p-3 md:p-4 border border-green-200">
                   <ul className="space-y-2">
                     {vehicleData.inspection.recommendations.map((recommendation: string, index: number) => (
                       <li key={index} className="flex items-start gap-2">
                         <div className="w-1.5 h-1.5 bg-green-600 rounded-full mt-2 flex-shrink-0"></div>
-                        <p className="text-sm text-green-800">{recommendation}</p>
+                        <p className="text-xs md:text-sm text-green-800">{recommendation}</p>
                       </li>
                     ))}
                   </ul>
@@ -790,27 +790,27 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
       {/* Pending Inspection Details */}
       {getInspectionStatus() === 'in-progress' && (
         <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
-          <CardHeader className="pb-4">
+          <CardHeader className="pb-3 md:pb-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-full">
-                <Clock className="h-6 w-6 text-blue-600" />
+                <Clock className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
               </div>
               <div>
-                <CardTitle className="text-blue-800">Inspection In Progress</CardTitle>
-                <CardDescription className="text-blue-600">
+                <CardTitle className="text-blue-800 text-base md:text-lg">Inspection In Progress</CardTitle>
+                <CardDescription className="text-blue-600 text-xs md:text-sm">
                   Vehicle inspection is currently being conducted
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
           
-          <CardContent className="space-y-6">
-            <div className="bg-white rounded-lg p-4 border border-blue-200">
+          <CardContent className="space-y-4 md:space-y-6">
+            <div className="bg-white rounded-lg p-3 md:p-4 border border-blue-200">
               <div className="flex items-center gap-3 mb-3">
-                <User className="h-5 w-5 text-blue-600" />
-                <h4 className="font-semibold text-gray-800">Inspector Information</h4>
+                <User className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
+                <h4 className="font-semibold text-gray-800 text-sm md:text-base">Inspector Information</h4>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 text-xs md:text-sm">
                 <div>
                   <span className="text-gray-500">Inspector:</span>
                   <span className="ml-2 font-medium text-gray-800">
@@ -839,12 +839,12 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
               </div>
             </div>
 
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+            <div className="bg-blue-50 rounded-lg p-3 md:p-4 border border-blue-200">
               <div className="flex items-center gap-2 mb-3">
-                <Info className="h-5 w-5 text-blue-600" />
-                <h4 className="font-semibold text-blue-800">Inspection Progress</h4>
+                <Info className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
+                <h4 className="font-semibold text-blue-800 text-sm md:text-base">Inspection Progress</h4>
               </div>
-              <p className="text-sm text-blue-700">
+              <p className="text-xs md:text-sm text-blue-700">
                 The inspector has started the vehicle inspection but has not completed all required sections yet. 
                 The inspection will be available for review once it&apos;s fully completed.
               </p>
@@ -856,10 +856,10 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
       {/* Pending State */}
       {getInspectionStatus() !== 'completed' && (
         <Card className="border-yellow-200 bg-yellow-50">
-          <CardContent className="p-6 text-center">
-            <Clock className="h-12 w-12 text-yellow-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-yellow-800 mb-2">Waiting for Inspector</h3>
-            <p className="text-yellow-700 mb-4">
+          <CardContent className="p-4 md:p-6 text-center">
+            <Clock className="h-10 w-10 md:h-12 md:w-12 text-yellow-600 mx-auto mb-3 md:mb-4" />
+            <h3 className="text-base md:text-lg font-semibold text-yellow-800 mb-2">Waiting for Inspector</h3>
+            <p className="text-yellow-700 mb-4 text-xs md:text-sm">
               The inspection link has been sent to the assigned inspector. They will complete the vehicle assessment and
               submit their findings.
             </p>
@@ -872,7 +872,7 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
           onClick={() => onComplete()} 
           disabled={getInspectionStatus() !== 'completed'} 
           size="lg" 
-          className="px-8"
+          className="px-6 md:px-8 text-sm md:text-base"
         >
           Continue to Quote Preparation
         </Button>

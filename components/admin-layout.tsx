@@ -18,11 +18,7 @@ import {
 import { useAuth } from "@/lib/auth"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
-  Home,
   Users,
-  Settings,
-  Car,
-  File,
   FileText,
   Code,
   LayoutDashboard,

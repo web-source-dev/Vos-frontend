@@ -6,12 +6,15 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, LayoutGrid, List, Plus, Car, User, Clock, CheckCircle, Users, Trash2 } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Search, LayoutGrid, List, Plus, Car, User, Clock, CheckCircle, Users, Trash2, Mail, Send, Copy, Check, ArrowUp, ArrowDown, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import api from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { usePathname } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
 
 interface CaseData {
   _id: string
@@ -100,11 +103,21 @@ export function CustomerDashboard() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [stageFilter, setStageFilter] = useState("all")
+  const [sortBy, setSortBy] = useState("name")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
   const [cases, setCases] = useState<CaseData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false)
+  const [customerEmail, setCustomerEmail] = useState("")
+  const [customerName, setCustomerName] = useState("")
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const [formUrl, setFormUrl] = useState("")
+  const [isLinkCopied, setIsLinkCopied] = useState(false)
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
   const { isAdmin } = useAuth()
   const pathname = usePathname()
+  const { toast } = useToast()
 
   useEffect(() => {
     const fetchCases = async () => {
@@ -128,7 +141,7 @@ export function CustomerDashboard() {
   }, []);
 
   const filteredCustomers = useMemo(() => {
-    return cases.filter((caseData) => {
+    const filtered = cases.filter((caseData) => {
       const customer = caseData.customer;
       const vehicle = caseData.vehicle;
       const caseStatus = getStatusFromStage(caseData.currentStage, caseData.status);
@@ -144,7 +157,59 @@ export function CustomerDashboard() {
 
       return matchesSearch && matchesStatus && matchesStage
     })
-  }, [searchTerm, statusFilter, stageFilter, cases])
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue: string | number
+      let bValue: string | number
+
+      switch (sortBy) {
+        case "name":
+          aValue = `${a.customer?.firstName || ''} ${a.customer?.lastName || ''}`.toLowerCase()
+          bValue = `${b.customer?.firstName || ''} ${b.customer?.lastName || ''}`.toLowerCase()
+          break
+        case "vehicle":
+          aValue = `${a.vehicle?.year || ''} ${a.vehicle?.make || ''} ${a.vehicle?.model || ''}`.toLowerCase()
+          bValue = `${b.vehicle?.year || ''} ${b.vehicle?.make || ''} ${b.vehicle?.model || ''}`.toLowerCase()
+          break
+        case "vin":
+          aValue = (a.vehicle?.vin || '').toLowerCase()
+          bValue = (b.vehicle?.vin || '').toLowerCase()
+          break
+        case "status":
+          aValue = getStatusFromStage(a.currentStage, a.status).toLowerCase()
+          bValue = getStatusFromStage(b.currentStage, b.status).toLowerCase()
+          break
+        case "value":
+          aValue = getCaseAmount(a)
+          bValue = getCaseAmount(b)
+          break
+        case "date":
+          aValue = new Date(a.lastActivity?.timestamp || a.createdAt).getTime()
+          bValue = new Date(b.lastActivity?.timestamp || b.createdAt).getTime()
+          break
+        default:
+          aValue = `${a.customer?.firstName || ''} ${a.customer?.lastName || ''}`.toLowerCase()
+          bValue = `${b.customer?.firstName || ''} ${b.customer?.lastName || ''}`.toLowerCase()
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        if (sortOrder === 'asc') {
+          return aValue.localeCompare(bValue)
+        } else {
+          return bValue.localeCompare(aValue)
+        }
+      } else {
+        if (sortOrder === 'asc') {
+          return (aValue as number) - (bValue as number)
+        } else {
+          return (bValue as number) - (aValue as number)
+        }
+      }
+    })
+
+    return filtered
+  }, [searchTerm, statusFilter, stageFilter, cases, sortBy, sortOrder])
   
   // Calculate case stats - now based on filtered results
   const totalCases = filteredCustomers.length;
@@ -210,77 +275,152 @@ export function CustomerDashboard() {
     }
   }
 
+  const handleSendCustomerForm = async () => {
+    if (!customerEmail || !customerName) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter both customer email and name.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSendingEmail(true)
+    try {
+      const response = await api.sendCustomerIntakeEmail(customerEmail, customerName)
+      
+      if (response.success) {
+        toast({
+          title: "Email Sent Successfully",
+          description: `Customer form email has been sent to ${customerEmail}`,
+        })
+        setIsEmailModalOpen(false)
+        setCustomerEmail("")
+        setCustomerName("")
+        setFormUrl("")
+        setIsLinkCopied(false)
+      } else {
+        throw new Error(response.error || 'Failed to send email')
+      }
+    } catch (error) {
+      console.error('Error sending customer form email:', error)
+      toast({
+        title: "Email Send Failed",
+        description: "There was an error sending the customer form email. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSendingEmail(false)
+    }
+  }
+
+  const handleCopyLink = async () => {
+    const url = `${window.location.origin}/customer-intake`
+    try {
+      await navigator.clipboard.writeText(url)
+      setIsLinkCopied(true)
+      toast({
+        title: "Link Copied",
+        description: "Form link has been copied to clipboard",
+      })
+      setTimeout(() => setIsLinkCopied(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy link:', error)
+      toast({
+        title: "Copy Failed",
+        description: "Failed to copy link to clipboard",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleOpenModal = () => {
+    setFormUrl(`${window.location.origin}/customer-intake`)
+    setIsEmailModalOpen(true)
+    setCustomerEmail("")
+    setCustomerName("")
+    setIsLinkCopied(false)
+  }
+
   const CustomerCard = ({ customer: caseData }: { customer: CaseData }) => (
-    <Link href={`/customer/${caseData._id}`} className="block group relative">
-      <Card
-        className={cn(
-          "cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4",
-          getPriorityColor(caseData.priority),
-        )}
-      >
-        {/* Delete button for admin */}
-        {isAdmin && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-2 right-2 z-10 opacity-70 group-hover:opacity-100"
-            onClick={e => { e.preventDefault(); e.stopPropagation(); handleDeleteCase(caseData._id) }}
-          >
-            <Trash2 className="h-4 w-4 text-red-500" />
-          </Button>
-        )}
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <User className="h-5 w-5 text-blue-600" />
+    <div className="group relative">
+      <Link href={`/customer/${caseData._id}`} className="block">
+        <Card
+          className={cn(
+            "cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4",
+            getPriorityColor(caseData.priority),
+          )}
+        >
+          {/* Action buttons */}
+          <div className="absolute top-2 right-2 z-10 opacity-70 group-hover:opacity-100 flex gap-1">
+            
+            {/* Delete button for admin */}
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={e => { e.preventDefault(); e.stopPropagation(); handleDeleteCase(caseData._id) }}
+                title="Delete customer"
+              >
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </Button>
+            )}
+          </div>
+          
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <User className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">{`${caseData.customer?.firstName} ${caseData.customer?.lastName}`}</CardTitle>
+                </div>
               </div>
-              <div>
-                <CardTitle className="text-lg">{`${caseData.customer?.firstName} ${caseData.customer?.lastName}`}</CardTitle>
+              {getStatusBadge(caseData.currentStage, caseData.status)}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Car className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">
+                {caseData.vehicle?.year} {caseData.vehicle?.make} {caseData.vehicle?.model}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span>Progress</span>
+                <span className="font-medium">{getProgressPercentage(caseData.currentStage)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${Math.max(0, getProgressPercentage(caseData.currentStage))}%` }}
+                />
               </div>
             </div>
-            {getStatusBadge(caseData.currentStage, caseData.status)}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Car className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">
-              {caseData.vehicle?.year} {caseData.vehicle?.make} {caseData.vehicle?.model}
-            </span>
-          </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span>Progress</span>
-              <span className="font-medium">{getProgressPercentage(caseData.currentStage)}%</span>
+            <div className="flex items-center justify-between">
+              <Badge className={stages[caseData.currentStage - 1]?.color}>
+                {stages[caseData.currentStage - 1]?.name}
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                {caseData.lastActivity?.timestamp ? new Date(caseData.lastActivity.timestamp).toLocaleDateString() : 'N/A'}
+              </span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${Math.max(0, getProgressPercentage(caseData.currentStage))}%` }}
-              />
+
+            <div className="flex items-center justify-between pt-2 border-t">
+              <span className="text-sm text-muted-foreground">Est. Value</span>
+              <span className="font-semibold text-green-600">
+                ${getCaseAmount(caseData).toLocaleString()}
+              </span>
             </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <Badge className={stages[caseData.currentStage - 1]?.color}>
-              {stages[caseData.currentStage - 1]?.name}
-            </Badge>
-            <span className="text-sm text-muted-foreground">
-              {caseData.lastActivity?.timestamp ? new Date(caseData.lastActivity.timestamp).toLocaleDateString() : 'N/A'}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between pt-2 border-t">
-            <span className="text-sm text-muted-foreground">Est. Value</span>
-            <span className="font-semibold text-green-600">
-              ${getCaseAmount(caseData).toLocaleString()}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
+          </CardContent>
+        </Card>
+      </Link>
+    </div>
   )
 
   if (loading) {
@@ -306,30 +446,190 @@ export function CustomerDashboard() {
   }
 
   return (
-    <div className="bg-gray-50">
+    <div className="bg-gray-50 min-h-screen">
+      {/* Header with stats and actions */}
+      <div className="bg-white border-b px-4 sm:px-6 py-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Customer Dashboard</h1>
+            <p className="text-sm sm:text-base text-gray-600">Manage your customer cases and track progress</p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            {/* Send Customer Form Button */}
+            <Dialog open={isEmailModalOpen} onOpenChange={setIsEmailModalOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2 w-full sm:w-auto" onClick={handleOpenModal}>
+                  <Mail className="h-4 w-4" />
+                  <span className="hidden sm:inline">Send Customer Form</span>
+                  <span className="sm:hidden">Send Form</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px] w-[95vw] max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Send Customer Intake Form</DialogTitle>
+                  <DialogDescription>
+                    Send the customer intake form to a customer via email. They will receive a link to complete the form online.
+                  </DialogDescription>
+                </DialogHeader>
+                
+                {/* Form Link Section */}
+                <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                    <Label className="text-sm font-medium">Form Link</Label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyLink}
+                      className="flex items-center gap-2 w-full sm:w-auto"
+                    >
+                      {isLinkCopied ? (
+                        <>
+                          <Check className="h-4 w-4 text-green-600" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-4 w-4" />
+                          Copy Link
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <div className="bg-white p-2 rounded border text-sm font-mono break-all">
+                    {formUrl}
+                  </div>
+                </div>
+                
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Input
+                      id="customerName"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Customer's full name"
+                      className="col-span-4"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Input
+                      id="customerEmail"
+                      type="email"
+                      value={customerEmail}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      placeholder="customer@example.com"
+                      className="col-span-4"
+                    />
+                  </div>
+                </div>
+                <DialogFooter className="flex flex-col sm:flex-row gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsEmailModalOpen(false)}
+                    disabled={isSendingEmail}
+                    className="w-full sm:w-auto"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleSendCustomerForm}
+                    disabled={isSendingEmail || !customerEmail || !customerName}
+                    className="flex items-center gap-2 w-full sm:w-auto"
+                  >
+                    {isSendingEmail ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4" />
+                        Send Form
+                      </>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* New Customer Button */}
+            <Link href="/customer/new" className="w-full sm:w-auto">
+              <Button className="flex items-center gap-2 w-full sm:w-auto">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">New Customer</span>
+                <span className="sm:hidden">New</span>
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {/* Controls */}
-      <div className="bg-white border-b px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="bg-white border-b px-4 sm:px-6 py-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4 w-full sm:w-auto">
             {/* Admin Dashboard button for admin only */}
             {isAdmin && pathname !== "/admin/customers" && (
-              <Link href="/admin">
-                <Button variant="outline" className="flex items-center gap-2">
+              <Link href="/admin" className="w-full sm:w-auto">
+                <Button variant="outline" className="flex items-center gap-2 w-full sm:w-auto">
                   <Users className="h-4 w-4" />
-                  Admin Dashboard
+                  <span className="hidden sm:inline">Admin Dashboard</span>
+                  <span className="sm:hidden">Admin</span>
                 </Button>
               </Link>
             )}
-          </div>
-          <Link href="/customer/new">
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              New Customer
+            
+            {/* Mobile filter toggle */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowMobileFilters(!showMobileFilters)}
+              className="sm:hidden flex items-center gap-2"
+            >
+              <Menu className="h-4 w-4" />
+              Filters
             </Button>
-          </Link>
+          </div>
+          
+          {/* Sorting Controls */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600 hidden sm:inline">Sort by:</span>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-full sm:w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="vehicle">Vehicle</SelectItem>
+                  <SelectItem value="vin">VIN</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                  <SelectItem value="value">Value</SelectItem>
+                  <SelectItem value="date">Date</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+              className="flex items-center gap-1 w-full sm:w-auto"
+            >
+              {sortOrder === "asc" ? (
+                <ArrowUp className="h-4 w-4" />
+              ) : (
+                <ArrowDown className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">{sortOrder === "asc" ? "A-Z" : "Z-A"}</span>
+            </Button>
+          </div>
         </div>
       </div>
-        <div className="bg-white border-b px-6 py-3">
+      
+      {/* Search and Filters */}
+      <div className="bg-white border-b px-4 sm:px-6 py-3">
+        <div className="flex flex-col gap-4">
           <div className="flex items-center gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -341,22 +641,6 @@ export function CustomerDashboard() {
               />
             </div>
             
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Customers</SelectItem>
-                <SelectItem value="Pending Inspection Scheduling">Pending Inspection Scheduling</SelectItem>
-                <SelectItem value="Pending Inspection Completion">Pending Inspection Completion</SelectItem>
-                <SelectItem value="Pending Quote">Pending Quote</SelectItem>
-                <SelectItem value="Pending Offer Decision">Pending Offer Decision</SelectItem>
-                <SelectItem value="Pending Paperwork">Pending Paperwork</SelectItem>
-                <SelectItem value="Pending Completion">Pending Completion</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
-
             <div className="flex items-center border rounded-lg">
               <Button
                 variant={viewMode === "cards" ? "default" : "ghost"}
@@ -376,20 +660,61 @@ export function CustomerDashboard() {
               </Button>
             </div>
           </div>
+          
+          {/* Mobile filters */}
+          {showMobileFilters && (
+            <div className="flex flex-col gap-3 sm:hidden">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Customers</SelectItem>
+                  <SelectItem value="Pending Inspection Scheduling">Pending Inspection Scheduling</SelectItem>
+                  <SelectItem value="Pending Inspection Completion">Pending Inspection Completion</SelectItem>
+                  <SelectItem value="Pending Quote">Pending Quote</SelectItem>
+                  <SelectItem value="Pending Offer Decision">Pending Offer Decision</SelectItem>
+                  <SelectItem value="Pending Paperwork">Pending Paperwork</SelectItem>
+                  <SelectItem value="Pending Completion">Pending Completion</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          
+          {/* Desktop filters */}
+          <div className="hidden sm:flex items-center gap-4">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Customers</SelectItem>
+                <SelectItem value="Pending Inspection Scheduling">Pending Inspection Scheduling</SelectItem>
+                <SelectItem value="Pending Inspection Completion">Pending Inspection Completion</SelectItem>
+                <SelectItem value="Pending Quote">Pending Quote</SelectItem>
+                <SelectItem value="Pending Offer Decision">Pending Offer Decision</SelectItem>
+                <SelectItem value="Pending Paperwork">Pending Paperwork</SelectItem>
+                <SelectItem value="Pending Completion">Pending Completion</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+      </div>
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {/* Summary Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <Users className="h-5 w-5 text-blue-600" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Users className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{totalCases}</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-lg sm:text-2xl font-bold">{totalCases}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     {searchTerm || statusFilter !== "all" || stageFilter !== "all" 
                       ? "Filtered Cases" 
                       : "Total Cases"}
@@ -402,12 +727,12 @@ export function CustomerDashboard() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-yellow-600" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{totalInProcess}</p>
-                  <p className="text-sm text-muted-foreground">In Process</p>
+                  <p className="text-lg sm:text-2xl font-bold">{totalInProcess}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">In Process</p>
                 </div>
               </div>
             </CardContent>
@@ -416,12 +741,12 @@ export function CustomerDashboard() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{totalCompleted}</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-lg sm:text-2xl font-bold">{totalCompleted}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     {searchTerm || statusFilter !== "all" || stageFilter !== "all" 
                       ? "Filtered Completed" 
                       : "Total Completed"}
@@ -434,12 +759,12 @@ export function CustomerDashboard() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                  <CheckCircle className="h-5 w-5 text-green-600" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{completedToday}</p>
-                  <p className="text-sm text-muted-foreground">Completed Today</p>
+                  <p className="text-lg sm:text-2xl font-bold">{completedToday}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Completed Today</p>
                 </div>
               </div>
             </CardContent>
@@ -449,7 +774,7 @@ export function CustomerDashboard() {
         {/* Customer List/Cards */}
         {filteredCustomers.length > 0 ? (
           viewMode === "cards" ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
             {filteredCustomers.map((customer) => (
               <CustomerCard key={customer._id} customer={customer} />
             ))}
@@ -458,14 +783,13 @@ export function CustomerDashboard() {
           <Card>
               <CardContent className="p-0">
                 {/* List Headers */}
-                <div className="grid grid-cols-12 gap-4 p-4 border-b bg-gray-50 font-medium text-sm text-gray-600">
+                <div className="hidden md:grid grid-cols-12 gap-4 p-4 border-b bg-gray-50 font-medium text-sm text-gray-600">
                   <div className="col-span-3 font-bold">Customer</div>
                   <div className="col-span-2 font-bold">Vehicle</div>
                   <div className="col-span-2 font-bold">VIN</div>
                   <div className="col-span-2 font-bold">Status</div>
                   <div className="col-span-1 font-bold">Est. Value</div>
                   <div className="col-span-1 font-bold">Last Activity</div>
-                  <div className="col-span-1 font-bold">Actions</div>
                 </div>
                 
                 {/* List Items */}
@@ -474,11 +798,39 @@ export function CustomerDashboard() {
                     <Link key={customer._id} href={`/customer/${customer._id}`} className="block">
                 <div
                   className={cn(
-                          "grid grid-cols-12 gap-4 p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors border-l-4 relative",
+                          "md:grid md:grid-cols-12 md:gap-4 p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors border-l-4 relative",
                     getPriorityColor(customer.priority),
                   )}
                 >
-                  <div className="col-span-3 flex items-center gap-3">
+                  {/* Mobile layout */}
+                  <div className="md:hidden space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <User className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{`${customer.customer?.firstName} ${customer.customer?.lastName}`}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {customer.vehicle?.year} {customer.vehicle?.make} {customer.vehicle?.model}
+                          </p>
+                        </div>
+                      </div>
+                      {getStatusBadge(customer.currentStage, customer.status)}
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">VIN: {customer.vehicle?.vin || 'N/A'}</span>
+                      <span className="font-semibold text-green-600">
+                        ${getCaseAmount(customer).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Last activity: {customer.lastActivity?.timestamp ? new Date(customer.lastActivity.timestamp).toLocaleDateString() : 'N/A'}
+                    </div>
+                  </div>
+                  
+                  {/* Desktop layout */}
+                  <div className="hidden md:flex col-span-3 items-center gap-3">
                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                       <User className="h-4 w-4 text-blue-600" />
                     </div>
@@ -486,7 +838,7 @@ export function CustomerDashboard() {
                       <p className="font-medium">{`${customer.customer?.firstName} ${customer.customer?.lastName}`}</p>
                     </div>
                   </div>
-                        <div className="col-span-2 flex items-center">
+                        <div className="hidden md:flex col-span-2 items-center">
                     <div>
                       <p className="font-medium">
                         {customer.vehicle?.year} {customer.vehicle?.make} {customer.vehicle?.model}
@@ -494,33 +846,22 @@ export function CustomerDashboard() {
                       <p className="text-sm text-muted-foreground">{customer.vehicle?.mileage} miles</p>
                     </div>
                   </div>
-                  <div className="col-span-2 flex items-center">
+                  <div className="hidden md:flex col-span-2 items-center">
                           <p className="text-sm font-mono">{customer.vehicle?.vin || 'N/A'}</p>
                         </div>
-                        <div className="col-span-2 flex items-center">
+                        <div className="hidden md:flex col-span-2 items-center">
                           {getStatusBadge(customer.currentStage, customer.status)}
                   </div>
-                        <div className="col-span-1 flex items-center">
+                        <div className="hidden md:flex col-span-1 items-center">
                     <span className="font-semibold text-green-600">
                       ${getCaseAmount(customer).toLocaleString()}
                     </span>
                   </div>
-                        <div className="col-span-1 flex items-center">
+                        <div className="hidden md:flex col-span-1 items-center">
                     <span className="text-sm text-muted-foreground">
                       {customer.lastActivity?.timestamp ? new Date(customer.lastActivity.timestamp).toLocaleDateString() : 'N/A'}
                     </span>
                         </div>
-                        <div className="col-span-1 flex items-center justify-end">
-                    {isAdmin && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={e => { e.preventDefault(); e.stopPropagation(); handleDeleteCase(customer._id) }}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    )}
-                  </div>
                 </div>
                     </Link>
               ))}
