@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from "@/hooks/use-toast"
 import {  Mail, CheckCircle, X, Clock, Edit } from "lucide-react"
 import api from '@/lib/api'
+import { useStageTimer } from '@/components/useStageTimer'
 
 // TypeScript interfaces for offer decision data
 interface CustomerData {
@@ -71,53 +72,60 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const { toast } = useToast()
+  
+  // Initialize stage timer
+  const stageTimer = useStageTimer()
 
   const quote = vehicleData.quote || {}
   const offerAmount = quote.offerAmount || 0
   const offerDecision = quote.offerDecision || vehicleData.offerDecision
 
-  // Initialize decision state from existing data
+  // Initialize decision state from existing data and start timer
   useEffect(() => {
+    // Set decision state from offerDecision
     if (offerDecision?.decision && offerDecision.decision !== 'pending') {
       setDecision(offerDecision.decision)
-
-      
       if (offerDecision.reason) {
         setDeclineReason(offerDecision.reason)
       }
     } else {
-      // Reset decision state if it's pending or no decision
       setDecision("")
     }
-  }, [offerDecision])
+    // Only start timer if no decision and timer not started
+    if ((!offerDecision?.decision || offerDecision.decision === 'pending') && !stageTimer.startTime) {
+      stageTimer.start();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAccept = async () => {
     try {
       setIsSubmitting(true)
-      console.log('handleAccept called');
+      // Stop the timer and get timing data
+      const timerData = stageTimer.stop();
+      const caseId = vehicleData.id || vehicleData._id;
+      if (!caseId) throw new Error("Case ID not found");
       const decisionData = {
         decision: "accepted",
         acceptedAt: new Date().toISOString(),
         finalAmount: offerAmount,
         status: "title-pending",
       }
-
-      console.log('Decision data:', decisionData);
-      console.log('Vehicle data:', vehicleData);
-      console.log('Is estimator:', isEstimator);
-
-      // Always use case ID-based endpoint for authenticated users
-      const caseId = vehicleData.id || vehicleData._id;
-      console.log('Using case ID:', caseId);
-      if (!caseId) {
-        throw new Error("Case ID not found");
-      }
-      
       const response = await api.updateOfferDecisionByCaseId(caseId, decisionData);
-      console.log('API response:', response);
-
+      // Send stage time data to API (simple: only startTime, endTime, caseId, stageName)
+      if (timerData.startTime && timerData.endTime) {
+        try {
+          await api.updateStageTime(
+            caseId,
+            'offerDecision',
+            timerData.startTime,
+            timerData.endTime
+          );
+        } catch (error) {
+          // Optionally log error
+        }
+      }
       if (response.success) {
-        console.log('API call successful, updating UI');
         onUpdate({
           ...vehicleData,
           offerDecision: response.data as unknown as OfferDecisionData,
@@ -172,30 +180,31 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
   const handleDecline = async () => {
     try {
       setIsSubmitting(true)
-      console.log('handleDecline called');
+      // Stop the timer and get timing data
+      const timerData = stageTimer.stop();
+      const caseId = vehicleData.id || vehicleData._id;
+      if (!caseId) throw new Error("Case ID not found");
       const decisionData = {
         decision: "declined",
         declinedAt: new Date().toISOString(),
         reason: declineReason,
         status: "closed",
       }
-
-      console.log('Decline decision data:', decisionData);
-      console.log('Vehicle data:', vehicleData);
-      console.log('Is estimator:', isEstimator);
-
-      // Always use case ID-based endpoint for authenticated users
-      const caseId = vehicleData.id || vehicleData._id;
-      console.log('Using case ID for decline:', caseId);
-      if (!caseId) {
-        throw new Error("Case ID not found");
-      }
-      
       const response = await api.updateOfferDecisionByCaseId(caseId, decisionData);
-      console.log('Decline API response:', response);
-
+      // Send stage time data to API (simple: only startTime, endTime, caseId, stageName)
+      if (timerData.startTime && timerData.endTime) {
+        try {
+          await api.updateStageTime(
+            caseId,
+            'offerDecision',
+            timerData.startTime,
+            timerData.endTime
+          );
+        } catch (error) {
+          // Optionally log error
+        }
+      }
       if (response.success) {
-        console.log('Decline API call successful, updating UI');
         if (response.data) {
           onUpdate({ 
             ...vehicleData,
@@ -290,6 +299,22 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
     }
 
     try {
+      // Stop the timer and get timing data if not already stopped
+      const timerData = stageTimer.stop();
+      const caseId = vehicleData.id || vehicleData._id;
+      if (caseId && timerData.startTime && timerData.endTime) {
+        try {
+          await api.updateStageTime(
+            caseId,
+            'offerDecision',
+            timerData.startTime,
+            timerData.endTime
+          );
+        } catch (error) {
+          // Optionally log error
+        }
+      }
+      
       // Update stage statuses to mark stage 5 as complete
       const currentStageStatuses = vehicleData.stageStatuses || {};
       const stageData = {
@@ -301,11 +326,27 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
       };
       
       // Update stage statuses in the database
-      const caseId = vehicleData.id || vehicleData._id;
       if (caseId) {
         try {
           await api.updateCaseStageByCaseId(caseId, stageData);
           console.log('Successfully updated stage statuses');
+          
+          // Send stage time data to API if timer was running
+          // This block is now redundant as updateStageTime is called in handleAccept/handleDecline
+          // if (timerData.startTime && timerData.endTime) {
+          //   try {
+          //     await api.updateStageTime(
+          //       caseId,
+          //       'offerDecision',
+          //       timerData.startTime,
+          //       timerData.endTime,
+          //       { decision: 'accepted', completed: true }
+          //     );
+          //     console.log('Stage time updated successfully for completion');
+          //   } catch (error) {
+          //     console.error('Failed to update stage time for completion:', error);
+          //   }
+          // }
         } catch (error) {
           console.error('Failed to update stage statuses:', error);
         }
@@ -360,7 +401,14 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
             {isEstimator ? "Capture customer decision and proceed to paperwork" : "Present offer to customer and capture their decision"}
           </p>
         </div>
-        {getStatusBadge()}
+        <div className="flex items-center gap-4">
+          {/* Timer Display */}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            <span>Time: {stageTimer.elapsedFormatted}</span>
+          </div>
+          {getStatusBadge()}
+        </div>
       </div>
 
       {/* Quote Summary */}

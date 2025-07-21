@@ -19,16 +19,10 @@ import {
   ClipboardList,
   Clock,
   Car as CarIcon,
-  CarFront as CarFrontIcon,
-  Settings as SettingsIcon,
-  Wrench as WrenchIcon,
   Zap as ZapIcon,
-  Shield as ShieldIcon,
-  CircleDot as CircleDotIcon,
   XCircle,
   Camera,
   RefreshCw,
-  Activity,
   AlertTriangle,
 } from "lucide-react"
 import api from "@/lib/api"
@@ -45,11 +39,31 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { inspectionSections, electricVehicleSections } from "@/utils/inspectionQuestions"
+import { useStageTimer } from "./useStageTimer"
 
 interface VehicleData {
   customer?: {
     firstName: string
     lastName: string
+  } | {
+    id?: string
+    firstName: string
+    middleInitial?: string
+    lastName: string
+    cellPhone: string
+    homePhone?: string
+    email1: string
+    email2?: string
+    email3?: string
+    hearAboutVOS?: string
+    source?: string
+    receivedOtherQuote?: boolean
+    otherQuoteOfferer?: string
+    otherQuoteAmount?: number
+    agent?: string
+    notes: string
+    storeLocation?: string
   }
   vehicle?: {
     year: string
@@ -57,6 +71,31 @@ interface VehicleData {
     model: string
     currentMileage?: number
     vin?: string
+    isElectric?: boolean
+  } | {
+    id?: string
+    customer?: string
+    year: string
+    make: string
+    model: string
+    currentMileage: string
+    vin?: string
+    color?: string
+    bodyStyle?: string
+    licensePlate?: string
+    licenseState?: string
+    titleNumber?: string
+    titleStatus?: 'clean' | 'salvage' | 'rebuilt' | 'lemon' | 'flood' | 'junk' | 'not-sure'
+    loanStatus?: 'paid-off' | 'still-has-loan' | 'not-sure'
+    loanAmount?: number
+    secondSetOfKeys?: boolean
+    hasTitleInPossession?: boolean
+    titleInOwnName?: boolean
+    knownDefects?: string
+    estimatedValue?: number
+    pricingSource?: string
+    pricingLastUpdated?: string
+    isElectric?: boolean
   }
   inspection?: {
     accessToken: string
@@ -97,6 +136,7 @@ interface InspectionQuestion {
   notes?: string
   photos?: PhotoData[]
   subQuestions?: InspectionQuestion[]
+  maxRating?: number
 }
 
 interface QuestionOption {
@@ -123,6 +163,13 @@ interface FormattedInspectionData {
   recommendations: string[]
 }
 
+interface TimeData {
+  timerData: {
+    caseId: string;
+    InspectorId: string;
+    InspectorName: string;
+  }
+}
 interface InspectorViewProps {
   vehicleData: VehicleData
   onSubmit: (formattedData: FormattedInspectionData) => void
@@ -159,810 +206,6 @@ type InspectionData = Record<string, SectionData> & {
     vinMatch?: string
   }
 }
-
-// Comprehensive inspection sections with detailed questions
-const inspectionSections = [
-  {
-    id: "exterior",
-    name: "Exterior Condition",
-    icon: CarIcon,
-    description: "Comprehensive exterior vehicle assessment including body, paint, glass, and lights",
-    questions: [
-      {
-        id: "paint_condition",
-        question: "What is the overall paint condition?",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "excellent", label: "Excellent - No visible damage", points: 5 },
-          { value: "good", label: "Good - Minor scratches/swirls", points: 4 },
-          { value: "fair", label: "Fair - Some scratches/dents", points: 3 },
-          { value: "poor", label: "Poor - Significant damage", points: 2 },
-          { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
-        ]
-      },
-      {
-        id: "paint_damage_details",
-        question: "If paint condition is fair or worse, specify damage types:",
-        type: "checkbox",
-        options: [
-          { value: "scratches", label: "Scratches", points: -1 },
-          { value: "dents", label: "Dents", points: -2 },
-          { value: "rust", label: "Rust spots", points: -3 },
-          { value: "fading", label: "Paint fading", points: -1 },
-          { value: "peeling", label: "Paint peeling", points: -2 },
-          { value: "mismatch", label: "Color mismatch", points: -2 }
-        ],
-        subQuestions: [
-          {
-            id: "paint_damage_location",
-            question: "Specify locations of major damage:",
-            type: "text"
-          }
-        ]
-      },
-      {
-        id: "body_panels",
-        question: "Are there any damaged or misaligned body panels?",
-        type: "yesno",
-        required: true,
-        subQuestions: [
-          {
-            id: "body_panels_details",
-            question: "If yes, describe the damage and affected panels:",
-            type: "text"
-          },
-          {
-            id: "body_panels_severity",
-            question: "Rate the severity of panel damage:",
-            type: "radio",
-            options: [
-              { value: "minor", label: "Minor - Small dents/scratches", points: -1 },
-              { value: "moderate", label: "Moderate - Noticeable damage", points: -2 },
-              { value: "severe", label: "Severe - Major structural damage", points: -5 }
-            ]
-          }
-        ]
-      },
-      {
-        id: "glass_condition",
-        question: "Check all glass components:",
-        type: "checkbox",
-        options: [
-          { value: "no_damage", label: "No glass damage - All components in good condition", points: 5 },
-          { value: "windshield_cracked", label: "Windshield cracked", points: -3 },
-          { value: "windshield_chipped", label: "Windshield chipped", points: -1 },
-          { value: "side_windows_damaged", label: "Side windows damaged", points: -2 },
-          { value: "rear_window_damaged", label: "Rear window damaged", points: -2 },
-          { value: "mirrors_damaged", label: "Side mirrors damaged", points: -1 },
-          { value: "glass_tint_damaged", label: "Tint damaged", points: -1 }
-        ],
-        subQuestions: [
-          {
-            id: "glass_damage_details",
-            question: "Describe any glass damage in detail:",
-            type: "text"
-          }
-        ]
-      },
-      {
-        id: "lights_functional",
-        question: "Are all exterior lights functional?",
-        type: "yesno",
-        required: true,
-        subQuestions: [
-          {
-            id: "lights_details",
-            question: "List any non-functional lights:",
-            type: "text"
-          }
-        ]
-      },
-      {
-        id: "front_bumper_condition",
-        question: "Front bumper condition:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "excellent", label: "Excellent - No damage", points: 5 },
-          { value: "good", label: "Good - Minor scratches", points: 4 },
-          { value: "fair", label: "Fair - Some damage", points: 3 },
-          { value: "poor", label: "Poor - Significant damage", points: 2 },
-          { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
-        ]
-      },
-      {
-        id: "rear_bumper_condition",
-        question: "Rear bumper condition:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "excellent", label: "Excellent - No damage", points: 5 },
-          { value: "good", label: "Good - Minor scratches", points: 4 },
-          { value: "fair", label: "Fair - Some damage", points: 3 },
-          { value: "poor", label: "Poor - Significant damage", points: 2 },
-          { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
-        ]
-      },
-      {
-        id: "exterior_photos",
-        question: "Take comprehensive photos of exterior condition - Include front, rear, sides, corners, and any damage areas. Take photos from multiple angles to show the overall condition clearly.",
-        type: "photo",
-        required: true
-      }
-    ]
-  },
-  {
-    id: "interior",
-    name: "Interior Condition",
-    icon: CarFrontIcon,
-    description: "Interior cleanliness, functionality, and comfort assessment",
-    questions: [
-      {
-        id: "seats_condition",
-        question: "What is the condition of the seats?",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "excellent", label: "Excellent - Like new", points: 5 },
-          { value: "good", label: "Good - Minor wear", points: 4 },
-          { value: "fair", label: "Fair - Some wear/tears", points: 3 },
-          { value: "poor", label: "Poor - Significant damage", points: 2 },
-          { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
-        ]
-      },
-      {
-        id: "seat_adjustment",
-        question: "Do both the driver and front passenger seats move properly using their power or manual lever functions?",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "yes", label: "Yes – Both seats adjust correctly", points: 5 },
-          { value: "no", label: "No – One or both seats do not adjust properly", points: 0 },
-          { value: "na", label: "Not Applicable – Vehicle has fixed seats or condition cannot be tested", points: 2 }
-        ],
-        subQuestions: [
-          {
-            id: "seat_adjustment_details",
-            question: "Please describe the issue and specify which seat(s) are affected:",
-            type: "text"
-          } 
-        ]
-      },
-      {
-        id: "seat_damage_types",
-        question: "If seats have damage, specify types:",
-        type: "checkbox",
-        options: [
-          { value: "tears", label: "Tears in upholstery", points: -2 },
-          { value: "stains", label: "Stains", points: -1 },
-          { value: "broken_adjustments", label: "Broken adjustments", points: -2 },
-          { value: "worn_bolstering", label: "Worn bolstering", points: -1 },
-          { value: "broken_springs", label: "Broken springs", points: -3 }
-        ]
-      },
-      {
-        id: "dashboard_condition",
-        question: "Dashboard and instrument panel condition:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "excellent", label: "Excellent - No damage", points: 5 },
-          { value: "good", label: "Good - Minor scratches", points: 4 },
-          { value: "fair", label: "Fair - Some damage", points: 3 },
-          { value: "poor", label: "Poor - Significant damage", points: 2 }
-        ]
-      },
-      {
-        id: "interior_features",
-        question: "Check interior features functionality:",
-        type: "checkbox",
-        options: [
-          { value: "ac_working", label: "Air conditioning working", points: 2 },
-          { value: "heater_working", label: "Heater working", points: 2 },
-          { value: "radio_working", label: "Radio/stereo working", points: 1 },
-          { value: "power_windows", label: "Power windows working", points: 1 },
-          { value: "power_locks", label: "Power locks working", points: 1 },
-          { value: "sunroof_working", label: "Sunroof working (if applicable)", points: 1 },
-          { value: "cruise_control", label: "Cruise control working", points: 1 },
-          { value: "steering_wheel_controls", label: "Steering wheel controls", points: 1 },
-          { value: "backup_camera", label: "Backup camera working", points: 1 },
-          { value: "bluetooth", label: "Bluetooth connectivity", points: 1 }
-        ]
-      },
-      {
-        id: "interior_cleanliness",
-        question: "Rate interior cleanliness:",
-        type: "rating",
-        required: true
-      },
-      {
-        id: "odometer_reading",
-        question: "Current odometer reading:",
-        type: "number",
-        required: true
-      },
-      {
-        id: "interior_odors",
-        question: "Are there any unusual odors in the interior?",
-        type: "yesno",
-        subQuestions: [
-          {
-            id: "odor_description",
-            question: "Describe any odors:",
-            type: "text"
-          }
-        ]
-      },
-      {
-        id: "interior_photos",
-        question: "Take comprehensive photos of interior condition - Include dashboard, seats, steering wheel, center console, door panels, and any damage or wear areas. Take photos from driver and passenger perspectives.",
-        type: "photo",
-        required: true
-      }
-    ]
-  },
-  {
-    id: "engine",
-    name: "Engine & Mechanical",
-    icon: SettingsIcon,
-    description: "Engine performance, mechanical systems, and fluid conditions",
-    questions: [
-      {
-        id: "engine_start",
-        question: "Does the engine start properly?",
-        type: "yesno",
-        required: true,
-        subQuestions: [
-          {
-            id: "engine_start_issues",
-            question: "Describe any starting issues:",
-            type: "text"
-          },
-          {
-            id: "start_time",
-            question: "How long does it take to start (seconds):",
-            type: "number"
-          }
-        ]
-      },
-      {
-        id: "engine_noise",
-        question: "Are there any unusual engine noises?",
-        type: "yesno",
-        required: true,
-        subQuestions: [
-          {
-            id: "engine_noise_details",
-            question: "Describe the noises and when they occur:",
-            type: "text"
-          },
-          {
-            id: "noise_severity",
-            question: "Rate noise severity:",
-            type: "radio",
-            options: [
-              { value: "mild", label: "Mild - Barely noticeable", points: -1 },
-              { value: "moderate", label: "Moderate - Clearly audible", points: -2 },
-              { value: "severe", label: "Severe - Very loud", points: -4 }
-            ]
-          }
-        ]
-      },
-      {
-        id: "oil_condition",
-        question: "Check engine oil condition:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "clean", label: "Clean and at proper level", points: 5 },
-          { value: "slightly_dirty", label: "Slightly dirty but adequate", points: 3 },
-          { value: "very_dirty", label: "Very dirty - needs change", points: 1 },
-          { value: "low_level", label: "Low level", points: 0 },
-          { value: "contaminated", label: "Contaminated (milky/burnt)", points: -2 }
-        ]
-      },
-      {
-        id: "coolant_condition",
-        question: "Coolant level and condition:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "proper", label: "Proper level and clean", points: 5 },
-          { value: "low", label: "Low level", points: 2 },
-          { value: "dirty", label: "Dirty or contaminated", points: 1 },
-          { value: "leaking", label: "Visible leaks", points: -2 }
-        ]
-      },
-      {
-        id: "transmission",
-        question: "Transmission condition:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "smooth", label: "Smooth shifting", points: 5 },
-          { value: "slight_roughness", label: "Slight roughness", points: 3 },
-          { value: "rough", label: "Rough shifting", points: 1 },
-          { value: "problems", label: "Major problems", points: 0 }
-        ],
-        subQuestions: [
-          {
-            id: "transmission_issues",
-            question: "Describe any transmission issues:",
-            type: "text"
-          }
-        ]
-      },
-      {
-        id: "engine_leaks",
-        question: "Are there any visible engine leaks?",
-        type: "yesno",
-        required: true,
-        subQuestions: [
-          {
-            id: "leak_locations",
-            question: "Specify leak locations and severity:",
-            type: "text"
-          }
-        ]
-      },
-      {
-        id: "engine_photos",
-        question: "Take photos of engine compartment - Include overall engine bay, close-ups of any leaks or damage, fluid levels, and any visible components that need attention.",
-        type: "photo",
-        required: true
-      }
-    ]
-  },
-  {
-    id: "obd2",
-    name: "OBD2 Scan",
-    icon: Activity,
-    description: "Diagnostic scan for vehicle computer codes and system status",
-    questions: [
-      {
-        id: "obd2_scan_completed",
-        question: "I have connected the OBD2 reader and scanned the vehicle for diagnostic codes.",
-        type: "checkbox",
-        required: true,
-        options: [
-          { value: "completed", label: "OBD2 scan completed", points: 5 }
-        ]
-      },
-      {
-        id: "obd2_bypass",
-        question: "No OBD2 reader available for this inspection",
-        type: "checkbox",
-        options: [
-          { value: "bypass", label: "Bypass OBD2 scan requirement", points: 0 }
-        ]
-      }
-    ]
-  },
-  {
-    id: "tires",
-    name: "Tires & Wheels",
-    icon: CircleDotIcon,
-    description: "Detailed tire condition, tread depth, and wheel assessment for each tire",
-    questions: [
-      {
-        id: "front_left_tire",
-        question: "Front Left Tire Assessment:",
-        type: "section",
-        required: true,
-        subQuestions: [
-          {
-            id: "front_left_no_damage",
-            question: "No damage to tire or rim",
-            type: "checkbox",
-            options: [
-              { value: "no_damage", label: "No damage to tire or rim", points: 5 }
-            ]
-          },
-          {
-            id: "front_left_sidewall_damage",
-            question: "Sidewall Damage:",
-            type: "radio",
-            options: [
-              { value: "none", label: "No sidewall damage", points: 0 },
-              { value: "minor", label: "Minor scratches/scuffs", points: -1 },
-              { value: "moderate", label: "Moderate damage", points: -2 },
-              { value: "severe", label: "Severe damage", points: -3 }
-            ]
-          },
-          {
-            id: "front_left_tread_depth",
-            question: "Tread Depth (32nds of an inch):",
-            type: "number"
-          },
-          {
-            id: "front_left_rim_condition",
-            question: "Condition of Rim:",
-            type: "radio",
-            options: [
-              { value: "excellent", label: "Excellent - No damage", points: 5 },
-              { value: "good", label: "Good - Minor scratches", points: 4 },
-              { value: "fair", label: "Fair - Some damage", points: 3 },
-              { value: "poor", label: "Poor - Significant damage", points: 2 },
-              { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
-            ]
-          },
-          {
-            id: "front_left_tire_brand",
-            question: "Tire Brand:",
-            type: "text"
-          }
-        ]
-      },
-      {
-        id: "front_right_tire",
-        question: "Front Right Tire Assessment:",
-        type: "section",
-        required: true,
-        subQuestions: [
-          {
-            id: "front_right_no_damage",
-            question: "No damage to tire or rim",
-            type: "checkbox",
-            options: [
-              { value: "no_damage", label: "No damage to tire or rim", points: 5 }
-            ]
-          },
-          {
-            id: "front_right_sidewall_damage",
-            question: "Sidewall Damage:",
-            type: "radio",
-            options: [
-              { value: "none", label: "No sidewall damage", points: 0 },
-              { value: "minor", label: "Minor scratches/scuffs", points: -1 },
-              { value: "moderate", label: "Moderate damage", points: -2 },
-              { value: "severe", label: "Severe damage", points: -3 }
-            ]
-          },
-          {
-            id: "front_right_tread_depth",
-            question: "Tread Depth (32nds of an inch):",
-            type: "number"
-          },
-          {
-            id: "front_right_rim_condition",
-            question: "Condition of Rim:",
-            type: "radio",
-            options: [
-              { value: "excellent", label: "Excellent - No damage", points: 5 },
-              { value: "good", label: "Good - Minor scratches", points: 4 },
-              { value: "fair", label: "Fair - Some damage", points: 3 },
-              { value: "poor", label: "Poor - Significant damage", points: 2 },
-              { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
-            ]
-          },
-          {
-            id: "front_right_tire_brand",
-            question: "Tire Brand:",
-            type: "text"
-          }
-        ]
-      },
-      {
-        id: "rear_left_tire",
-        question: "Rear Left Tire Assessment:",
-        type: "section",
-        required: true,
-        subQuestions: [
-          {
-            id: "rear_left_no_damage",
-            question: "No damage to tire or rim",
-            type: "checkbox",
-            options: [
-              { value: "no_damage", label: "No damage to tire or rim", points: 5 }
-            ]
-          },
-          {
-            id: "rear_left_sidewall_damage",
-            question: "Sidewall Damage:",
-            type: "radio",
-            options: [
-              { value: "none", label: "No sidewall damage", points: 0 },
-              { value: "minor", label: "Minor scratches/scuffs", points: -1 },
-              { value: "moderate", label: "Moderate damage", points: -2 },
-              { value: "severe", label: "Severe damage", points: -3 }
-            ]
-          },
-          {
-            id: "rear_left_tread_depth",
-            question: "Tread Depth (32nds of an inch):",
-            type: "number"
-          },
-          {
-            id: "rear_left_rim_condition",
-            question: "Condition of Rim:",
-            type: "radio",
-            options: [
-              { value: "excellent", label: "Excellent - No damage", points: 5 },
-              { value: "good", label: "Good - Minor scratches", points: 4 },
-              { value: "fair", label: "Fair - Some damage", points: 3 },
-              { value: "poor", label: "Poor - Significant damage", points: 2 },
-              { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
-            ]
-          },
-          {
-            id: "rear_left_tire_brand",
-            question: "Tire Brand:",
-            type: "text"
-          }
-        ]
-      },
-      {
-        id: "rear_right_tire",
-        question: "Rear Right Tire Assessment:",
-        type: "section",
-        required: true,
-        subQuestions: [
-          {
-            id: "rear_right_no_damage",
-            question: "No damage to tire or rim",
-            type: "checkbox",
-            options: [
-              { value: "no_damage", label: "No damage to tire or rim", points: 5 }
-            ]
-          },
-          {
-            id: "rear_right_sidewall_damage",
-            question: "Sidewall Damage:",
-            type: "radio",
-            options: [
-              { value: "none", label: "No sidewall damage", points: 0 },
-              { value: "minor", label: "Minor scratches/scuffs", points: -1 },
-              { value: "moderate", label: "Moderate damage", points: -2 },
-              { value: "severe", label: "Severe damage", points: -3 }
-            ]
-          },
-          {
-            id: "rear_right_tread_depth",
-            question: "Tread Depth (32nds of an inch):",
-            type: "number"
-          },
-          {
-            id: "rear_right_rim_condition",
-            question: "Condition of Rim:",
-            type: "radio",
-            options: [
-              { value: "excellent", label: "Excellent - No damage", points: 5 },
-              { value: "good", label: "Good - Minor scratches", points: 4 },
-              { value: "fair", label: "Fair - Some damage", points: 3 },
-              { value: "poor", label: "Poor - Significant damage", points: 2 },
-              { value: "very_poor", label: "Very Poor - Major damage", points: 1 }
-            ]
-          },
-          {
-            id: "rear_right_tire_brand",
-            question: "Tire Brand:",
-            type: "text"
-          }
-        ]
-      },
-      {
-        id: "spare_tire_assessment",
-        question: "Spare Tire Assessment (if applicable):",
-        type: "section",
-        required: false,
-        subQuestions: [
-          {
-            id: "spare_tire_present",
-            question: "Spare tire present:",
-            type: "radio",
-            options: [
-              { value: "yes", label: "Yes", points: 2 },
-              { value: "no", label: "No", points: -1 },
-              { value: "na", label: "Not applicable", points: 0 }
-            ]
-          },
-          {
-            id: "spare_tire_condition",
-            question: "Spare tire condition:",
-            type: "radio",
-            options: [
-              { value: "excellent", label: "Excellent - Like new", points: 3 },
-              { value: "good", label: "Good - Adequate", points: 2 },
-              { value: "fair", label: "Fair - Some wear", points: 1 },
-              { value: "poor", label: "Poor - Low tread", points: 0 },
-              { value: "very_poor", label: "Very Poor - Unsafe", points: -1 }
-            ]
-          },
-          {
-            id: "spare_tire_brand",
-            question: "Spare tire brand:",
-            type: "text"
-          }
-        ]
-      },
-      {
-        id: "overall_tire_condition",
-        question: "Overall tire condition assessment:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "excellent", label: "Excellent - All tires like new", points: 5 },
-          { value: "good", label: "Good - All tires adequate", points: 4 },
-          { value: "fair", label: "Fair - Some wear on tires", points: 3 },
-          { value: "poor", label: "Poor - Multiple tires need replacement", points: 2 },
-          { value: "very_poor", label: "Very Poor - Unsafe tires", points: 0 }
-        ]
-      },
-      {
-        id: "tire_photos",
-        question: "Take photos of all four tires and wheels - Include tread depth, sidewall condition, wheel damage, and any visible wear patterns. Take close-ups of any damage or issues.",
-        type: "photo",
-        required: true
-      }
-    ]
-  },
-  {
-    id: "electrical",
-    name: "Electrical Systems",
-    icon: ZapIcon,
-    description: "Battery, charging system, and electrical components",
-    questions: [
-      {
-        id: "battery_condition",
-        question: "Battery condition:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "excellent", label: "Excellent - Strong charge", points: 5 },
-          { value: "good", label: "Good - Adequate charge", points: 4 },
-          { value: "fair", label: "Fair - Weak charge", points: 2 },
-          { value: "poor", label: "Poor - Dead/dying", points: 0 }
-        ]
-      },
-      {
-        id: "battery_age",
-        question: "Battery age (if visible):",
-        type: "number",
-        subQuestions: [
-          {
-            id: "battery_date",
-            question: "Battery date code (if visible):",
-            type: "text"
-          }
-        ]
-      },
-      {
-        id: "charging_system",
-        question: "Charging system working properly?",
-        type: "yesno",
-        required: true,
-        subQuestions: [
-          {
-            id: "charging_issues",
-            question: "Describe any charging system issues:",
-            type: "text"
-          }
-        ]
-      },
-      {
-        id: "electrical_features",
-        question: "Test electrical features:",
-        type: "checkbox",
-        options: [
-          { value: "horn_working", label: "Horn working", points: 1 },
-          { value: "wipers_working", label: "Windshield wipers working", points: 1 },
-          { value: "defroster_working", label: "Defroster working", points: 1 },
-          { value: "interior_lights", label: "Interior lights working", points: 1 },
-          { value: "power_seats", label: "Power seats working", points: 1 },
-          { value: "heated_seats", label: "Heated seats working", points: 1 },
-          { value: "remote_start", label: "Remote start working", points: 1 }
-        ]
-      },
-      {
-        id: "electrical_issues",
-        question: "Are there any electrical issues?",
-        type: "yesno",
-        subQuestions: [
-          {
-            id: "electrical_issues_details",
-            question: "Describe any electrical problems:",
-            type: "text"
-          }
-        ]
-      }
-    ]
-  },
-  {
-    id: "brakes",
-    name: "Brake System",
-    icon: ShieldIcon,
-    description: "Brake performance, pedal feel, and brake system condition",
-    questions: [
-      {
-        id: "brake_pedal",
-        question: "Brake pedal feel:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "firm", label: "Firm and responsive", points: 5 },
-          { value: "slightly_soft", label: "Slightly soft", points: 3 },
-          { value: "very_soft", label: "Very soft/spongy", points: 1 },
-          { value: "goes_to_floor", label: "Goes to floor", points: 0 }
-        ]
-      },
-      {
-        id: "parking_brake",
-        question: "Parking brake functionality:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "working", label: "Working properly", points: 5 },
-          { value: "weak", label: "Weak hold", points: 2 },
-          { value: "not_working", label: "Not working", points: 0 }
-        ]
-      }
-    ]
-  },
-  {
-    id: "undercarriage",
-    name: "Undercarriage & Frame",
-    icon: WrenchIcon,
-    description: "Frame condition, suspension, and undercarriage components",
-    questions: [
-      {
-        id: "frame_condition",
-        question: "Frame condition:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "excellent", label: "Excellent - No damage", points: 5 },
-          { value: "good", label: "Good - Minor surface rust", points: 4 },
-          { value: "fair", label: "Fair - Some rust/damage", points: 3 },
-          { value: "poor", label: "Poor - Significant rust/damage", points: 1 },
-          { value: "very_poor", label: "Very Poor - Structural damage", points: 0 }
-        ]
-      },
-      {
-        id: "modified_suspension",
-        question: "Does the vehicle have a modified suspension?",
-        type: "yesno",
-        required: true,
-        subQuestions: [
-          {
-            id: "suspension_modifications",
-            question: "Describe the suspension modifications you observed:",
-            type: "text"
-          }
-        ]
-      },
-      {
-        id: "rust_condition",
-        question: "Rust assessment:",
-        type: "checkbox",
-        options: [
-          { value: "surface_rust", label: "Surface rust only", points: -1 },
-          { value: "structural_rust", label: "Structural rust", points: -4 },
-          { value: "holes", label: "Rust holes", points: -5 },
-          { value: "none", label: "No visible rust", points: 2 }
-        ]
-      },
-      {
-        id: "suspension_condition",
-        question: "Suspension condition:",
-        type: "radio",
-        required: true,
-        options: [
-          { value: "excellent", label: "Excellent - No issues", points: 5 },
-          { value: "good", label: "Good - Minor wear", points: 4 },
-          { value: "fair", label: "Fair - Some wear", points: 3 },
-          { value: "poor", label: "Poor - Significant wear", points: 1 }
-        ]
-      },
-      {
-        id: "undercarriage_photos",
-        question: "Take comprehensive photos of undercarriage and frame - Position yourself under the center of the vehicle for wide shots, then move to each side for detailed frame rail photos. Ensure good lighting and keep camera level for clear detail capture.",
-        type: "photo",
-        required: true
-      }
-    ]
-  }
-];
 
 // localStorage utility functions
 const getStorageKey = (inspectionToken: string) => `inspection_data_${inspectionToken}`;
@@ -1088,6 +331,10 @@ const getAnglesBySection = (sectionId: string) => {
 export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewProps) {
   const inspectionToken = vehicleData.inspection?.accessToken;
   
+  // Determine which inspection sections to use based on vehicle type
+  const isElectricVehicle = (vehicleData.vehicle as any)?.isElectric || false;
+  const currentInspectionSections = isElectricVehicle ? electricVehicleSections : inspectionSections;
+  
   // Initialize state with data from localStorage
   const [inspectionData, setInspectionData] = useState<InspectionData>(() => {
     if (inspectionToken) {
@@ -1095,7 +342,6 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     }
     return {};
   });
-  console.log('inspectionData', inspectionData);
   
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -1107,6 +353,108 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
   const [isSavingPending, setIsSavingPending] = useState(false)
   const { toast } = useToast()
   
+  // === TIMER HOOKS ===
+  const {
+    startTime: inspectionStartTime,
+    elapsed: inspectionElapsed,
+    start: startInspectionTimer,
+    stop: stopInspectionTimer,
+    elapsedFormatted: inspectionElapsedFormatted,
+  } = useStageTimer();
+
+  // Section timers: { [sectionId]: { startTime, endTime, elapsed } }
+  const [sectionTimers, setSectionTimers] = useState<Record<string, {
+    startTime: Date | null;
+    endTime: Date | null;
+    elapsed: number;
+  }>>({});
+
+  // Start inspection timer on mount
+  useEffect(() => {
+    startInspectionTimer();
+  }, []);
+
+  // Start section timer when expanded, stop when marked complete
+  useEffect(() => {
+    expandedSections.forEach((sectionId) => {
+      if (!sectionTimers[sectionId]?.startTime) {
+        setSectionTimers((prev) => ({
+          ...prev,
+          [sectionId]: {
+            startTime: new Date(),
+            endTime: null,
+            elapsed: 0,
+          },
+        }));
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedSections]);
+
+  // Stop section timer when marked complete
+  const handleMarkSectionComplete = (sectionId: string) => {
+    // Special handling for OBD2 section - check if it's actually complete
+    if (sectionId === 'obd2') {
+      const scanCompleted = Array.isArray(inspectionData[sectionId]?.questions?.obd2_scan_completed?.answer) && 
+        inspectionData[sectionId]?.questions?.obd2_scan_completed?.answer.includes('completed');
+      const bypassSelected = Array.isArray(inspectionData[sectionId]?.questions?.obd2_bypass?.answer) && 
+        inspectionData[sectionId]?.questions?.obd2_bypass?.answer.includes('bypass');
+      if (!scanCompleted && !bypassSelected) {
+        toast({
+          title: "Section Incomplete",
+          description: "Please either complete the OBD2 scan or select the bypass option before marking this section as complete.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
+    // Special handling for electric vehicle sections
+    if (isElectricVehicle) {
+      const section = currentInspectionSections.find(s => s.id === sectionId);
+      if (section) {
+        // Check if all required questions are answered
+        const requiredQuestions = section.questions.filter(q => q.required);
+        const answeredQuestions = requiredQuestions.filter(q => {
+          const answer = inspectionData[sectionId]?.questions?.[q.id]?.answer;
+          return answer !== undefined && answer !== null && answer !== '';
+        });
+      }
+    }
+    
+    setInspectionData((prev) => ({
+      ...prev,
+      [sectionId]: {
+        ...prev[sectionId],
+        completed: true
+      }
+    }));
+    // Stop section timer
+    setSectionTimers((prev) => {
+      const prevTimer = prev[sectionId];
+      if (prevTimer && !prevTimer.endTime) {
+        return {
+          ...prev,
+          [sectionId]: {
+            ...prevTimer,
+            endTime: new Date(),
+            elapsed: prevTimer.startTime ? Date.now() - prevTimer.startTime.getTime() : 0,
+          },
+        };
+      }
+      return prev;
+    });
+    // Collapse the section after marking as complete
+    const newExpanded = new Set(expandedSections);
+    newExpanded.delete(sectionId);
+    setExpandedSections(newExpanded);
+    toast({
+      title: "Section Completed",
+      description: `${currentInspectionSections.find(s => s.id === sectionId)?.name || 'Section'} has been marked as complete.`,
+      variant: "default",
+    });
+  };
+
   // Save data to localStorage whenever inspectionData changes
   useEffect(() => {
     if (inspectionToken && Object.keys(inspectionData).length > 0) {
@@ -1280,11 +628,11 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
       };
 
       // Clear sub-questions if parent question is cleared or changed to a value that doesn't trigger sub-questions
-      const question = inspectionSections
+      const question = currentInspectionSections
         .find(s => s.id === sectionId)
         ?.questions.find(q => q.id === questionId);
       
-      if (question?.subQuestions) {
+      if (question && 'subQuestions' in question && question.subQuestions) {
         let shouldClearSubQuestions = false;
         
         // Check if answer should trigger sub-questions based on question type
@@ -1492,7 +840,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     }
 
     // Check required questions
-    for (const section of inspectionSections) {
+    for (const section of currentInspectionSections) {
       for (const question of section.questions) {
         if (question.required) {
           const answer = inspectionData[section.id]?.questions?.[question.id]?.answer;
@@ -1528,7 +876,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     try {
       // Format inspection data for pending save
       const formattedData = {
-        sections: inspectionSections.map((section) => ({
+        sections: currentInspectionSections.map((section) => ({
           id: section.id,
           name: section.name,
           description: section.description,
@@ -1632,11 +980,32 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     }
 
     setIsSubmitting(true);
-    
+    let inspectionEndTime: Date = new Date();
+    let inspectionStart: Date = inspectionStartTime || new Date();
+    let caseId = (vehicleData as any)?.caseId || (vehicleData as any)?.case?._id || (vehicleData as any)?.case?._id || (vehicleData as any)?._id;
     try {
+      // Stop overall timer
+      const stopResult = stopInspectionTimer();
+      inspectionEndTime = stopResult.endTime;
+      inspectionStart = stopResult.startTime || inspectionStartTime || new Date();
+
+
+      console.log('inspectionStart', inspectionStart, inspectionEndTime, caseId, (vehicleData as any)?.inspector?._id, (vehicleData as any)?.inspector?.firstName);
+
+      // Send overall inspection time
+        await api.updateStageTime(
+          (vehicleData as unknown as TimeData)?.timerData?.caseId as string,
+          'inspection',
+          inspectionStart,
+          inspectionEndTime,
+          {
+            inspectorId: (vehicleData as unknown as TimeData)?.timerData?.InspectorId,
+            inspectorName: (vehicleData as unknown as TimeData)?.timerData?.InspectorName,
+          }
+        );
       // Format inspection data for submission
       const formattedData = {
-        sections: inspectionSections.map((section) => ({
+        sections: currentInspectionSections.map((section) => ({
           id: section.id,
           name: section.name,
           description: section.description,
@@ -1733,7 +1102,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
   };
 
   const calculateSectionRating = (sectionId: string) => {
-    const section = inspectionSections.find(s => s.id === sectionId);
+    const section = currentInspectionSections.find(s => s.id === sectionId);
     if (!section) return 0;
     
     const totalPoints = section.questions.reduce((total: number, question) => {
@@ -1762,7 +1131,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
   };
 
   const calculateSectionScore = (sectionId: string) => {
-    const section = inspectionSections.find(s => s.id === sectionId);
+    const section = currentInspectionSections.find(s => s.id === sectionId);
     if (!section) return 0;
     
     return section.questions.reduce((total: number, question) => {
@@ -1785,7 +1154,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     }, 0);
   };
 
-  const calculateSectionMaxScore = (section: typeof inspectionSections[0]) => {
+  const calculateSectionMaxScore = (section: typeof currentInspectionSections[0]) => {
     return section.questions.reduce((total: number, question) => {
       if (question.type === 'radio' && question.options) {
         const maxPoints = Math.max(...question.options.map((opt) => opt.points || 0));
@@ -1803,7 +1172,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
   };
 
   const calculateOverallRating = () => {
-    const sectionRatings = inspectionSections.map((section) => calculateSectionRating(section.id));
+    const sectionRatings = currentInspectionSections.map((section) => calculateSectionRating(section.id));
     const validRatings = sectionRatings.filter((rating: number) => rating > 0);
     if (validRatings.length === 0) return 0;
     
@@ -1811,13 +1180,13 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
   };
 
   const calculateOverallScore = () => {
-    return inspectionSections.reduce((total, section) => {
+    return currentInspectionSections.reduce((total, section) => {
       return total + calculateSectionScore(section.id);
     }, 0);
   };
 
   const calculateMaxPossibleScore = () => {
-    return inspectionSections.reduce((total, section) => {
+    return currentInspectionSections.reduce((total, section) => {
       return total + calculateSectionMaxScore(section);
     }, 0);
   };
@@ -1834,11 +1203,11 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
       return scanCompleted || bypassSelected;
     }
     
-    // For other sections, check if they're marked as completed
+    // For all sections, check if they're marked as completed
     return inspectionData[sectionId]?.completed || false;
   };
 
-  const renderQuestion = (sectionId: string, question: typeof inspectionSections[0]['questions'][0]) => {
+  const renderQuestion = (sectionId: string, question: typeof currentInspectionSections[0]['questions'][0]) => {
     const currentAnswer = inspectionData[sectionId]?.questions?.[question.id]?.answer;
     const currentNotes = inspectionData[sectionId]?.questions?.[question.id]?.notes;
     const currentPhotos = inspectionData[sectionId]?.questions?.[question.id]?.photos || [];
@@ -1866,7 +1235,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
 
           {/* Compact grid layout for tire assessments */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {question.subQuestions && question.subQuestions.map((subQ, subIndex: number) => (
+                              {(question as any).subQuestions && Array.isArray((question as any).subQuestions) && (question as any).subQuestions.map((subQ: any, subIndex: number) => (
               <div key={subIndex} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                 <Label className="text-xs font-medium text-gray-700 mb-2 block">
                   {subQ.question}
@@ -1897,7 +1266,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
                     onValueChange={(value) => handleSubQuestionAnswer(sectionId, question.id, subQ.id, value)}
                     className="space-y-1"
                   >
-                    {subQ.options.map((option) => (
+                    {subQ.options.map((option: { value: string; label: string; points: number }) => (
                       <div key={option.value} className="flex items-center space-x-2 p-1 rounded hover:bg-gray-100 transition-colors">
                         <RadioGroupItem value={option.value} id={`${subQ.id}-${option.value}`} className="h-3 w-3" />
                         <Label htmlFor={`${subQ.id}-${option.value}`} className="text-xs text-gray-700 cursor-pointer flex-1">
@@ -1917,7 +1286,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
 
                 {subQ.type === 'checkbox' && 'options' in subQ && subQ.options && (
                   <div className="space-y-1">
-                    {subQ.options.map((option) => (
+                    {subQ.options.map((option: { value: string; label: string; points: number }) => (
                       <div key={option.value} className="flex items-center space-x-2 p-1 rounded hover:bg-gray-100 transition-colors">
                         <Checkbox
                           id={`${subQ.id}-${option.value}`}
@@ -2358,7 +1727,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
         </div>
 
         {/* Sub-Questions - Only show if parent question is answered appropriately */}
-        {question.subQuestions && question.subQuestions.length > 0 && (() => {
+        {(question as any).subQuestions && (question as any).subQuestions.length > 0 && (() => {
           // Check if sub-questions should be shown based on parent question type and answer
           if (question.type === 'yesno') {
             // For yes/no questions, show sub-questions when "yes" is selected (except for specific cases)
@@ -2502,39 +1871,6 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     );
   };
 
-  // Handle marking section as complete with localStorage persistence
-  const handleMarkSectionComplete = (sectionId: string) => {
-    // Special handling for OBD2 section - check if it's actually complete
-    if (sectionId === 'obd2') {
-      const scanCompleted = Array.isArray(inspectionData[sectionId]?.questions?.obd2_scan_completed?.answer) && 
-        inspectionData[sectionId]?.questions?.obd2_scan_completed?.answer.includes('completed');
-      const bypassSelected = Array.isArray(inspectionData[sectionId]?.questions?.obd2_bypass?.answer) && 
-        inspectionData[sectionId]?.questions?.obd2_bypass?.answer.includes('bypass');
-      
-      if (!scanCompleted && !bypassSelected) {
-        toast({
-          title: "Section Incomplete",
-          description: "Please either complete the OBD2 scan or select the bypass option before marking this section as complete.",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-    
-    setInspectionData((prev) => ({
-      ...prev,
-      [sectionId]: {
-        ...prev[sectionId],
-        completed: true
-      }
-    }));
-    
-    // Collapse the section after marking as complete
-    const newExpanded = new Set(expandedSections);
-    newExpanded.delete(sectionId);
-    setExpandedSections(newExpanded);
-  };
-
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -2576,18 +1912,22 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
                 <span className="font-medium">Back to Dashboard</span>
               </button>
             </div>
-            
             <div className="flex items-center space-x-4">
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900">
                   {vehicleData.customer?.firstName} {vehicleData.customer?.lastName}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {vehicleData.vehicle?.year} {vehicleData.vehicle?.make} {vehicleData.vehicle?.model}
+                  {(vehicleData.vehicle as any)?.year} {(vehicleData.vehicle as any)?.make} {(vehicleData.vehicle as any)?.model}
                 </p>
               </div>
               <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                 <User className="h-5 w-5 text-blue-600" />
+              </div>
+              {/* TIMER DISPLAY */}
+              <div className="flex items-center space-x-2 text-sm text-blue-600 font-semibold bg-blue-50 px-3 py-1 rounded-lg border border-blue-200">
+                <Clock className="h-4 w-4" />
+                <span>Elapsed: {inspectionElapsedFormatted}</span>
               </div>
               {/* Auto-save indicator */}
               {isSaving && (
@@ -2653,6 +1993,29 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
           </Card>
         )}
 
+        {/* Electric Vehicle Indicator */}
+        {isElectricVehicle && (
+          <Card className="mb-8 border-2 border-green-200 bg-green-50">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-green-100 rounded-full">
+                  <ZapIcon className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-green-800">Electric Vehicle Inspection</h2>
+                  <p className="text-green-600 text-sm">This vehicle has been identified as an electric vehicle</p>
+                </div>
+              </div>
+              <div className="bg-white p-4 rounded-lg border border-green-200">
+                <p className="text-sm text-green-800">
+                  <strong>Note:</strong> This inspection includes EV-specific questions for battery systems, charging capabilities, 
+                  electric motor performance, and regenerative braking. Please pay special attention to the battery pack condition 
+                  and charging system functionality.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         {/* VIN Verification Section */}
         <Card className="mb-8 border-2 border-blue-200 bg-blue-50">
           <CardContent className="p-6">
@@ -2789,10 +2152,6 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
             </div>
           </CardContent>
         </Card>
-
-
-
-
         {/* Overall Rating and Score Display */}
         <div className="mb-8 bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
           <div className="flex flex-col lg:flex-row items-center justify-between space-y-6 lg:space-y-0">
@@ -2859,18 +2218,18 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-gray-700">Inspection Progress</span>
             <span className="text-sm text-gray-500">
-              {inspectionSections.filter(section => 
+              {currentInspectionSections.filter(section => 
                 isSectionComplete(section.id)
-              ).length} of {inspectionSections.length} sections completed
+              ).length} of {currentInspectionSections.length} sections completed
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-3">
             <div 
               className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500"
               style={{ 
-                width: `${(inspectionSections.filter(section => 
+                width: `${(currentInspectionSections.filter(section => 
                   isSectionComplete(section.id)
-                ).length / inspectionSections.length) * 100}%` 
+                ).length / currentInspectionSections.length) * 100}%` 
               }}
             ></div>
           </div>
@@ -2878,7 +2237,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
 
         {/* Sections */}
         <div className="space-y-4 sm:space-y-6">
-          {inspectionSections.map((section) => (
+          {currentInspectionSections.map((section) => (
             <div key={section.id} className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
               {/* Section Header */}
               <div 

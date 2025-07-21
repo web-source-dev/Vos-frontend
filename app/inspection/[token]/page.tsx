@@ -13,6 +13,13 @@ interface InspectionPageProps {
   }>
 }
 
+
+interface TimeData {
+  caseId: string;
+  InspectorId: string;
+  InspectorName: string;
+}
+
 // Interface for inspection submission data that matches the API expectations
 interface InspectionSubmissionData {
   sections: InspectionSection[];
@@ -28,6 +35,11 @@ export default function InspectionPage({ params }: InspectionPageProps) {
   const [inspection, setInspection] = useState<Inspection | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [timerData, setTimerData] = useState<TimeData | null>({
+    caseId: '',
+    InspectorId:'',
+    InspectorName:'',
+  })
   const router = useRouter()
   const { toast } = useToast()
   const { token } = React.use(params)
@@ -37,9 +49,16 @@ export default function InspectionPage({ params }: InspectionPageProps) {
       try {
         setIsLoading(true)
         const response = await api.getInspectionByToken(token)
+
+        console.log('response of the inspection', response.data)
         
         if (response.success && response.data) {
           setInspection(response.data)
+          setTimerData({
+            caseId: response.data.caseId as string,
+            InspectorId: response.data.inspectorId as string,
+            InspectorName: response.data.inspectorName as string,
+          })
         } else {
           setError("Failed to load inspection. The token may be invalid or expired.")
         }
@@ -143,7 +162,8 @@ export default function InspectionPage({ params }: InspectionPageProps) {
       vehicleData={{
         inspection,
         vehicle: inspection?.vehicle,
-        customer: inspection?.customer
+        customer: inspection?.customer,
+        timerData: timerData,
       }} 
       onSubmit={handleSubmitInspection}
       onBack={handleBack}

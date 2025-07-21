@@ -816,6 +816,28 @@ export async function sendCustomerIntakeEmail(customerEmail: string, customerNam
   }
 }
 
+export async function updateStageTime(caseId: string, stageName: string, startTime: Date, endTime: Date, extraFields?: Record<string, unknown>): Promise<APIResponse<{ message: string }>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/stage-time`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(await getAuthHeaders()),
+      },
+      body: JSON.stringify({
+        caseId,
+        stageName,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        extraFields: extraFields || {},
+      }),
+    });
+
+    return await handleResponse(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
 const api = {
   // Auth functions
   loginUser,
@@ -869,6 +891,19 @@ const api = {
   getVehicleMakesAndModels,
   saveCustomVehicle,
   sendCustomerIntakeEmail,
+  updateStageTime,
 };
 
 export default api;
+
+// Get time tracking for a specific case
+export async function getTimeTrackingByCaseId(caseId: string): Promise<APIResponse<any>> {
+  const res = await fetch(`${API_BASE_URL}/api/cases/${caseId}/time-tracking`, { headers: await getAuthHeaders() });
+  return handleResponse<any>(res);
+}
+
+// Get analytics for all cases' time tracking
+export async function getTimeTrackingAnalytics(): Promise<APIResponse<any>> {
+  const res = await fetch(`${API_BASE_URL}/api/time-tracking/analytics`, { headers: await getAuthHeaders() });
+  return handleResponse<any>(res);
+}

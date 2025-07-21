@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Calendar, User as UserIcon, Clock, CheckCircle, Edit, FileText } from "lucide-react"
 import api from '@/lib/api'
 import type { User } from '@/lib/types'
+import { useStageTimer } from '@/components/useStageTimer'
 
 // TypeScript interfaces for schedule inspection data
 interface CustomerData {
@@ -76,6 +77,16 @@ export function ScheduleInspection({
   const [inspectorsLoading, setInspectorsLoading] = useState(true)
   const [isRescheduling, setIsRescheduling] = useState(false)
   const { toast } = useToast()
+  
+  // Add stage timer
+  const { startTime, elapsed, start, stop, elapsedFormatted } = useStageTimer()
+
+  // Start timer when component mounts
+  useEffect(() => {
+    if (!startTime) {
+      start()
+    }
+  }, [startTime, start])
 
   // Fetch available inspectors from user database
   useEffect(() => {
@@ -265,6 +276,22 @@ export function ScheduleInspection({
       );
 
       if (response.success) {
+        // Stop timer and send timing data
+        const timingData = stop();
+        if (timingData.startTime && timingData.endTime) {
+          try {
+            await api.updateStageTime(
+              caseId,
+              'scheduleInspection',
+              timingData.startTime,
+              timingData.endTime
+            );
+            console.log('Stage timing data sent successfully');
+          } catch (error) {
+            console.error('Failed to send stage timing data:', error);
+          }
+        }
+
         onUpdate({
           inspection: {
             ...response.data as unknown as InspectionData,
@@ -318,6 +345,28 @@ export function ScheduleInspection({
     }
   }
 
+  const handleContinueToInspection = async () => {
+    // Stop timer and send timing data when continuing to next stage
+    const timingData = stop();
+    if (timingData.startTime && timingData.endTime) {
+      const caseId = vehicleData.id || vehicleData._id;
+      if (caseId) {
+        try {
+          await api.updateStageTime(
+            caseId,
+            'scheduleInspection',
+            timingData.startTime,
+            timingData.endTime
+          );
+          console.log('Stage timing data sent successfully');
+        } catch (error) {
+          console.error('Failed to send stage timing data:', error);
+        }
+      }
+    }
+    onComplete();
+  }
+
   const getStatusBadge = () => {
     if (vehicleData.inspection?.status === 'scheduled') {
       return (
@@ -364,6 +413,21 @@ export function ScheduleInspection({
           )}
         </div>
       </div>
+
+      {/* Timer Display */}
+      <Card className="bg-blue-50 border-blue-200">
+        <CardContent className="pt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-700">Time spent on this stage:</span>
+            </div>
+            <div className="text-lg font-bold text-blue-800">
+              {elapsedFormatted}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Vehicle Information */}
       <Card>
@@ -592,7 +656,7 @@ export function ScheduleInspection({
         )}
         {hasExistingInspection && !isRescheduling && (
           <Button 
-            onClick={onComplete} 
+            onClick={handleContinueToInspection} 
             size="lg" 
             className="px-8"
           >

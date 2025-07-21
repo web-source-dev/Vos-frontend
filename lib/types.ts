@@ -41,6 +41,7 @@ export interface Vehicle {
   estimatedValue?: number;
   pricingSource?: string;
   pricingLastUpdated?: string;
+  isElectric?: boolean;
 }
 
 export interface Inspector {
@@ -120,11 +121,14 @@ export interface MaintenanceItem {
 
 export interface Inspection {
   id?: string;
-  vehicle: string;
-  customer: string;
+  vehicle: string | Vehicle;
+  customer: string | Customer;
   inspector: Inspector;
   scheduledDate: Date;
   scheduledTime: string;
+  caseId: string;
+  inspectorId: string;
+  inspectorName: string;
   notesForInspector?: string;
   status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
   accessToken?: string;
@@ -245,6 +249,7 @@ export interface VehicleData extends Omit<Vehicle, 'id' | 'customer'> {
   estimatedValue?: number;
   pricingSource?: string;
   pricingLastUpdated?: string;
+  isElectric?: boolean;
 }
 
 // User and Auth types

@@ -2,6 +2,7 @@
 
 import { AdminOverview } from "@/components/admin/admin-overview"
 import { AdminLayout } from "@/components/admin-layout"
+import Link from 'next/link';
 
 export default function AdminDashboard() {
   return (

@@ -11,10 +11,93 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
-import { ArrowLeft, Car, User, CheckCircle, Search, Loader2 } from 'lucide-react'
+import { ArrowLeft, Car, User, CheckCircle, Search, Loader2, Zap } from 'lucide-react'
 
 // Import API functions for VIN lookup
 import api from '@/lib/api'
+
+// Electric vehicle detection function
+const isElectricVehicle = (make: string, model: string): boolean => {
+  const electricVehicles = {
+    "Tesla": ["Model S", "Model 3", "Model X", "Model Y", "Roadster", "Cybertruck"],
+    "Nissan": ["Leaf", "Ariya"],
+    "Chevrolet": ["Bolt", "Bolt EUV", "Volt"],
+    "BMW": ["i3", "i4", "i7", "i8", "iX", "iX3"],
+    "Audi": ["e-tron", "e-tron GT", "Q4 e-tron", "Q8 e-tron"],
+    "Mercedes-Benz": ["EQS", "EQE", "EQB", "EQA", "EQC"],
+    "Ford": ["Mustang Mach-E", "F-150 Lightning", "E-Transit"],
+    "Volkswagen": ["ID.4", "ID.3", "ID.5", "ID.6", "ID.Buzz"],
+    "Hyundai": ["Ioniq", "Kona Electric", "Ioniq 5", "Ioniq 6"],
+    "Kia": ["Niro EV", "EV6", "Soul EV"],
+    "Porsche": ["Taycan"],
+    "Jaguar": ["I-Pace"],
+    "Polestar": ["Polestar 1", "Polestar 2", "Polestar 3"],
+    "Lucid": ["Air", "Gravity"],
+    "Rivian": ["R1T", "R1S"],
+    "Volvo": ["XC40 Recharge", "C40 Recharge"],
+    "Genesis": ["GV60", "Electrified GV70", "Electrified G80"],
+    "Mazda": ["MX-30"],
+    "Mitsubishi": ["i-MiEV"],
+    "Mini": ["Cooper SE"],
+    "Fiat": ["500e"],
+    "Honda": ["Clarity Electric"],
+    "Toyota": ["bZ4X"],
+    "Subaru": ["Solterra"],
+    "Lexus": ["RZ 450e"],
+    "Bentley": ["Bentayga Hybrid"],
+    "Rolls-Royce": ["Spectre"],
+    "Lotus": ["Eletre"],
+    "McLaren": ["Artura"],
+    "Maserati": ["Grecale Folgore", "MC20 Folgore"],
+    "Alfa Romeo": ["Tonale"],
+    "Jeep": ["Avenger"],
+    "Peugeot": ["e-208", "e-2008", "e-308", "e-3008"],
+    "Citroen": ["e-C4", "e-C4 X"],
+    "Opel": ["Mokka-e", "Corsa-e"],
+    "Vauxhall": ["Mokka-e", "Corsa-e"],
+    "Skoda": ["Enyaq", "Enyaq Coupe"],
+    "Seat": ["Born"],
+    "Cupra": ["Born"],
+    "Renault": ["Zoe", "Megane E-Tech"],
+    "Dacia": ["Spring"],
+    "Smart": ["EQ fortwo", "EQ forfour"],
+    "DS": ["DS 3 E-Tense", "DS 4 E-Tense", "DS 7 E-Tense"],
+    "Alpine": ["A110 E-Tern"],
+    "Aston Martin": ["Rapide E"],
+    "Lamborghini": ["Revuelto"],
+    "Ferrari": ["SF90 Stradale", "296 GTB"],
+    "Pagani": ["Huayra R"],
+    "Bugatti": ["Chiron Super Sport 300+"],
+    "Koenigsegg": ["Gemera"],
+    "Rimac": ["Nevera"],
+    "Pininfarina": ["Battista"]
+  };
+
+  const normalizedMake = make.trim().toLowerCase();
+  const normalizedModel = model.trim().toLowerCase();
+
+  // Check if the make exists in our electric vehicles list
+  for (const [brand, models] of Object.entries(electricVehicles)) {
+    if (brand.toLowerCase() === normalizedMake) {
+      // Check if the model matches any electric model for this brand
+      return models.some(electricModel => 
+        electricModel.toLowerCase() === normalizedModel ||
+        electricModel.toLowerCase().includes(normalizedModel) ||
+        normalizedModel.includes(electricModel.toLowerCase())
+      );
+    }
+  }
+
+  // Additional checks for common electric vehicle indicators
+  const electricIndicators = [
+    'electric', 'ev', 'e-', 'i3', 'i4', 'i7', 'i8', 'ix', 'etron', 'eq', 'bolt', 'leaf', 'volt', 'mach-e', 'lightning', 'taycan', 'ipace', 'polestar', 'lucid', 'rivian', 'bentayga', 'spectre', 'eletre', 'artura', 'grecale', 'mc20', 'tonale', 'avenger', 'e-208', 'e-2008', 'e-308', 'e-3008', 'e-c4', 'e-c4 x', 'mokka-e', 'corsa-e', 'enyaq', 'born', 'zoe', 'megane e-tech', 'spring', 'eq fortwo', 'eq forfour', 'ds 3 e-tense', 'ds 4 e-tense', 'ds 7 e-tense', 'a110 e-tern', 'rapide e', 'revuelto', 'sf90 stradale', '296 gtb', 'huayra r', 'chiron super sport 300+', 'gemera', 'nevera', 'battista'
+  ];
+
+  return electricIndicators.some(indicator => 
+    normalizedModel.includes(indicator) || 
+    normalizedMake.includes(indicator)
+  );
+};
 
 interface CustomerIntakeForm {
   customer: {
@@ -50,6 +133,7 @@ interface CustomerIntakeForm {
     hasTitleInPossession: boolean
     titleInOwnName: boolean
     knownDefects: string
+    isElectric: boolean
     estimatedValue?: number
     pricingSource?: string
     pricingLastUpdated?: string
@@ -110,7 +194,8 @@ export default function CustomerIntakePage() {
       secondSetOfKeys: false,
       hasTitleInPossession: false,
       titleInOwnName: false,
-      knownDefects: ''
+      knownDefects: '',
+      isElectric: false
     }
   })
 
@@ -268,11 +353,18 @@ export default function CustomerIntakePage() {
     } else {
       setShowCustomModel(false);
       setCustomModel('');
+      const actualMake = formData.vehicle.make === 'other' ? customMake : formData.vehicle.make;
+      const actualModel = model;
+      
+      // Detect if this is an electric vehicle
+      const isElectric = isElectricVehicle(actualMake, actualModel);
+      
       setFormData(prev => ({
         ...prev,
         vehicle: {
           ...prev.vehicle,
-          model
+          model,
+          isElectric
         }
       }));
     }
@@ -280,11 +372,16 @@ export default function CustomerIntakePage() {
 
   const handleCustomModelChange = (value: string) => {
     setCustomModel(value);
+    // Detect if this is an electric vehicle
+    const actualMake = formData.vehicle.make === 'other' ? customMake : formData.vehicle.make;
+    const isElectric = isElectricVehicle(actualMake, value);
+    
     setFormData(prev => ({
       ...prev,
       vehicle: {
         ...prev.vehicle,
-        model: value
+        model: value,
+        isElectric
       }
     }));
   }
@@ -725,6 +822,38 @@ export default function CustomerIntakePage() {
         </div>
       </div>
 
+      {/* Electric Vehicle Checkbox */}
+      <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
+        <div className="space-y-0.5">
+          <Label className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-green-600" />
+            Electric Vehicle
+          </Label>
+          <p className="text-sm text-muted-foreground">
+            Check if this is an electric vehicle (EV) or hybrid
+          </p>
+        </div>
+        <Switch
+          checked={formData.vehicle.isElectric || false}
+          onCheckedChange={(value) => handleVehicleChange('isElectric', value)}
+        />
+      </div>
+      
+      {/* Electric Vehicle Indicator */}
+      {formData.vehicle.isElectric && (
+        <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
+          <div className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-blue-600" />
+            <div>
+              <h4 className="font-medium text-blue-800">Electric Vehicle Confirmed</h4>
+              <p className="text-sm text-blue-700">
+                This vehicle has been marked as an electric vehicle. The inspection will include EV-specific questions.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* VIN moved to the top for auto-population */}
       <div className="space-y-2">
         <Label htmlFor="vin">
@@ -978,6 +1107,12 @@ export default function CustomerIntakePage() {
             <p><strong>Title Status:</strong> {formData.vehicle.titleStatus}</p>
             <p><strong>Loan Status:</strong> {formData.vehicle.loanStatus}</p>
             {formData.vehicle.secondSetOfKeys && <p><strong>Second Set of Keys:</strong> Yes</p>}
+            {formData.vehicle.isElectric && (
+              <p className="flex items-center gap-1">
+                <Zap className="h-4 w-4 text-green-600" />
+                <strong>Electric Vehicle:</strong> Yes
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

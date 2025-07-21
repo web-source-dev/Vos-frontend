@@ -15,6 +15,7 @@ import api from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { usePathname } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
+import { getTimeTrackingByCaseId } from '../lib/api';
 
 interface CaseData {
   _id: string
@@ -118,6 +119,8 @@ export function CustomerDashboard() {
   const { isAdmin } = useAuth()
   const pathname = usePathname()
   const { toast } = useToast()
+  // Add state to store time tracking data
+  const [caseTimes, setCaseTimes] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const fetchCases = async () => {
@@ -140,6 +143,31 @@ export function CustomerDashboard() {
     fetchCases();
   }, []);
 
+  // Fetch time tracking for all cases after fetching cases
+  useEffect(() => {
+    if (cases.length > 0) {
+      Promise.all(
+        cases.map(async (c) => {
+          const res = await getTimeTrackingByCaseId(c._id);
+          if (res.success && res.data) {
+            // Sum all stageTimes' totalTime
+            const stageTimes = res.data.stageTimes || {};
+            let total = 0;
+            Object.values(stageTimes).forEach((st: any) => {
+              if (st && st.totalTime) total += st.totalTime;
+            });
+            return { id: c._id, total };
+          }
+          return { id: c._id, total: 0 };
+        })
+      ).then((arr) => {
+        const obj: Record<string, number> = {};
+        arr.forEach(({ id, total }) => { obj[id] = total; });
+        setCaseTimes(obj);
+      });
+    }
+  }, [cases]);
+  
   const filteredCustomers = useMemo(() => {
     const filtered = cases.filter((caseData) => {
       const customer = caseData.customer;
@@ -342,6 +370,19 @@ export function CustomerDashboard() {
     setIsLinkCopied(false)
   }
 
+  // Add formatDuration helper
+  function formatDuration(ms: number) {
+    if (!ms) return '0s';
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    let str = '';
+    if (h > 0) str += `${h}h `;
+    if (m > 0 || h > 0) str += `${m}m `;
+    str += `${s}s`;
+    return str.trim();
+  }
+
   const CustomerCard = ({ customer: caseData }: { customer: CaseData }) => (
     <div className="group relative">
       <Link href={`/customer/${caseData._id}`} className="block">
@@ -416,6 +457,9 @@ export function CustomerDashboard() {
               <span className="font-semibold text-green-600">
                 ${getCaseAmount(caseData).toLocaleString()}
               </span>
+            </div>
+            <div className="case-time">
+              <span>Time Spent: {caseTimes[caseData._id] ? formatDuration(caseTimes[caseData._id]) : 'N/A'}</span>
             </div>
           </CardContent>
         </Card>

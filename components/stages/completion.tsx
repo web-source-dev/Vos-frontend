@@ -7,8 +7,10 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { CheckCircle, Download, Mail, Key, Car, FileText, Heart, Save } from "lucide-react"
+import { CheckCircle, Download, Mail, Key, Car, FileText, Heart, Save, Clock } from "lucide-react"
 import api from '@/lib/api'
+import { useStageTimer } from '@/components/useStageTimer'
+import { useRouter } from "next/navigation"
 
 interface CustomerData {
   firstName?: string
@@ -91,6 +93,9 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
   const [titleConfirmation, setTitleConfirmation] = useState(false)
   const { toast } = useToast()
   const [isCompleting, setIsCompleting] = useState(false)
+  const router = useRouter()
+  // Stage timer for completion stage
+  const timer = useStageTimer()
 
   // Load existing completion data when component mounts
   useEffect(() => {
@@ -104,6 +109,13 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
       setTitleConfirmation(vehicleData.completion.titleConfirmation || false)
     }
   }, [vehicleData.completion])
+
+  // Start timer when component mounts (if not already started)
+  useEffect(() => {
+    if (!timer.startTime) {
+      timer.start()
+    }
+  }, [timer])
 
   // Calculate final amount from various sources
   const finalAmount = 
@@ -188,6 +200,23 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
 
       if (!caseId) {
         throw new Error("Case ID not found")
+      }
+
+      // Stop timer and get timing data
+      const timingData = timer.stop()
+      const endTime = new Date()
+
+      // Send stage timing data to backend
+      try {
+        await api.updateStageTime(
+          caseId,
+          'completion',
+          timer.startTime || new Date(),
+          endTime
+        )
+        console.log('Stage timing data sent successfully')
+      } catch (error) {
+        console.error('Failed to send stage timing data:', error)
       }
 
       let response;
@@ -304,6 +333,23 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
         throw new Error("Case ID not found")
       }
 
+      // Stop timer and get timing data
+      const timingData = timer.stop()
+      const endTime = new Date()
+
+      // Send stage timing data to backend
+      try {
+        await api.updateStageTime(
+          caseId,
+          'completion',
+          timer.startTime || new Date(),
+          endTime
+        )
+        console.log('Stage timing data sent successfully')
+      } catch (error) {
+        console.error('Failed to send stage timing data:', error)
+      }
+
       // Save final completion data
       await saveCompletionData({
         thankYouSent: true,
@@ -357,6 +403,9 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
       })
 
       onComplete()
+
+      router.push('/')
+
     } catch (error) {
       const errorData = api.handleError(error);
       toast({
@@ -418,6 +467,28 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
             <div>
               <Badge className="bg-green-100 text-green-800 mb-2 text-xs">Status</Badge>
               <p className="text-xs md:text-sm">Complete</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Stage Timer */}
+      <Card>
+        <CardHeader className="pb-3 md:pb-4">
+          <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+            <Clock className="h-4 w-4 md:h-5 md:w-5" />
+            Completion Stage Timer
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between p-3 md:p-4 border rounded-lg">
+            <div>
+              <h4 className="font-medium text-sm md:text-base">Time Elapsed</h4>
+              <p className="text-xs md:text-sm text-muted-foreground">Time spent on completion stage</p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl md:text-3xl font-bold text-blue-600">{timer.elapsedFormatted}</p>
+              <p className="text-xs text-muted-foreground">Started: {timer.startTime?.toLocaleTimeString() || 'Not started'}</p>
             </div>
           </div>
         </CardContent>

@@ -9,8 +9,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useToast } from "@/hooks/use-toast"
-import { DollarSign, FileText, CheckCircle, Edit, RefreshCw, Info, Upload, Loader2, AlertTriangle, Wrench, Car, ClipboardList } from "lucide-react"
+import { DollarSign, FileText, CheckCircle, Edit, RefreshCw, Info, Upload, Loader2, AlertTriangle, Wrench, Car, ClipboardList, Clock } from "lucide-react"
 import api from '@/lib/api'
+import { useStageTimer } from '@/components/useStageTimer'
 
 // TypeScript interfaces for quote preparation data
 interface CustomerData {
@@ -141,8 +142,18 @@ export function QuotePreparation({
   } | null>(null)
   const { toast } = useToast()
   
+  // Add stage timer
+  const { startTime, elapsed, start, stop, elapsedFormatted } = useStageTimer()
+  
   const canManageQuote = isEstimator || isAdmin || isAgent;
   const existingQuote = vehicleData.quote;
+
+  // Start timer when component mounts
+  useEffect(() => {
+    if (!startTime) {
+      start()
+    }
+  }, [startTime, start])
 
   // Helper functions for inspection metrics
   const calculateAverageConditionRating = () => {
@@ -469,6 +480,25 @@ export function QuotePreparation({
       }
 
       if (response.success) {
+        // Stop timer and send timing data
+        const timingData = stop();
+        if (timingData.startTime && timingData.endTime) {
+          const caseId = vehicleData.id || vehicleData._id;
+          if (caseId) {
+            try {
+              await api.updateStageTime(
+                caseId,
+                'quotePreparation',
+                timingData.startTime,
+                timingData.endTime
+              );
+              console.log('Stage timing data sent successfully');
+            } catch (error) {
+              console.error('Failed to send stage timing data:', error);
+            }
+          }
+        }
+
         onUpdate({
           ...vehicleData,
           quote: response.data as unknown as QuoteData,
@@ -548,6 +578,22 @@ export function QuotePreparation({
       const response = await api.generateQuoteSummary(caseId, currentQuoteData);
       
       if (response.success && response.data) {
+        // Stop timer and send timing data when generating summary
+        const timingData = stop();
+        if (timingData.startTime && timingData.endTime) {
+          try {
+            await api.updateStageTime(
+              caseId,
+              'quotePreparation',
+              timingData.startTime,
+              timingData.endTime
+            );
+            console.log('Stage timing data sent successfully');
+          } catch (error) {
+            console.error('Failed to send stage timing data:', error);
+          }
+        }
+
         // Create a blob from the PDF data
         const blob = new Blob([response.data], { type: 'application/pdf' });
         
@@ -643,6 +689,21 @@ export function QuotePreparation({
         </div>
         {getStatusBadge()}
       </div>
+
+      {/* Timer Display */}
+      <Card className="bg-blue-50 border-blue-200">
+        <CardContent className="pt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-700">Time spent on this stage:</span>
+            </div>
+            <div className="text-lg font-bold text-blue-800">
+              {elapsedFormatted}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {isUpdating && (
         <Card className="border-blue-200 bg-blue-50">

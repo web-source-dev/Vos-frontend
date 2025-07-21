@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Eye, Clock, CheckCircle, User, ClipboardList, Camera, MessageSquare, BarChart3, ClipboardCheck, AlertTriangle, Info, ChevronDown, ChevronRight, Car } from "lucide-react"
+import { Eye, Clock, CheckCircle, User, ClipboardList, Camera, MessageSquare, BarChart3, ClipboardCheck, AlertTriangle, Info, ChevronDown, ChevronRight, Car, Zap } from "lucide-react"
 import { Star } from "lucide-react"
 import Image from "next/image"
 
@@ -91,6 +91,9 @@ interface Inspection {
 
 interface VehicleData {
   inspection?: Inspection
+  vehicle?: {
+    isElectric?: boolean
+  }
 }
 
 interface InspectionFormProps {
@@ -102,6 +105,9 @@ interface InspectionFormProps {
 
 export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
+
+  // Check if this is an electric vehicle
+  const isElectricVehicle = vehicleData.vehicle?.isElectric || false
 
   // Debug logging for inspection data
   useEffect(() => {
@@ -189,6 +195,22 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
           </CardHeader>
           
           <CardContent className="space-y-4 md:space-y-6">
+            {/* Electric Vehicle Indicator */}
+            {isElectricVehicle && (
+              <div className="bg-white rounded-lg p-3 md:p-4 border border-green-200">
+                <div className="flex items-center gap-3 mb-3">
+                  <Zap className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
+                  <h4 className="font-semibold text-gray-800 text-sm md:text-base">Electric Vehicle Inspection</h4>
+                </div>
+                <div className="bg-green-50 p-2 md:p-3 rounded border border-green-200">
+                  <p className="text-xs md:text-sm text-green-800">
+                    <strong>EV-Specific Assessment:</strong> This inspection included specialized questions for battery systems, 
+                    charging capabilities, electric motor performance, regenerative braking, and high-voltage components.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* VIN Verification Status */}
             {vehicleData.inspection?.vinVerification && (
               <div className="bg-white rounded-lg p-3 md:p-4 border border-green-200">
@@ -357,7 +379,15 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <h5 className="font-semibold text-gray-800 text-sm md:text-base">{section.name}</h5>
+                            <h5 className="font-semibold text-gray-800 text-sm md:text-base">
+                              {section.name}
+                              {isElectricVehicle && (
+                                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  <Zap className="h-3 w-3 mr-1" />
+                                  EV
+                                </span>
+                              )}
+                            </h5>
                             <div className="flex items-center gap-2 mt-1">
                               <div className="flex">
                                 {[1, 2, 3, 4, 5].map((star) => (
@@ -834,6 +864,9 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                   <span className="text-gray-500">Progress:</span>
                   <span className="ml-2 font-medium text-gray-800">
                     {vehicleData.inspection?.sections?.filter(s => s.completed).length || 0} of {vehicleData.inspection?.sections?.length || 0} sections completed
+                    {isElectricVehicle && (
+                      <span className="text-green-600 ml-1">(EV-specific sections)</span>
+                    )}
                   </span>
                 </div>
               </div>

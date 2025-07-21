@@ -21,6 +21,7 @@ interface VehicleData {
     [key: number]: string
   }
   currentStage?: number
+  caseId?: string
 }
 
 interface VosLayoutProps {
@@ -307,6 +308,7 @@ export function VosLayout({
         {/* Left Sidebar - Sticky */}
         <div className="w-80 bg-white shadow-xl border-r border-gray-200 sticky top-0 h-screen overflow-y-auto">
           <SidebarContent />
+
         </div>
 
         {/* Main Content */}

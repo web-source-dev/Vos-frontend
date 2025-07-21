@@ -10,9 +10,10 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { FileText, CreditCard, Upload, CheckCircle, X, Loader2 } from "lucide-react"
+import { FileText, CreditCard, Upload, CheckCircle, X, Loader2, Clock } from "lucide-react"
 import api from '@/lib/api'
 import Image from "next/image"
+import { useStageTimer } from "@/components/useStageTimer"
 
 import { Customer, Vehicle, Quote } from "@/lib/types";
 
@@ -182,6 +183,14 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
   const [saving, setSaving] = useState(false);
 
   const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<string>("Wire");
+
+  // Initialize stage timer
+  const timer = useStageTimer();
+
+  // Start timer when component mounts
+  useEffect(() => {
+    timer.start();
+  }, []);
 
   // Load existing paperwork data on component mount
   useEffect(() => {
@@ -605,6 +614,17 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
         }
       }
 
+      // Send stage time data to API
+      if (caseId && timer.startTime) {
+        try {
+          const endTime = new Date();
+          await api.updateStageTime(caseId, 'paperwork', timer.startTime, endTime);
+          console.log('Successfully sent stage time data');
+        } catch (error) {
+          console.error('Failed to send stage time data:', error);
+        }
+      }
+
       // Proceed to next stage
       onComplete();
       
@@ -665,7 +685,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
             transaction: updatedTransaction as TransactionData
           });
         }
-        
         // Show success message
         toast({
           title: 'Success!',
@@ -707,6 +726,11 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
             }
           >
             {paymentStatus === "completed" ? "Payment Sent" : paymentStatus === "processing" ? "Processing" : "Pending"}
+          </Badge>
+          
+          <Badge variant="outline" className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {timer.elapsedFormatted}
           </Badge>
         </div>
       </div>
