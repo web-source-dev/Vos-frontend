@@ -317,6 +317,12 @@ export interface Transaction {
     payoffAmount?: number;
   };
   preferredPaymentMethod?: string;
+  // Payoff confirmation fields
+  payoffStatus?: 'pending' | 'confirmed' | 'completed' | 'not_required';
+  payoffConfirmedAt?: string;
+  payoffCompletedAt?: string;
+  payoffConfirmedBy?: string;
+  payoffNotes?: string;
   documents?: Record<string, string | null>;
   paymentStatus?: string;
   submittedAt?: string;

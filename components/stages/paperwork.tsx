@@ -29,6 +29,12 @@ interface TransactionData {
   documents?: DocumentData
   paymentStatus?: string
   submittedAt?: string
+  // Payoff confirmation fields
+  payoffStatus?: 'pending' | 'confirmed' | 'completed' | 'not_required'
+  payoffConfirmedAt?: string
+  payoffCompletedAt?: string
+  payoffConfirmedBy?: string
+  payoffNotes?: string
 }
 
 interface BillOfSaleData {
@@ -184,6 +190,11 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
 
   const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<string>("Wire");
 
+  // Add payoff confirmation state
+  const [payoffStatus, setPayoffStatus] = useState<'pending' | 'confirmed' | 'completed' | 'not_required'>('not_required');
+  const [payoffNotes, setPayoffNotes] = useState<string>('');
+  const [isConfirmingPayoff, setIsConfirmingPayoff] = useState(false);
+
   // Initialize stage timer
   const timer = useStageTimer();
 
@@ -317,6 +328,19 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
       } else if (vehicleData.transaction?.submittedAt) {
         // If transaction exists but no payment status, assume completed
         setPaymentStatus("completed")
+      }
+
+      // Initialize payoff status from existing transaction data
+      if (vehicleData.transaction?.payoffStatus) {
+        setPayoffStatus(vehicleData.transaction.payoffStatus);
+      } else if (vehicleData.transaction?.bankDetails?.payoffAmount && Number(vehicleData.transaction.bankDetails.payoffAmount) > 0) {
+        // If there's a payoff amount but no status, set to pending
+        setPayoffStatus('pending');
+      }
+
+      // Initialize payoff notes from existing transaction data
+      if (vehicleData.transaction?.payoffNotes) {
+        setPayoffNotes(vehicleData.transaction.payoffNotes);
       }
 
       // If there's transaction data, set formSaved to true
@@ -553,6 +577,19 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
   const handleComplete = async () => {
    
     try {
+      // Check if payoff confirmation is required
+      const hasPayoff = vehicleData.transaction?.bankDetails?.payoffAmount && Number(vehicleData.transaction.bankDetails.payoffAmount) > 0;
+      const payoffStatus = vehicleData.transaction?.payoffStatus;
+      
+      if (hasPayoff && payoffStatus !== 'completed' && payoffStatus !== 'not_required') {
+        toast({
+          title: 'Payoff Confirmation Required',
+          description: 'Please confirm the payoff status before completing the transaction.',
+          variant: 'destructive'
+        });
+        return;
+      }
+
       const completeData = {
         billOfSale,
         preferredPaymentMethod,
@@ -702,6 +739,45 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleConfirmPayoff = async () => {
+    try {
+      setIsConfirmingPayoff(true);
+      
+      const caseId = vehicleData.id || vehicleData._id;
+      if (!caseId) {
+        throw new Error('No valid case ID found for payoff confirmation');
+      }
+
+      const response = await api.confirmPayoff(caseId, payoffStatus, payoffNotes);
+
+      if (response && response.success) {
+        // Update case data with updated transaction
+        if (response.data) {
+          onUpdate({
+            ...vehicleData,
+            transaction: response.data.transaction as TransactionData
+          });
+        }
+        
+        toast({
+          title: 'Payoff Status Updated',
+          description: `Payoff status has been updated to ${payoffStatus}`,
+        });
+      } else {
+        throw new Error(response?.error || 'Failed to confirm payoff');
+      }
+    } catch (error) {
+      console.error('Error confirming payoff:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to confirm payoff. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsConfirmingPayoff(false);
     }
   };
 
@@ -1199,8 +1275,11 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
         </Card>
 
       </div>
-        {/* Save Button Section - moved above Required Documents */}
-        {!hasExistingData && (
+
+
+
+                {/* Save Button Section - moved above Required Documents */}
+                {!hasExistingData && (
           <Card className="border-blue-200 bg-blue-50 w-full">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1228,9 +1307,81 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
           </Card>
         )}
 
-{(formSaved || hasExistingData) && ( 
+        {(formSaved || hasExistingData) && ( 
       <>
+
       
+        {/* Payoff Confirmation */}
+        <Card className="border-orange-200 bg-orange-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Payoff Confirmation
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="payoffStatus">Payoff Status</Label>
+                <Select
+                  value={payoffStatus}
+                  onValueChange={(value: 'pending' | 'confirmed' | 'completed' | 'not_required') => setPayoffStatus(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payoff status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending - Bill of Sale signed, awaiting bank contact</SelectItem>
+                    <SelectItem value="confirmed">Confirmed - Payoff amount verified with bank</SelectItem>
+                    <SelectItem value="completed">Completed - Payoff processed and completed</SelectItem>
+                    <SelectItem value="not_required">Not Required - No payoff needed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="payoffNotes">Payoff Notes</Label>
+                <Textarea
+                  id="payoffNotes"
+                  value={payoffNotes}
+                  onChange={(e) => setPayoffNotes(e.target.value)}
+                  placeholder="Enter any notes about the payoff process..."
+                  rows={3}
+                />
+              </div>
+              
+              <Button
+                onClick={handleConfirmPayoff}
+                disabled={isConfirmingPayoff}
+                className="w-full"
+                variant="default"
+              >
+                {isConfirmingPayoff ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Updating Payoff Status...
+                  </>
+                ) : (
+                  'Update Payoff Status'
+                )}
+              </Button>
+              
+              {vehicleData.transaction?.payoffStatus && (
+                <div className="text-sm text-gray-600">
+                  <p><strong>Current Status:</strong> {vehicleData.transaction.payoffStatus}</p>
+                  {vehicleData.transaction.payoffConfirmedAt && (
+                    <p><strong>Confirmed:</strong> {new Date(vehicleData.transaction.payoffConfirmedAt).toLocaleString()}</p>
+                  )}
+                  {vehicleData.transaction.payoffCompletedAt && (
+                    <p><strong>Completed:</strong> {new Date(vehicleData.transaction.payoffCompletedAt).toLocaleString()}</p>
+                  )}
+                  {vehicleData.transaction.payoffNotes && (
+                    <p><strong>Notes:</strong> {vehicleData.transaction.payoffNotes}</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
         {/* Document Upload */}
         <Card className="border-blue-200 bg-blue-50 w-full">
           <CardHeader>
@@ -1295,11 +1446,33 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
         </Card>
       )}
 
+
+
       <div className="flex justify-between">
         <div></div>
 
-        <Button onClick={handleComplete} size="lg" className="px-8">
-          Continue to Completion
+        <Button 
+          onClick={handleComplete} 
+          size="lg" 
+          className="px-8"
+          disabled={
+            Boolean(
+              vehicleData.transaction?.bankDetails?.payoffAmount && 
+              Number(vehicleData.transaction.bankDetails.payoffAmount) > 0 && 
+              vehicleData.transaction?.payoffStatus !== 'completed' && 
+              vehicleData.transaction?.payoffStatus !== 'not_required'
+            )
+          }
+        >
+          {(() => {
+            const hasPayoff = vehicleData.transaction?.bankDetails?.payoffAmount && Number(vehicleData.transaction.bankDetails.payoffAmount) > 0;
+            const payoffStatus = vehicleData.transaction?.payoffStatus;
+            
+            if (hasPayoff && payoffStatus !== 'completed' && payoffStatus !== 'not_required') {
+              return 'Complete Payoff First';
+            }
+            return 'Continue to Completion';
+          })()}
         </Button>
       </div>
       </>

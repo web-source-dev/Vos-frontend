@@ -838,6 +838,27 @@ export async function updateStageTime(caseId: string, stageName: string, startTi
     return handleError(error);
   }
 }
+
+
+export async function confirmPayoff(caseId: string, payoffStatus: 'pending' | 'confirmed' | 'completed' | 'not_required', payoffNotes?: string): Promise<APIResponse<{ case: Case; transaction: any }>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/payoff-confirmation`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(await getAuthHeaders()),
+      },
+      body: JSON.stringify({
+        payoffStatus,
+        payoffNotes
+      }),
+    });
+
+    return await handleResponse(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
 const api = {
   // Auth functions
   loginUser,
@@ -892,6 +913,7 @@ const api = {
   saveCustomVehicle,
   sendCustomerIntakeEmail,
   updateStageTime,
+  confirmPayoff,
 };
 
 export default api;

@@ -642,7 +642,6 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
       </Card>
 
       {/* Completion Status */}
-      {vehicleData.status !== 'completed' &&
         <div className="flex justify-end">
           <Button 
             onClick={handleComplete} 
@@ -653,7 +652,6 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
             {isCompleting ? "Completing..." : "Complete Case"}
           </Button>
         </div>
-      }
     </div>
   )
 }

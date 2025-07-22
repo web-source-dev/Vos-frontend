@@ -212,6 +212,17 @@ interface TransactionData {
     witnessName?: string
     witnessPhone?: string
   }
+  bankDetails?: {
+    bankName?: string
+    loanNumber?: string
+    payoffAmount?: number
+  }
+  // Payoff confirmation fields
+  payoffStatus?: 'pending' | 'confirmed' | 'completed' | 'not_required'
+  payoffConfirmedAt?: string
+  payoffCompletedAt?: string
+  payoffConfirmedBy?: string
+  payoffNotes?: string
   documents?: {
     [key: string]: string | null
   }
@@ -964,6 +975,47 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
                               )}
                             </div>
                           </div>
+                          
+                          {/* Bank Details and Payoff Status */}
+                          {vehicleData.transaction.bankDetails && (
+                            <div className="p-2 bg-yellow-50 rounded border border-yellow-200">
+                              <p><strong>Bank Details:</strong></p>
+                              {vehicleData.transaction.bankDetails.bankName && (
+                                <p className="text-xs"><strong>Bank:</strong> {vehicleData.transaction.bankDetails.bankName}</p>
+                              )}
+                              {vehicleData.transaction.bankDetails.loanNumber && (
+                                <p className="text-xs"><strong>Loan #:</strong> {vehicleData.transaction.bankDetails.loanNumber}</p>
+                              )}
+                              {vehicleData.transaction.bankDetails.payoffAmount && (
+                                <p className="text-xs"><strong>Payoff Amount:</strong> {formatCurrency(vehicleData.transaction.bankDetails.payoffAmount)}</p>
+                              )}
+                              
+                              {/* Payoff Status */}
+                              {vehicleData.transaction.payoffStatus && (
+                                <div className="mt-2">
+                                  <p className="text-xs"><strong>Payoff Status:</strong> 
+                                    <span className={`ml-1 px-2 py-1 rounded text-xs ${
+                                      vehicleData.transaction.payoffStatus === 'completed' ? 'bg-green-100 text-green-800' :
+                                      vehicleData.transaction.payoffStatus === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                                      vehicleData.transaction.payoffStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                      'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {vehicleData.transaction.payoffStatus.charAt(0).toUpperCase() + vehicleData.transaction.payoffStatus.slice(1)}
+                                    </span>
+                                  </p>
+                                  {vehicleData.transaction.payoffConfirmedAt && (
+                                    <p className="text-xs"><strong>Confirmed:</strong> {formatDate(vehicleData.transaction.payoffConfirmedAt)}</p>
+                                  )}
+                                  {vehicleData.transaction.payoffCompletedAt && (
+                                    <p className="text-xs"><strong>Completed:</strong> {formatDate(vehicleData.transaction.payoffCompletedAt)}</p>
+                                  )}
+                                  {vehicleData.transaction.payoffNotes && (
+                                    <p className="text-xs"><strong>Notes:</strong> {vehicleData.transaction.payoffNotes}</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
                           
                           {vehicleData.transaction.billOfSale?.sellerName && (
                             <div className="p-2 bg-green-50 rounded border border-green-200">
