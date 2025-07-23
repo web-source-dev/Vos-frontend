@@ -12,6 +12,9 @@ import {
   CheckCircle,
 } from "lucide-react"
 import api from "@/lib/api"
+import { useRouter } from "next/navigation"
+import { toast } from "@/hooks/use-toast"
+import { useAuth } from "@/lib/auth"
 
 interface CaseData {
   _id: string
@@ -71,6 +74,8 @@ interface DashboardStats {
 }
 
 export function AdminOverview() {
+  const router = useRouter();
+  const { isAdmin, isAgent, isEstimator } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     totalCases: 0,
     totalRevenue: 0,
@@ -83,7 +88,43 @@ export function AdminOverview() {
     topPerformers: []
   })
   const [loading, setLoading] = useState(true)
-  const [timeRange, setTimeRange] = useState("30d")
+  const [timeRange, setTimeRange] = useState("7d")
+
+  // State for filter
+  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [selectedStage, setSelectedStage] = useState<string | null>(null);
+
+  // Helper to get dashboard path by role
+  const getDashboardPath = () => {
+    if (isAdmin) return "/admin/customers";
+    if (isAgent || isEstimator) return "/customers";
+    return "/customers";
+  };
+
+  // Handler for status click
+  const handleStatusClick = (status: string) => {
+    setSelectedStatus(status);
+    setSelectedStage(null);
+    const path = getDashboardPath();
+    router.push(`${path}?status=${encodeURIComponent(status)}`);
+  };
+
+  // Handler for stage click
+  const handleStageClick = (stage: string) => {
+    setSelectedStage(stage);
+    setSelectedStatus(null);
+    const path = getDashboardPath();
+    // Extract stage number from 'Stage X'
+    const stageNum = stage.replace(/[^0-9]/g, "");
+    router.push(`${path}?stage=${stageNum}`);
+  };
+
+  // Handler for clear filter
+  const handleClearFilter = () => {
+    setSelectedStatus(null);
+    setSelectedStage(null);
+    router.push(getDashboardPath());
+  };
 
   const fetchDashboardStats = useCallback(async () => {
     try {
@@ -203,6 +244,18 @@ export function AdminOverview() {
     return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800"
   }
 
+  const handleLinkClick = (caseId: string,status:string) => {
+    if(status === "completed" && !isAdmin) {
+      toast({
+        title: "Case Completed",
+        description: "This case is already completed. Please select a different case.",
+        variant: "destructive",
+      })
+      return
+    }
+    router.push(`/customer/${caseId}`)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -217,15 +270,16 @@ export function AdminOverview() {
   return (
     <div className="space-y-6">
       {/* Time Range Selector */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
         <h2 className="text-2xl font-bold">System Overview</h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {["7d", "30d", "90d", "all"].map((range) => (
             <Button
               key={range}
               variant={timeRange === range ? "default" : "outline"}
               size="sm"
               onClick={() => setTimeRange(range)}
+              className="min-w-[60px]"
             >
               {range === "all" ? "All Time" : range}
             </Button>
@@ -234,71 +288,90 @@ export function AdminOverview() {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Cases</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalCases}</div>
-            <p className="text-xs text-muted-foreground">
-              {timeRange === "7d" ? "Last 7 days" : timeRange === "30d" ? "Last 30 days" : "All time"}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              From completed cases
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Case Value</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${stats.avgCaseValue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              Average per case
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.completionRate.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">
-              Cases completed successfully
-            </p>
-          </CardContent>
-        </Card>
+      <div className="flex flex-col gap-4 sm:gap-6 md:flex-row md:overflow-x-auto md:space-x-4 scrollbar-thin scrollbar-thumb-blue-200 scrollbar-track-transparent pb-2">
+        {/* Metrics as horizontally scrollable cards on mobile/tablet, grid on desktop */}
+        <div className="flex-1 min-w-[220px] md:min-w-[200px]">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Cases</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalCases}</div>
+              <p className="text-xs text-muted-foreground">
+                {timeRange === "7d" ? "Last 7 days" : timeRange === "30d" ? "Last 30 days" : "All time"}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="flex-1 min-w-[220px] md:min-w-[200px]">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">
+                From completed cases
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="flex-1 min-w-[220px] md:min-w-[200px]">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg Case Value</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">${stats.avgCaseValue.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">
+                Average per case
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="flex-1 min-w-[220px] md:min-w-[200px]">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Completion Rate</CardTitle>
+              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.completionRate.toFixed(1)}%</div>
+              <p className="text-xs text-muted-foreground">
+                Cases completed successfully
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Detailed Stats */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Cases by Status */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Cases by Status</CardTitle>
+            {(selectedStatus || selectedStage) && (
+              <Button size="sm" variant="outline" onClick={handleClearFilter}>
+                Clear
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {Object.entries(stats.casesByStatus).map(([status, count]) => (
-                <div key={status} className="flex items-center justify-between">
+                <div
+                  key={status}
+                  className={
+                    "flex items-center justify-between rounded-lg px-2 py-2 transition cursor-pointer hover:bg-blue-50 " +
+                    (selectedStatus === status ? "ring-2 ring-blue-400" : "")
+                  }
+                  onClick={() => handleStatusClick(status)}
+                  title={`Show customers with status: ${status}`}
+                >
                   <div className="flex items-center gap-2">
                     <Badge className={getStatusColor(status)}>
                       {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -313,13 +386,26 @@ export function AdminOverview() {
 
         {/* Cases by Stage */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Cases by Stage</CardTitle>
+            {(selectedStatus || selectedStage) && (
+              <Button size="sm" variant="outline" onClick={handleClearFilter}>
+                Clear
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {Object.entries(stats.casesByStage).map(([stage, count]) => (
-                <div key={stage} className="flex items-center justify-between">
+                <div
+                  key={stage}
+                  className={
+                    "flex items-center justify-between rounded-lg px-2 py-2 transition cursor-pointer hover:bg-blue-50 " +
+                    (selectedStage === stage ? "ring-2 ring-blue-400" : "")
+                  }
+                  onClick={() => handleStageClick(stage)}
+                  title={`Show customers in ${stage}`}
+                >
                   <span className="text-sm font-medium">{stage}</span>
                   <span className="font-semibold">{count}</span>
                 </div>
@@ -335,9 +421,14 @@ export function AdminOverview() {
           <CardTitle>Recent Activity</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-4 divide-y divide-gray-100">
             {stats.recentActivity.map((activity) => (
-              <div key={activity.id} className="flex items-center justify-between p-3 border rounded-lg">
+              <div
+                key={activity.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg hover:bg-blue-50 cursor-pointer transition"
+                onClick={() => handleLinkClick(activity.id,activity.status)}
+                title="View customer details"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                     <Car className="h-4 w-4 text-blue-600" />
@@ -347,7 +438,7 @@ export function AdminOverview() {
                     <p className="text-sm text-muted-foreground">{activity.vehicle}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Badge className={getStatusColor(activity.status)}>
                     {activity.status}
                   </Badge>

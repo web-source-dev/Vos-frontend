@@ -317,25 +317,6 @@ export const inspectionSections = [
           ]
         },
         {
-          id: "transmission",
-          question: "Transmission condition:",
-          type: "radio",
-          required: true,
-          options: [
-            { value: "smooth", label: "Smooth shifting", points: 5 },
-            { value: "slight_roughness", label: "Slight roughness", points: 3 },
-            { value: "rough", label: "Rough shifting", points: 1 },
-            { value: "problems", label: "Major problems", points: 0 }
-          ],
-          subQuestions: [
-            {
-              id: "transmission_issues",
-              question: "Describe any transmission issues:",
-              type: "text"
-            }
-          ]
-        },
-        {
           id: "engine_leaks",
           question: "Are there any visible engine leaks?",
           type: "yesno",
@@ -658,45 +639,6 @@ export const inspectionSections = [
           ]
         },
         {
-          id: "battery_age",
-          question: "Battery age (if visible):",
-          type: "number",
-          subQuestions: [
-            {
-              id: "battery_date",
-              question: "Battery date code (if visible):",
-              type: "text"
-            }
-          ]
-        },
-        {
-          id: "charging_system",
-          question: "Charging system working properly?",
-          type: "yesno",
-          required: true,
-          subQuestions: [
-            {
-              id: "charging_issues",
-              question: "Describe any charging system issues:",
-              type: "text"
-            }
-          ]
-        },
-        {
-          id: "electrical_features",
-          question: "Test electrical features:",
-          type: "checkbox",
-          options: [
-            { value: "horn_working", label: "Horn working", points: 1 },
-            { value: "wipers_working", label: "Windshield wipers working", points: 1 },
-            { value: "defroster_working", label: "Defroster working", points: 1 },
-            { value: "interior_lights", label: "Interior lights working", points: 1 },
-            { value: "power_seats", label: "Power seats working", points: 1 },
-            { value: "heated_seats", label: "Heated seats working", points: 1 },
-            { value: "remote_start", label: "Remote start working", points: 1 }
-          ]
-        },
-        {
           id: "electrical_issues",
           question: "Are there any electrical issues?",
           type: "yesno",
@@ -816,7 +758,7 @@ export const inspectionSections = [
       questions: [
         {
           id: "paint_condition",
-          question: "What is the overall paint condition? ★",
+          question: "What is the overall paint condition?  ",
           type: "radio",
           required: true,
           options: [
@@ -843,7 +785,7 @@ export const inspectionSections = [
         },
         {
           id: "body_panels",
-          question: "Are there damaged or mis-aligned body panels? ★",
+          question: "Are there damaged or mis-aligned body panels?  ",
           type: "radio",
           required: true,
           options: [
@@ -867,7 +809,7 @@ export const inspectionSections = [
         },
         {
           id: "exterior_lights",
-          question: "Are all exterior lights functional? ★",
+          question: "Are all exterior lights functional?  ",
           type: "radio",
           required: true,
           options: [
@@ -877,7 +819,7 @@ export const inspectionSections = [
         },
         {
           id: "charging_port_condition",
-          question: "Charging-port door / connector condition: ★",
+          question: "Charging-port door / connector condition:  ",
           type: "radio",
           required: true,
           options: [
@@ -889,7 +831,7 @@ export const inspectionSections = [
         },
         {
           id: "bumper_condition",
-          question: "Bumper condition assessment: ★",
+          question: "Bumper condition assessment:  ",
           type: "radio",
           required: true,
           options: [
@@ -902,7 +844,7 @@ export const inspectionSections = [
         },
         {
           id: "exterior_photos",
-          question: "Take comprehensive exterior photos ★",
+          question: "Take comprehensive exterior photos  ",
           type: "photo",
           required: true
         }
@@ -916,7 +858,7 @@ export const inspectionSections = [
       questions: [
         {
           id: "seat_condition",
-          question: "Seat condition: ★",
+          question: "Seat condition:  ",
           type: "radio",
           required: true,
           options: [
@@ -942,7 +884,7 @@ export const inspectionSections = [
         },
         {
           id: "dashboard_condition",
-          question: "Dashboard & instrument panel condition: ★",
+          question: "Dashboard & instrument panel condition:  ",
           type: "radio",
           required: true,
           options: [
@@ -971,7 +913,7 @@ export const inspectionSections = [
         },
         {
           id: "interior_cleanliness",
-          question: "Rate interior cleanliness: ★",
+          question: "Rate interior cleanliness:  ",
           type: "rating",
           required: true,
           maxRating: 5
@@ -988,13 +930,13 @@ export const inspectionSections = [
         },
         {
           id: "odometer_reading",
-          question: "Current odometer reading (mi): ★",
+          question: "Current odometer reading (mi):  ",
           type: "number",
           required: true
         },
         {
           id: "interior_photos",
-          question: "Take comprehensive interior photos ★",
+          question: "Take comprehensive interior photos  ",
           type: "photo",
           required: true
         }
@@ -1008,7 +950,7 @@ export const inspectionSections = [
       questions: [
         {
           id: "vehicle_power_on",
-          question: "Does the vehicle power on and shift to Drive/Reverse properly? ★",
+          question: "Does the vehicle power on and shift to Drive/Reverse properly?  ",
           type: "radio",
           required: true,
           options: [
@@ -1018,7 +960,7 @@ export const inspectionSections = [
         },
         {
           id: "warning_lights",
-          question: "Any high-voltage or drivetrain warning lights? ★",
+          question: "Any high-voltage or drivetrain warning lights?  ",
           type: "radio",
           required: true,
           options: [
@@ -1028,7 +970,7 @@ export const inspectionSections = [
         },
         {
           id: "battery_health",
-          question: "Battery State-of-Health reading (%): ★",
+          question: "Battery State-of-Health reading (%):  ",
           type: "number",
           required: true
         },
@@ -1040,7 +982,7 @@ export const inspectionSections = [
         },
         {
           id: "battery_coolant",
-          question: "Battery coolant level & condition: ★",
+          question: "Battery coolant level & condition:  ",
           type: "radio",
           required: true,
           options: [
@@ -1052,7 +994,7 @@ export const inspectionSections = [
         },
         {
           id: "motor_noises",
-          question: "Any unusual noises from electric motors / drive unit? ★",
+          question: "Any unusual noises from electric motors / drive unit?  ",
           type: "radio",
           required: true,
           options: [
@@ -1062,7 +1004,7 @@ export const inspectionSections = [
         },
         {
           id: "charging_connectivity",
-          question: "Charging-port connectivity test passed? ★",
+          question: "Charging-port connectivity test passed?  ",
           type: "radio",
           required: true,
           options: [
@@ -1072,7 +1014,7 @@ export const inspectionSections = [
         },
         {
           id: "charging_cable",
-          question: "Charging cable / mobile EVSE included by owner? ★",
+          question: "Charging cable / mobile EVSE included by owner?  ",
           type: "radio",
           required: true,
           options: [
@@ -1107,7 +1049,7 @@ export const inspectionSections = [
       questions: [
         {
           id: "overall_tire_condition",
-          question: "Overall tire condition: ★",
+          question: "Overall tire condition:  ",
           type: "radio",
           required: true,
           options: [
@@ -1138,7 +1080,7 @@ export const inspectionSections = [
         },
         {
           id: "wheel_condition",
-          question: "Wheel face condition: ★",
+          question: "Wheel face condition:  ",
           type: "radio",
           required: true,
           options: [
@@ -1151,7 +1093,7 @@ export const inspectionSections = [
         },
         {
           id: "tire_photos",
-          question: "Take photos of all four tires and wheels ★",
+          question: "Take photos of all four tires and wheels  ",
           type: "photo",
           required: true
         }
@@ -1165,7 +1107,7 @@ export const inspectionSections = [
       questions: [
         {
           id: "auxiliary_battery",
-          question: "12 V auxiliary battery condition: ★",
+          question: "12 V auxiliary battery condition:  ",
           type: "radio",
           required: true,
           options: [
@@ -1177,7 +1119,7 @@ export const inspectionSections = [
         },
         {
           id: "dc_converter",
-          question: "DC/DC converter (charging system) working properly? ★",
+          question: "DC/DC converter (charging system) working properly?  ",
           type: "radio",
           required: true,
           options: [
@@ -1226,7 +1168,7 @@ export const inspectionSections = [
       questions: [
         {
           id: "brake_pedal_feel",
-          question: "Brake pedal feel: ★",
+          question: "Brake pedal feel:  ",
           type: "radio",
           required: true,
           options: [
@@ -1238,7 +1180,7 @@ export const inspectionSections = [
         },
         {
           id: "regenerative_braking",
-          question: "Regenerative braking functioning properly? ★",
+          question: "Regenerative braking functioning properly?  ",
           type: "radio",
           required: true,
           options: [
@@ -1249,7 +1191,7 @@ export const inspectionSections = [
         },
         {
           id: "brake_performance",
-          question: "Brake performance during low-speed test: ★",
+          question: "Brake performance during low-speed test:  ",
           type: "radio",
           required: true,
           options: [
@@ -1261,7 +1203,7 @@ export const inspectionSections = [
         },
         {
           id: "parking_brake",
-          question: "Parking brake functionality: ★",
+          question: "Parking brake functionality:  ",
           type: "radio",
           required: true,
           options: [
@@ -1272,7 +1214,7 @@ export const inspectionSections = [
         },
         {
           id: "brake_noises",
-          question: "Any brake noises? ★",
+          question: "Any brake noises?  ",
           type: "radio",
           required: true,
           options: [
@@ -1296,7 +1238,7 @@ export const inspectionSections = [
       questions: [
         {
           id: "frame_condition",
-          question: "Frame condition: ★",
+          question: "Frame condition:  ",
           type: "radio",
           required: true,
           options: [
@@ -1309,7 +1251,7 @@ export const inspectionSections = [
         },
         {
           id: "battery_enclosure",
-          question: "Battery-pack enclosure condition: ★",
+          question: "Battery-pack enclosure condition:  ",
           type: "radio",
           required: true,
           options: [
@@ -1333,7 +1275,7 @@ export const inspectionSections = [
         },
         {
           id: "suspension_condition",
-          question: "Suspension condition: ★",
+          question: "Suspension condition:  ",
           type: "radio",
           required: true,
           options: [
@@ -1357,7 +1299,7 @@ export const inspectionSections = [
         },
         {
           id: "undercarriage_photos",
-          question: "Take photos of undercarriage & battery pack ★",
+          question: "Take photos of undercarriage & battery pack  ",
           type: "photo",
           required: true
         }
@@ -1371,7 +1313,7 @@ export const inspectionSections = [
       questions: [
         {
           id: "charging_equipment",
-          question: "Do you have the factory charging cable or home charging device available to include in the sale? ★",
+          question: "Do you have the factory charging cable or home charging device available to include in the sale?  ",
           type: "radio",
           required: true,
           options: [

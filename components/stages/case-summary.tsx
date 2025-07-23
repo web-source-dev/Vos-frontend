@@ -376,11 +376,6 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
             Complete overview of {vehicleData.customer?.firstName} {vehicleData.customer?.lastName}&apos;s case
           </p>
         </div>
-        <Badge className={vehicleData.priority === 'high' ? 'bg-red-100 text-red-800' : 
-                        vehicleData.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 
-                        'bg-green-100 text-green-800'}>
-          {vehicleData.priority || 'normal'} priority
-        </Badge>
       </div>
 
       {/* Enhanced Quick Stats */}
@@ -419,6 +414,7 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
           </CardContent>
         </Card>
 
+        {/* Combined Created & Last Updated */}
         <Card>
           <CardContent className="p-3 md:p-4">
             <div className="flex items-center gap-3">
@@ -426,8 +422,8 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
                 <Calendar className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-sm md:text-lg font-bold">{formatDate(vehicleData.createdAt)}</p>
-                <p className="text-xs md:text-sm text-muted-foreground">Created</p>
+                <p className="text-sm md:text-lg font-bold">Created: {formatDate(vehicleData.createdAt)}</p>
+                <p className="text-xs md:text-sm text-muted-foreground">Last Updated: {formatDate(vehicleData.updatedAt)}</p>
                 {vehicleData.lastActivity && (
                   <p className="text-xs text-gray-500">
                     Last: {vehicleData.lastActivity.description}
@@ -438,15 +434,26 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
           </CardContent>
         </Card>
 
+        {/* Customer Scoring */}
         <Card>
           <CardContent className="p-3 md:p-4">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                <Clock className="h-4 w-4 md:h-5 md:w-5 text-orange-600" />
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                <Star className="h-4 w-4 md:h-5 md:w-5 text-yellow-600" />
               </div>
               <div>
-                <p className="text-sm md:text-lg font-bold">{formatDate(vehicleData.updatedAt)}</p>
-                <p className="text-xs md:text-sm text-muted-foreground">Last Updated</p>
+                <p className="text-lg md:text-2xl font-bold">
+                  {vehicleData.inspection?.overallScore ?? 'N/A'}
+                  {vehicleData.inspection?.maxPossibleScore ? ` / ${vehicleData.inspection.maxPossibleScore}` : ''}
+                </p>
+                <p className="text-xs md:text-sm text-muted-foreground">Total Score</p>
+                {typeof vehicleData.inspection?.overallRating === 'number' && (
+                  <p className="text-xs text-yellow-700 flex items-center gap-1">
+                    Overall Rating:
+                    <span className="font-bold">{vehicleData.inspection.overallRating}</span>
+                    <Star className="h-3 w-3 text-yellow-400 fill-current" />
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>

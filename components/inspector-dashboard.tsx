@@ -9,6 +9,14 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth"
 import api from "@/lib/api"
 import { Calendar, Car, User, CheckCircle, Clock } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 interface InspectionData {
   _id: string
@@ -21,6 +29,7 @@ interface InspectionData {
   customer?: {
     firstName: string
     lastName: string
+    notes?: string
   }
   vehicle?: {
     year: string
@@ -34,6 +43,8 @@ interface InspectionData {
 export function InspectorDashboard() {
   const [inspections, setInspections] = useState<InspectionData[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [selectedInspection, setSelectedInspection] = useState<InspectionData | null>(null)
+  const [showInspectionDialog, setShowInspectionDialog] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
   const { user } = useAuth()
@@ -69,7 +80,14 @@ export function InspectorDashboard() {
   }, [toast]);
 
   const handleInspectVehicle = (inspection: InspectionData) => {
-    router.push(`/inspection/${inspection.accessToken}`)
+    setSelectedInspection(inspection)
+    setShowInspectionDialog(true)
+  }
+
+  const handleBeginInspection = () => {
+    if (selectedInspection) {
+      router.push(`/inspection/${selectedInspection.accessToken}`)
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -211,6 +229,136 @@ export function InspectorDashboard() {
           
         </div>
       )}
+
+      {/* Inspection Start Dialog */}
+      <Dialog open={showInspectionDialog} onOpenChange={setShowInspectionDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-gray-900">
+              Begin Vehicle Inspection
+            </DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Review important information before starting the inspection
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Timer Information */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <Clock className="h-5 w-5 text-blue-600" />
+                <h3 className="font-semibold text-blue-800">Inspection Time Guidelines</h3>
+              </div>
+              
+              {/* Prominent Timer Display */}
+              <div className="bg-white border-2 border-blue-300 rounded-lg p-4 mb-4 text-center">
+                <div className="text-3xl font-bold text-blue-600 mb-2">20:00</div>
+                <div className="text-sm text-blue-700 font-medium">Expected Completion Time</div>
+              </div>
+              
+              <p className="text-blue-700 text-sm leading-relaxed">
+                Each vehicle inspection is expected to be finished within 20 minutes. The timer starts the moment you select Begin Inspection, and the total time to completion is logged so we can track and improve inspection efficiency.
+              </p>
+              <p className="text-blue-600 text-xs mt-2">
+                💡 A live timer will be displayed in the top-right corner during your inspection to help you stay on track.
+              </p>
+            </div>
+
+            {/* Vehicle Information */}
+            {selectedInspection && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <Car className="h-5 w-5 text-gray-600" />
+                  <h3 className="font-semibold text-gray-800">Vehicle Details</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="font-medium text-gray-700">Vehicle</p>
+                    <p className="text-gray-600">
+                      {selectedInspection.vehicle?.year} {selectedInspection.vehicle?.make} {selectedInspection.vehicle?.model}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-700">VIN</p>
+                    <p className="text-gray-600 font-mono text-xs">
+                      {selectedInspection.vehicle?.vin || 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-700">Mileage</p>
+                    <p className="text-gray-600">
+                      {selectedInspection.vehicle?.currentMileage || 'N/A'} miles
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-700">Customer</p>
+                    <p className="text-gray-600">
+                      {selectedInspection.customer?.firstName} {selectedInspection.customer?.lastName}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Customer Intake Notes */}
+            {selectedInspection?.customer?.notes && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <User className="h-5 w-5 text-yellow-600" />
+                  <h3 className="font-semibold text-yellow-800">Customer Intake Notes</h3>
+                </div>
+                <div className="bg-white border border-yellow-200 rounded-lg p-3">
+                  <p className="text-yellow-800 text-sm whitespace-pre-wrap">
+                    {selectedInspection.customer.notes}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Scheduled Information */}
+            {selectedInspection && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <Calendar className="h-5 w-5 text-green-600" />
+                  <h3 className="font-semibold text-green-800">Scheduled Information</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="font-medium text-green-700">Scheduled For</p>
+                    <p className="text-green-600">
+                      {formatDate(selectedInspection.scheduledDate)} at {formatTime(selectedInspection.scheduledTime)}
+                    </p>
+                  </div>
+                  {selectedInspection.dueByDate && (
+                    <div>
+                      <p className="font-medium text-red-600">Due By</p>
+                      <p className="text-red-600 font-medium">
+                        {formatDate(selectedInspection.dueByDate)} {selectedInspection.dueByTime && `at ${formatTime(selectedInspection.dueByTime)}`}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowInspectionDialog(false)}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBeginInspection}
+              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+            >
+              Begin Inspection
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 

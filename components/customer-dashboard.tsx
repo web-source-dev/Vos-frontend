@@ -13,8 +13,8 @@ import { cn } from "@/lib/utils"
 import Link from "next/link"
 import api from "@/lib/api"
 import { useAuth } from "@/lib/auth"
-import { usePathname } from "next/navigation"
-import { useToast } from "@/hooks/use-toast"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { toast } from "@/hooks/use-toast"
 import { getTimeTrackingByCaseId } from '../lib/api';
 
 interface CaseData {
@@ -99,8 +99,21 @@ const getStatusBadgeColor = (status: string) => {
   return statusConfig[status as keyof typeof statusConfig] || "bg-gray-100 text-gray-800"
 }
 
+// Helper to map status query param to dashboard display value
+const mapStatusParamToDisplay = (param: string) => {
+  const normalized = param.trim().toLowerCase();
+  if (normalized === 'completed') return 'Completed';
+  if (normalized === 'scheduled') return 'Pending Inspection Scheduling';
+  if (normalized === 'inspection') return 'Pending Inspection Completion';
+  if (normalized === 'quote-ready') return 'Pending Quote';
+  if (normalized === 'decision') return 'Pending Offer Decision';
+  if (normalized === 'paperwork') return 'Pending Paperwork';
+  if (normalized === 'completed') return 'Pending Completion';
+  return param;
+};
+
 export function CustomerDashboard() {
-  const [viewMode, setViewMode] = useState<"cards" | "list">("cards")
+  const [viewMode, setViewMode] = useState<"cards" | "list">("list")
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [stageFilter, setStageFilter] = useState("all")
@@ -118,10 +131,10 @@ export function CustomerDashboard() {
   const [showMobileFilters, setShowMobileFilters] = useState(false)
   const { isAdmin } = useAuth()
   const pathname = usePathname()
-  const { toast } = useToast()
+  const searchParams = useSearchParams()
+  const router = useRouter()
   // Add state to store time tracking data
   const [caseTimes, setCaseTimes] = useState<Record<string, number>>({});
-
   useEffect(() => {
     const fetchCases = async () => {
       try {
@@ -142,6 +155,14 @@ export function CustomerDashboard() {
     setStageFilter('all')
     fetchCases();
   }, []);
+
+  // Read status/stage from URL on mount
+  useEffect(() => {
+    const urlStatus = searchParams.get('status')
+    const urlStage = searchParams.get('stage')
+    if (urlStatus) setStatusFilter(mapStatusParamToDisplay(urlStatus))
+    if (urlStage) setStageFilter(urlStage)
+  }, [searchParams])
 
   // Fetch time tracking for all cases after fetching cases
   useEffect(() => {
@@ -168,22 +189,39 @@ export function CustomerDashboard() {
     }
   }, [cases]);
   
+  // Add state for quick filter
+  const [quickFilter, setQuickFilter] = useState<null | 'inProcess' | 'completedToday' | 'allCompleted' | 'allCases'>(null);
+
   const filteredCustomers = useMemo(() => {
     const filtered = cases.filter((caseData) => {
       const customer = caseData.customer;
       const vehicle = caseData.vehicle;
       const caseStatus = getStatusFromStage(caseData.currentStage, caseData.status);
-      
+      // Map status filter to display value for comparison
+      const statusFilterDisplay = mapStatusParamToDisplay(statusFilter);
       const matchesSearch =
         `${customer?.firstName} ${customer?.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
         vehicle?.make?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         vehicle?.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         vehicle?.vin?.toLowerCase().includes(searchTerm.toLowerCase())
 
-      const matchesStatus = statusFilter === "all" || caseStatus === statusFilter
-      const matchesStage = stageFilter === "all" || caseData.currentStage.toString() === stageFilter
+      const matchesStatus = statusFilter === "all" || caseStatus === statusFilterDisplay;
+      const matchesStage = stageFilter === "all" || caseData.currentStage.toString() === stageFilter;
 
-      return matchesSearch && matchesStatus && matchesStage
+      // Quick filter logic
+      let matchesQuick = true;
+      if (quickFilter === 'inProcess') {
+        matchesQuick = caseStatus !== 'Completed';
+      } else if (quickFilter === 'completedToday') {
+        const today = new Date().toDateString();
+        matchesQuick = caseStatus === 'Completed' && new Date(caseData.updatedAt || caseData.createdAt).toDateString() === today;
+      } else if (quickFilter === 'allCompleted') {
+        matchesQuick = caseStatus === 'Completed';
+      } else if (quickFilter === 'allCases') {
+        matchesQuick = true;
+      }
+
+      return matchesSearch && matchesStatus && matchesStage && matchesQuick;
     })
 
     // Apply sorting
@@ -237,7 +275,7 @@ export function CustomerDashboard() {
     })
 
     return filtered
-  }, [searchTerm, statusFilter, stageFilter, cases, sortBy, sortOrder])
+  }, [searchTerm, statusFilter, stageFilter, cases, sortBy, sortOrder, quickFilter])
   
   // Calculate case stats - now based on filtered results
   const totalCases = filteredCustomers.length;
@@ -292,6 +330,19 @@ export function CustomerDashboard() {
     } else {
       return caseData.estimatedValue || 0
     }
+  }
+
+  const handleLinkClick = (caseId: string, status: string) => {
+
+    if(status === "completed" && !isAdmin) {
+      toast({
+        title: "Case Completed",
+        description: "This case is already completed. Please select a different case.",
+        variant: "destructive",
+      })
+      return
+    }
+    router.push(`/customer/${caseId}`)
   }
   
   // Placeholder delete handler
@@ -385,12 +436,12 @@ export function CustomerDashboard() {
 
   const CustomerCard = ({ customer: caseData }: { customer: CaseData }) => (
     <div className="group relative">
-      <Link href={`/customer/${caseData._id}`} className="block">
         <Card
           className={cn(
             "cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4",
             getPriorityColor(caseData.priority),
           )}
+          onClick={()=> handleLinkClick(caseData._id,caseData.status)}
         >
           {/* Action buttons */}
           <div className="absolute top-2 right-2 z-10 opacity-70 group-hover:opacity-100 flex gap-1">
@@ -444,9 +495,7 @@ export function CustomerDashboard() {
             </div>
 
             <div className="flex items-center justify-between">
-              <Badge className={stages[caseData.currentStage - 1]?.color}>
-                {stages[caseData.currentStage - 1]?.name}
-              </Badge>
+              <Badge className={stages[caseData.currentStage - 1]?.color}></Badge>
               <span className="text-sm text-muted-foreground">
                 {caseData.lastActivity?.timestamp ? new Date(caseData.lastActivity.timestamp).toLocaleDateString() : 'N/A'}
               </span>
@@ -463,7 +512,6 @@ export function CustomerDashboard() {
             </div>
           </CardContent>
         </Card>
-      </Link>
     </div>
   )
 
@@ -489,13 +537,46 @@ export function CustomerDashboard() {
     );
   }
 
+  // Clear filter handler
+  const handleClearFilter = () => {
+    setStatusFilter('all')
+    setStageFilter('all')
+    setQuickFilter(null)
+    // Remove query params from URL
+    router.replace(pathname)
+  }
+
+  // Quick filter handlers
+  const handleInProcessClick = () => {
+    setQuickFilter('inProcess');
+    setStatusFilter('all');
+    setStageFilter('all');
+  }
+  const handleCompletedTodayClick = () => {
+    setQuickFilter('completedToday');
+    setStatusFilter('all');
+    setStageFilter('all');
+  }
+  const handleTotalCasesClick = () => {
+    setQuickFilter('allCases');
+    setStatusFilter('all');
+    setStageFilter('all');
+    // Remove query params from URL
+    router.replace(pathname);
+  }
+  const handleTotalCompletedClick = () => {
+    setQuickFilter('allCompleted');
+    setStatusFilter('all');
+    setStageFilter('all');
+  }
+
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Header with stats and actions */}
       <div className="bg-white border-b px-4 sm:px-6 py-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Customer Dashboard</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Customers</h1>
             <p className="text-sm sm:text-base text-gray-600">Manage your customer cases and track progress</p>
           </div>
           
@@ -600,8 +681,7 @@ export function CustomerDashboard() {
             <Link href="/customer/new" className="w-full sm:w-auto">
               <Button className="flex items-center gap-2 w-full sm:w-auto">
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">New Customer</span>
-                <span className="sm:hidden">New</span>
+                <span>New Customer</span>
               </Button>
             </Link>
           </div>
@@ -612,33 +692,18 @@ export function CustomerDashboard() {
       <div className="bg-white border-b px-4 sm:px-6 py-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4 w-full sm:w-auto">
-            {/* Admin Dashboard button for admin only */}
-            {isAdmin && pathname !== "/admin/customers" && (
-              <Link href="/admin" className="w-full sm:w-auto">
-                <Button variant="outline" className="flex items-center gap-2 w-full sm:w-auto">
-                  <Users className="h-4 w-4" />
-                  <span className="hidden sm:inline">Admin Dashboard</span>
-                  <span className="sm:hidden">Admin</span>
-                </Button>
-              </Link>
+            {/* Clear filter button */}
+            {(statusFilter !== 'all' || stageFilter !== 'all' || quickFilter !== null) && (
+              <Button size="sm" variant="outline" onClick={handleClearFilter}>
+                Clear
+              </Button>
             )}
-            
-            {/* Mobile filter toggle */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowMobileFilters(!showMobileFilters)}
-              className="sm:hidden flex items-center gap-2"
-            >
-              <Menu className="h-4 w-4" />
-              Filters
-            </Button>
           </div>
           
           {/* Sorting Controls */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 hidden sm:inline">Sort by:</span>
+            <div className="flex flex-col gap-2">
+              <span className="text-sm text-gray-600">Sort by:</span>
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger className="w-full sm:w-32">
                   <SelectValue />
@@ -653,7 +718,8 @@ export function CustomerDashboard() {
                 </SelectContent>
               </Select>
             </div>
-            
+            <div className="flex flex-col gap-2">
+              <span className="text-sm text-gray-600">Sort order:</span>
             <Button
               variant="outline"
               size="sm"
@@ -668,24 +734,43 @@ export function CustomerDashboard() {
               <span className="hidden sm:inline">{sortOrder === "asc" ? "A-Z" : "Z-A"}</span>
             </Button>
           </div>
+          </div>
         </div>
       </div>
       
       {/* Search and Filters */}
       <div className="bg-white border-b px-4 sm:px-6 py-3">
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex-1 relative">
+          {/* Desktop: search and status filter in a row; Mobile: stack */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search customers, vehicles, or VIN..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 w-full"
               />
             </div>
-            
-            <div className="flex items-center border rounded-lg">
+            <div className="flex gap-3">
+            <div className="w-full sm:w-64">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Customers</SelectItem>
+                  <SelectItem value="Pending Inspection Scheduling">Pending Inspection Scheduling</SelectItem>
+                  <SelectItem value="Pending Inspection Completion">Pending Inspection Completion</SelectItem>
+                  <SelectItem value="Pending Quote">Pending Quote</SelectItem>
+                  <SelectItem value="Pending Offer Decision">Pending Offer Decision</SelectItem>
+                  <SelectItem value="Pending Paperwork">Pending Paperwork</SelectItem>
+                  <SelectItem value="Pending Completion">Pending Completion</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center border rounded-lg ml-0 sm:ml-2">
               <Button
                 variant={viewMode === "cards" ? "default" : "ghost"}
                 size="sm"
@@ -703,46 +788,7 @@ export function CustomerDashboard() {
                 <List className="h-4 w-4" />
               </Button>
             </div>
-          </div>
-          
-          {/* Mobile filters */}
-          {showMobileFilters && (
-            <div className="flex flex-col gap-3 sm:hidden">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Customers</SelectItem>
-                  <SelectItem value="Pending Inspection Scheduling">Pending Inspection Scheduling</SelectItem>
-                  <SelectItem value="Pending Inspection Completion">Pending Inspection Completion</SelectItem>
-                  <SelectItem value="Pending Quote">Pending Quote</SelectItem>
-                  <SelectItem value="Pending Offer Decision">Pending Offer Decision</SelectItem>
-                  <SelectItem value="Pending Paperwork">Pending Paperwork</SelectItem>
-                  <SelectItem value="Pending Completion">Pending Completion</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
-          )}
-          
-          {/* Desktop filters */}
-          <div className="hidden sm:flex items-center gap-4">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Customers</SelectItem>
-                <SelectItem value="Pending Inspection Scheduling">Pending Inspection Scheduling</SelectItem>
-                <SelectItem value="Pending Inspection Completion">Pending Inspection Completion</SelectItem>
-                <SelectItem value="Pending Quote">Pending Quote</SelectItem>
-                <SelectItem value="Pending Offer Decision">Pending Offer Decision</SelectItem>
-                <SelectItem value="Pending Paperwork">Pending Paperwork</SelectItem>
-                <SelectItem value="Pending Completion">Pending Completion</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </div>
       </div>
@@ -750,7 +796,11 @@ export function CustomerDashboard() {
       <div className="p-4 sm:p-6">
         {/* Summary Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <Card>
+          <Card
+            className={quickFilter === 'allCases' ? 'ring-2 ring-blue-400' : ''}
+            onClick={handleTotalCasesClick}
+            style={{ cursor: 'pointer' }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -759,16 +809,18 @@ export function CustomerDashboard() {
                 <div>
                   <p className="text-lg sm:text-2xl font-bold">{totalCases}</p>
                   <p className="text-xs sm:text-sm text-muted-foreground">
-                    {searchTerm || statusFilter !== "all" || stageFilter !== "all" 
-                      ? "Filtered Cases" 
-                      : "Total Cases"}
+                    Total Cases
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card
+            className={quickFilter === 'inProcess' ? 'ring-2 ring-blue-400' : ''}
+            onClick={handleInProcessClick}
+            style={{ cursor: 'pointer' }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-100 rounded-full flex items-center justify-center">
@@ -782,7 +834,11 @@ export function CustomerDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card
+            className={quickFilter === 'allCompleted' ? 'ring-2 ring-blue-400' : ''}
+            onClick={handleTotalCompletedClick}
+            style={{ cursor: 'pointer' }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center">
@@ -791,16 +847,18 @@ export function CustomerDashboard() {
                 <div>
                   <p className="text-lg sm:text-2xl font-bold">{totalCompleted}</p>
                   <p className="text-xs sm:text-sm text-muted-foreground">
-                    {searchTerm || statusFilter !== "all" || stageFilter !== "all" 
-                      ? "Filtered Completed" 
-                      : "Total Completed"}
+                    Total Completed
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card
+            className={quickFilter === 'completedToday' ? 'ring-2 ring-blue-400' : ''}
+            onClick={handleCompletedTodayClick}
+            style={{ cursor: 'pointer' }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center">
@@ -839,12 +897,12 @@ export function CustomerDashboard() {
                 {/* List Items */}
                 <div className="space-y-1">
               {filteredCustomers.map((customer) => (
-                    <Link key={customer._id} href={`/customer/${customer._id}`} className="block">
                 <div
                   className={cn(
                           "md:grid md:grid-cols-12 md:gap-4 p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors border-l-4 relative",
                     getPriorityColor(customer.priority),
                   )}
+                  onClick={()=> handleLinkClick(customer._id,customer.status)}
                 >
                   {/* Mobile layout */}
                   <div className="md:hidden space-y-2">
@@ -907,7 +965,6 @@ export function CustomerDashboard() {
                     </span>
                         </div>
                 </div>
-                    </Link>
               ))}
                 </div>
               </CardContent>

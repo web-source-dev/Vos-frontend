@@ -179,7 +179,7 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
 
       {/* Completed Inspection Details */}
       {getInspectionStatus() === 'completed' && (
-        <Card className="border-green-200 bg-gradient-to-br from-green-50 to-emerald-50">
+        <Card className="px-0 border-none" style={{ padding: '0px' }}>
           <CardHeader className="pb-3 md:pb-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-green-100 rounded-full">
@@ -388,12 +388,13 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                                 </span>
                               )}
                             </h5>
-                            <div className="flex items-center gap-2 mt-1">
+                            {/* Hide details on mobile, show on md+ */}
+                            <div className="hidden md:flex items-center gap-2 mt-1">
                               <div className="flex">
                                 {[1, 2, 3, 4, 5].map((star) => (
                                   <Star
                                     key={star}
-                                    className={`h-3 w-3 ${
+                                    className={`h-3 w-3 md:h-4 md:w-4 ${
                                       star <= (section.rating || 0)
                                         ? 'text-yellow-400 fill-current'
                                         : 'text-gray-300'
@@ -412,9 +413,8 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                             </div>
                           </div>
                         </div>
-                        
-                        <div className="flex items-center gap-2 md:gap-3">
-                          {/* Section Stats */}
+                        {/* Section Stats - hide on mobile, show on md+ */}
+                        <div className="hidden md:flex items-center gap-2 md:gap-3">
                           <div className="text-right">
                             <div className="flex items-center gap-2 text-xs text-gray-500">
                               {photoCount > 0 && (
@@ -438,13 +438,21 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                               {section.rating >= 4 ? 'Excellent' : section.rating >= 3 ? 'Good' : 'Needs Attention'}
                             </div>
                           </div>
-                          
-                          {/* Toggle Icon */}
                           <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
                             {isExpanded ? (
                               <ChevronDown className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
                             ) : (
                               <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-gray-400" />
+                            )}
+                          </div>
+                        </div>
+                        {/* On mobile, just show the toggle icon */}
+                        <div className="md:hidden flex items-center">
+                          <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-gray-400" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-gray-400" />
                             )}
                           </div>
                         </div>

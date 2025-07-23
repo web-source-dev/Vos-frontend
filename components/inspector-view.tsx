@@ -1730,7 +1730,22 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
         {(question as any).subQuestions && (question as any).subQuestions.length > 0 && (() => {
           // Check if sub-questions should be shown based on parent question type and answer
           if (question.type === 'yesno') {
-            // For yes/no questions, show sub-questions when "yes" is selected (except for specific cases)
+            // For yes/no questions, show sub-questions when "yes" is selected for specific cases
+            if (
+              question.id === "body_part_damaged" ||
+              question.id === "engine_noises" ||
+              question.id === "electrical_issues" ||
+              question.id === "modified_suspension" ||
+              question.question?.toLowerCase().includes("damaged") ||
+              question.question?.toLowerCase().includes("misaligned") ||
+              question.question?.toLowerCase().includes("engine noise") ||
+              question.question?.toLowerCase().includes("engine noises") ||
+              question.question?.toLowerCase().includes("electrical issues") ||
+              question.question?.toLowerCase().includes("modified suspension")
+            ) {
+              return currentAnswer === "yes";
+            }
+            // For interior_odors or engine_leaks, show on yes
             if (question.id === "interior_odors" || question.id === "engine_leaks") {
               return currentAnswer === "yes";
             }
@@ -1755,8 +1770,8 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
               <p className="text-sm font-semibold text-blue-800 uppercase tracking-wide">Follow-up Questions</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {question.subQuestions.map((subQ: { id: string; question: string; type: string; options?:  { value: string; label: string; points?: number }[] }, subIndex: number) => (
-                <div key={subIndex} className={`bg-white rounded-lg p-4 border border-gray-200 shadow-sm ${question.subQuestions!.length === 1 ? 'md:col-span-2' : ''}`}>
+              {question.subQuestions.map((subQ: InspectionQuestion) => (
+                <div key={subQ.id} className={`bg-white rounded-lg p-4 border border-gray-200 shadow-sm ${question.subQuestions.length === 1 ? 'md:col-span-2' : ''}`}>
                   <Label className="text-sm font-medium text-gray-700 mb-3 block">
                     {subQ.question}
                   </Label>
@@ -1898,44 +1913,34 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+    <div className="relative min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+      {/* TIMER DISPLAY - fixed at top right */}
+      <div className="fixed z-40 top-3 right-3 flex items-center space-x-2 text-xs sm:text-sm text-blue-600 font-semibold bg-blue-50 px-2 sm:px-3 py-1 rounded-lg border border-blue-200 shadow-md">
+        <Clock className="h-4 w-4" />
+        <span>Elapsed: {inspectionElapsedFormatted}</span>
+      </div>
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
+        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between h-auto sm:h-16 gap-2 sm:gap-0 py-2 sm:py-0">
+            <div className="flex items-center w-full sm:w-auto mb-2 sm:mb-0">
               <button
                 onClick={onBack}
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors text-base sm:text-sm"
               >
                 <ArrowLeft className="h-5 w-5" />
                 <span className="font-medium">Back to Dashboard</span>
               </button>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">
+            <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-2 sm:gap-4">
+              <div className="flex-1 text-left sm:text-right">
+                <p className="text-base sm:text-sm font-medium text-gray-900 truncate">
                   {vehicleData.customer?.firstName} {vehicleData.customer?.lastName}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 truncate">
                   {(vehicleData.vehicle as any)?.year} {(vehicleData.vehicle as any)?.make} {(vehicleData.vehicle as any)?.model}
                 </p>
               </div>
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <User className="h-5 w-5 text-blue-600" />
-              </div>
-              {/* TIMER DISPLAY */}
-              <div className="flex items-center space-x-2 text-sm text-blue-600 font-semibold bg-blue-50 px-3 py-1 rounded-lg border border-blue-200">
-                <Clock className="h-4 w-4" />
-                <span>Elapsed: {inspectionElapsedFormatted}</span>
-              </div>
-              {/* Auto-save indicator */}
-              {isSaving && (
-                <div className="flex items-center space-x-2 text-sm text-green-600">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
-                  <span>Saving...</span>
-                </div>
-              )}
             </div>
           </div>
         </div>
