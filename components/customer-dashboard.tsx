@@ -314,10 +314,6 @@ export function CustomerDashboard() {
     }
   }
 
-  const getProgressPercentage = (currentStage: number) => {
-    return Math.round(((currentStage - 1) / 7) * 100)
-  }
-
   // Helper function to get the correct amount for a case
   const getCaseAmount = (caseData: CaseData) => {
     // For completed cases, use the final amount from quote or transaction
@@ -470,19 +466,6 @@ export function CustomerDashboard() {
               <span className="text-sm font-medium">
                 {caseData.vehicle?.year} {caseData.vehicle?.make} {caseData.vehicle?.model}
               </span>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Progress</span>
-                <span className="font-medium">{getProgressPercentage(caseData.currentStage)}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${Math.max(0, getProgressPercentage(caseData.currentStage))}%` }}
-                />
-              </div>
             </div>
 
             <div className="flex items-center justify-between">

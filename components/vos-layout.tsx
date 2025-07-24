@@ -49,7 +49,7 @@ export function VosLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false)
   
   // Use the maximum of either passed maxStage prop or vehicleData.currentStage from DB or currentStage as fallback
-  const actualMaxStage = maxStage || vehicleData?.currentStage || currentStage;
+  const actualMaxStage = vehicleData?.currentStage || currentStage;
   
   const getStageStatus = (stageId: number) => {
     // Summary stage (0) is always considered active when viewing it
@@ -216,27 +216,6 @@ export function VosLayout({
             )
           })}
         </nav>
-      </div>
-
-      {/* Progress Summary - Use actualMaxStage for progress calculation, not the currently viewed stage */}
-      <div className="p-4 border-t border-gray-200 bg-gradient-to-r from-gray-50 to-blue-50">
-        <div className="text-sm font-semibold text-gray-900 mb-3">Overall Progress</div>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">Completion</span>
-            <span className="text-sm font-semibold text-gray-900">{Math.round(((actualMaxStage - 1) / 7) * 100)}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-            <div 
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500 ease-out shadow-sm"
-              style={{ width: `${Math.max(0, ((actualMaxStage - 1) / 7) * 100)}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between text-xs text-gray-500">
-            <span>Viewing {currentStage === 0 ? 'Summary' : `Stage ${currentStage}`}</span>
-            <span>Progress: Stage {actualMaxStage} of 7</span>
-          </div>
-        </div>
       </div>
     </div>
   )
