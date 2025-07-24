@@ -195,13 +195,16 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
   const [payoffNotes, setPayoffNotes] = useState<string>('');
   const [isConfirmingPayoff, setIsConfirmingPayoff] = useState(false);
 
-  // Initialize stage timer
-  const timer = useStageTimer();
+  // Stage timer with case ID and stage name
+  const caseId = vehicleData._id;
+  const timer = useStageTimer(caseId, 'paperwork');
 
-  // Start timer when component mounts
+  // Start timer when component mounts (only if not already started from saved data)
   useEffect(() => {
-    timer.start();
-  }, []);
+    if (!timer.startTime && !timer.isLoading) {
+      timer.start();
+    }
+  }, [timer.startTime, timer.isLoading]);
 
   // Load existing paperwork data on component mount
   useEffect(() => {

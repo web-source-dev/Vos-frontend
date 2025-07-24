@@ -73,8 +73,9 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const { toast } = useToast()
   
-  // Initialize stage timer
-  const stageTimer = useStageTimer()
+  // Stage timer with case ID and stage name
+  const caseId = vehicleData._id;
+  const stageTimer = useStageTimer(caseId, 'offerDecision')
 
   const quote = vehicleData.quote || {}
   const offerAmount = quote.offerAmount || 0
@@ -91,18 +92,19 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
     } else {
       setDecision("")
     }
-    // Only start timer if no decision and timer not started
-    if ((!offerDecision?.decision || offerDecision.decision === 'pending') && !stageTimer.startTime) {
+    // Only start timer if no decision and timer not started from saved data
+    if ((!offerDecision?.decision || offerDecision.decision === 'pending') && !stageTimer.startTime && !stageTimer.isLoading) {
       stageTimer.start();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [stageTimer.startTime, stageTimer.isLoading]);
 
   const handleAccept = async () => {
     try {
       setIsSubmitting(true)
-      // Stop the timer and get timing data
-      const timerData = stageTimer.stop();
+      // Stop the timer and get timing data (now handles saving automatically)
+      const timerData = await stageTimer.stop();
+      console.log('Stage timing data:', timerData);
       const caseId = vehicleData.id || vehicleData._id;
       if (!caseId) throw new Error("Case ID not found");
       const decisionData = {
@@ -112,19 +114,6 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
         status: "title-pending",
       }
       const response = await api.updateOfferDecisionByCaseId(caseId, decisionData);
-      // Send stage time data to API (simple: only startTime, endTime, caseId, stageName)
-      if (timerData.startTime && timerData.endTime) {
-        try {
-          await api.updateStageTime(
-            caseId,
-            'offerDecision',
-            timerData.startTime,
-            timerData.endTime
-          );
-        } catch (error) {
-          // Optionally log error
-        }
-      }
       if (response.success) {
         onUpdate({
           ...vehicleData,
@@ -180,8 +169,9 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
   const handleDecline = async () => {
     try {
       setIsSubmitting(true)
-      // Stop the timer and get timing data
-      const timerData = stageTimer.stop();
+      // Stop the timer and get timing data (now handles saving automatically)
+      const timerData = await stageTimer.stop();
+      console.log('Stage timing data:', timerData);
       const caseId = vehicleData.id || vehicleData._id;
       if (!caseId) throw new Error("Case ID not found");
       const decisionData = {
@@ -191,19 +181,6 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
         status: "closed",
       }
       const response = await api.updateOfferDecisionByCaseId(caseId, decisionData);
-      // Send stage time data to API (simple: only startTime, endTime, caseId, stageName)
-      if (timerData.startTime && timerData.endTime) {
-        try {
-          await api.updateStageTime(
-            caseId,
-            'offerDecision',
-            timerData.startTime,
-            timerData.endTime
-          );
-        } catch (error) {
-          // Optionally log error
-        }
-      }
       if (response.success) {
         if (response.data) {
           onUpdate({ 
@@ -300,20 +277,9 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
 
     try {
       // Stop the timer and get timing data if not already stopped
-      const timerData = stageTimer.stop();
+      const timerData = await stageTimer.stop();
+      console.log('Stage timing data:', timerData);
       const caseId = vehicleData.id || vehicleData._id;
-      if (caseId && timerData.startTime && timerData.endTime) {
-        try {
-          await api.updateStageTime(
-            caseId,
-            'offerDecision',
-            timerData.startTime,
-            timerData.endTime
-          );
-        } catch (error) {
-          // Optionally log error
-        }
-      }
       
       // Update stage statuses to mark stage 5 as complete
       const currentStageStatuses = vehicleData.stageStatuses || {};

@@ -354,13 +354,17 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
   const { toast } = useToast()
   
   // === TIMER HOOKS ===
+  // Stage timer with case ID and stage name (inspections use token-based approach)
   const {
     startTime: inspectionStartTime,
     elapsed: inspectionElapsed,
     start: startInspectionTimer,
     stop: stopInspectionTimer,
     elapsedFormatted: inspectionElapsedFormatted,
-  } = useStageTimer();
+    savedTimeFormatted,
+    newTimeFormatted,
+    isLoading: timerLoading
+  } = useStageTimer((vehicleData as any)?.caseId || (vehicleData as any)?.case?._id || (vehicleData as any)?._id, 'inspection'); // No caseId for token-based inspections
 
   // Section timers: { [sectionId]: { startTime, endTime, elapsed } }
   const [sectionTimers, setSectionTimers] = useState<Record<string, {
@@ -369,10 +373,12 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     elapsed: number;
   }>>({});
 
-  // Start inspection timer on mount
+  // Start inspection timer on mount (only if not already started from saved data)
   useEffect(() => {
-    startInspectionTimer();
-  }, []);
+    if (!timerLoading) {
+      startInspectionTimer();
+    }
+  }, [timerLoading, startInspectionTimer]);
 
   // Start section timer when expanded, stop when marked complete
   useEffect(() => {
@@ -984,8 +990,9 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     let inspectionStart: Date = inspectionStartTime || new Date();
     let caseId = (vehicleData as any)?.caseId || (vehicleData as any)?.case?._id || (vehicleData as any)?.case?._id || (vehicleData as any)?._id;
     try {
-      // Stop overall timer
-      const stopResult = stopInspectionTimer();
+      // Stop overall timer (now handles saving automatically)
+      const stopResult = await stopInspectionTimer();
+      console.log('Inspection timing data:', stopResult);
       inspectionEndTime = stopResult.endTime;
       inspectionStart = stopResult.startTime || inspectionStartTime || new Date();
 
@@ -1642,9 +1649,9 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
           )}
 
           {question.type === 'photo' && (
-            <div className="space-y-4">
+            <div className="space-y-0 p-0">
               {/* Multiple photo boxes for different angles */}
-              <div className="flex flex-nowrap overflow-x-auto gap-4 pb-4">
+              <div className="flex flex-nowrap overflow-x-auto gap-3 pb-1">
                 {getAnglesBySection(sectionId).map(angle => {
                   // Find if we already have a photo for this angle
                   const anglePhotoIndex = currentPhotos.findIndex(
@@ -1655,7 +1662,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
                   return (
                     <div 
                       key={angle.id} 
-                      className="flex-shrink-0 w-32 md:w-40 lg:w-48"
+                      className="flex-shrink-0 w-28 md:w-36 lg:w-44"
                     >
                       {hasPhoto ? (
                         <div 
@@ -1913,14 +1920,14 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
   }
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+    <div className="relative min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 max-w-9xl mx-auto">
       {/* TIMER DISPLAY - fixed at top right */}
-      <div className="fixed z-40 top-3 right-3 flex items-center space-x-2 text-xs sm:text-sm text-blue-600 font-semibold bg-blue-50 px-2 sm:px-3 py-1 rounded-lg border border-blue-200 shadow-md">
+      <div className="max-w-9xl mx-auto fixed z-40 top-3 right-3 flex items-center space-x-2 text-xs sm:text-sm text-blue-600 font-semibold bg-blue-50 px-2 sm:px-3 py-1 rounded-lg border border-blue-200 shadow-md">
         <Clock className="h-4 w-4" />
         <span>Elapsed: {inspectionElapsedFormatted}</span>
       </div>
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="w-full bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between h-auto sm:h-16 gap-2 sm:gap-0 py-2 sm:py-0">
             <div className="flex items-center w-full sm:w-auto mb-2 sm:mb-0">
@@ -1947,7 +1954,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-9xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Inspection Due By */}
         {vehicleData.inspection?.dueByDate && (

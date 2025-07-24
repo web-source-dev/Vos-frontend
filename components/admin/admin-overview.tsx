@@ -244,15 +244,7 @@ export function AdminOverview() {
     return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800"
   }
 
-  const handleLinkClick = (caseId: string,status:string) => {
-    if(status === "completed" && !isAdmin) {
-      toast({
-        title: "Case Completed",
-        description: "This case is already completed. Please select a different case.",
-        variant: "destructive",
-      })
-      return
-    }
+  const handleLinkClick = (caseId: string) => {
     router.push(`/customer/${caseId}`)
   }
 
@@ -426,7 +418,7 @@ export function AdminOverview() {
               <div
                 key={activity.id}
                 className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg hover:bg-blue-50 cursor-pointer transition"
-                onClick={() => handleLinkClick(activity.id,activity.status)}
+                onClick={() => handleLinkClick(activity.id)}
                 title="View customer details"
               >
                 <div className="flex items-center gap-3">

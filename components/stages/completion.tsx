@@ -94,8 +94,9 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
   const { toast } = useToast()
   const [isCompleting, setIsCompleting] = useState(false)
   const router = useRouter()
-  // Stage timer for completion stage
-  const timer = useStageTimer()
+  // Stage timer for completion stage with case ID and stage name
+  const caseId = vehicleData._id;
+  const timer = useStageTimer(caseId, 'completion')
 
   // Load existing completion data when component mounts
   useEffect(() => {
@@ -110,9 +111,9 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
     }
   }, [vehicleData.completion])
 
-  // Start timer when component mounts (if not already started)
+  // Start timer when component mounts (if not already started from saved data)
   useEffect(() => {
-    if (!timer.startTime) {
+    if (!timer.startTime && !timer.isLoading) {
       timer.start()
     }
   }, [timer])
@@ -202,22 +203,9 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
         throw new Error("Case ID not found")
       }
 
-      // Stop timer and get timing data
-      const timingData = timer.stop()
-      const endTime = new Date()
-
-      // Send stage timing data to backend
-      try {
-        await api.updateStageTime(
-          caseId,
-          'completion',
-          timer.startTime || new Date(),
-          endTime
-        )
-        console.log('Stage timing data sent successfully')
-      } catch (error) {
-        console.error('Failed to send stage timing data:', error)
-      }
+      // Stop timer and get timing data (now handles saving automatically)
+      const timingData = await timer.stop()
+      console.log('Stage timing data:', timingData)
 
       let response;
       
@@ -333,22 +321,9 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
         throw new Error("Case ID not found")
       }
 
-      // Stop timer and get timing data
-      const timingData = timer.stop()
-      const endTime = new Date()
-
-      // Send stage timing data to backend
-      try {
-        await api.updateStageTime(
-          caseId,
-          'completion',
-          timer.startTime || new Date(),
-          endTime
-        )
-        console.log('Stage timing data sent successfully')
-      } catch (error) {
-        console.error('Failed to send stage timing data:', error)
-      }
+      // Stop timer and get timing data (now handles saving automatically)
+      const timingData = await timer.stop()
+      console.log('Stage timing data:', timingData)
 
       // Save final completion data
       await saveCompletionData({

@@ -332,16 +332,7 @@ export function CustomerDashboard() {
     }
   }
 
-  const handleLinkClick = (caseId: string, status: string) => {
-
-    if(status === "completed" && !isAdmin) {
-      toast({
-        title: "Case Completed",
-        description: "This case is already completed. Please select a different case.",
-        variant: "destructive",
-      })
-      return
-    }
+  const handleLinkClick = (caseId: string) => {
     router.push(`/customer/${caseId}`)
   }
   
@@ -441,7 +432,7 @@ export function CustomerDashboard() {
             "cursor-pointer hover:shadow-lg transition-all duration-200 border-l-4",
             getPriorityColor(caseData.priority),
           )}
-          onClick={()=> handleLinkClick(caseData._id,caseData.status)}
+          onClick={()=> handleLinkClick(caseData._id)}
         >
           {/* Action buttons */}
           <div className="absolute top-2 right-2 z-10 opacity-70 group-hover:opacity-100 flex gap-1">
@@ -586,8 +577,7 @@ export function CustomerDashboard() {
               <DialogTrigger asChild>
                 <Button variant="outline" className="flex items-center gap-2 w-full sm:w-auto" onClick={handleOpenModal}>
                   <Mail className="h-4 w-4" />
-                  <span className="hidden sm:inline">Send Customer Form</span>
-                  <span className="sm:hidden">Send Form</span>
+                  <span>Send Application</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[500px] w-[95vw] max-h-[90vh] overflow-y-auto">
@@ -669,7 +659,7 @@ export function CustomerDashboard() {
                     ) : (
                       <>
                         <Send className="h-4 w-4" />
-                        Send Form
+                        Send Application
                       </>
                     )}
                   </Button>
@@ -902,7 +892,7 @@ export function CustomerDashboard() {
                           "md:grid md:grid-cols-12 md:gap-4 p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors border-l-4 relative",
                     getPriorityColor(customer.priority),
                   )}
-                  onClick={()=> handleLinkClick(customer._id,customer.status)}
+                  onClick={()=> handleLinkClick(customer._id)}
                 >
                   {/* Mobile layout */}
                   <div className="md:hidden space-y-2">

@@ -78,15 +78,25 @@ export function ScheduleInspection({
   const [isRescheduling, setIsRescheduling] = useState(false)
   const { toast } = useToast()
   
-  // Add stage timer
-  const { startTime, elapsed, start, stop, elapsedFormatted } = useStageTimer()
+  // Stage timer with case ID and stage name
+  const caseId = vehicleData._id;
+  const { 
+    startTime, 
+    elapsed, 
+    start, 
+    stop, 
+    elapsedFormatted, 
+    savedTimeFormatted, 
+    newTimeFormatted,
+    isLoading: timerLoading 
+  } = useStageTimer(caseId, 'scheduleInspection')
 
-  // Start timer when component mounts
+  // Start timer when component mounts (only if not already started from saved data)
   useEffect(() => {
-    if (!startTime) {
+    if (!startTime && !timerLoading) {
       start()
     }
-  }, [startTime, start])
+  }, [startTime, timerLoading, start])
 
   // Fetch available inspectors from user database
   useEffect(() => {
@@ -276,21 +286,9 @@ export function ScheduleInspection({
       );
 
       if (response.success) {
-        // Stop timer and send timing data
-        const timingData = stop();
-        if (timingData.startTime && timingData.endTime) {
-          try {
-            await api.updateStageTime(
-              caseId,
-              'scheduleInspection',
-              timingData.startTime,
-              timingData.endTime
-            );
-            console.log('Stage timing data sent successfully');
-          } catch (error) {
-            console.error('Failed to send stage timing data:', error);
-          }
-        }
+        // Stop timer and get timing data (now handles saving automatically)
+        const timingData = await stop();
+        console.log('Stage timing data:', timingData);
 
         onUpdate({
           inspection: {
@@ -346,24 +344,9 @@ export function ScheduleInspection({
   }
 
   const handleContinueToInspection = async () => {
-    // Stop timer and send timing data when continuing to next stage
-    const timingData = stop();
-    if (timingData.startTime && timingData.endTime) {
-      const caseId = vehicleData.id || vehicleData._id;
-      if (caseId) {
-        try {
-          await api.updateStageTime(
-            caseId,
-            'scheduleInspection',
-            timingData.startTime,
-            timingData.endTime
-          );
-          console.log('Stage timing data sent successfully');
-        } catch (error) {
-          console.error('Failed to send stage timing data:', error);
-        }
-      }
-    }
+    // Stop timer and get timing data (now handles saving automatically)
+    const timingData = await stop();
+    console.log('Stage timing data:', timingData);
     onComplete();
   }
 

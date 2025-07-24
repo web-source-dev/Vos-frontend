@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { SaveIndicator } from "@/components/save-indicator"
 import { useToast } from "@/hooks/use-toast"
 import { User, Car, Building, Search, Loader2, HelpCircle, Zap, Clock } from "lucide-react"
 import { useAuth } from "@/lib/auth"
@@ -141,7 +140,9 @@ interface FormData {
   agentLastName: string;
   storeLocation: string;
   customer: CustomerData;
-  vehicle: VehicleData;
+  vehicle: Omit<VehicleData, 'loanAmount'> & {
+    loanAmount: string | number;
+  };
   documents: {
     driverLicenseFront: DocumentDisplay | null;
     driverLicenseRear: DocumentDisplay | null;
@@ -152,8 +153,18 @@ interface FormData {
 export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProps) {
   const { user, isAuthenticated } = useAuth()
   
-  // Stage timer hook
-  const { startTime, elapsed, start, stop, elapsedFormatted } = useStageTimer()
+  // Stage timer hook with case ID and stage name
+  const caseId = vehicleData._id;
+  const { 
+    startTime, 
+    elapsed, 
+    start, 
+    stop, 
+    elapsedFormatted, 
+    savedTimeFormatted, 
+    newTimeFormatted,
+    isLoading: timerLoading 
+  } = useStageTimer(caseId, 'intake')
   
   // Vehicle makes and models data
   const [vehicleMakesAndModels, setVehicleMakesAndModels] = useState<{ [key: string]: string[] }>({
@@ -231,20 +242,20 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
     },
 
     // Basic Vehicle Info
-    vehicle: {
-      year: "",
-      make: "",
-      model: "",
-      currentMileage: "",
-      vin: "",
-      titleStatus: "clean",
-      loanStatus: "paid-off",
-      loanAmount: 0,
-      secondSetOfKeys: false,
-      hasTitleInPossession: false,
-      titleInOwnName: false,
-      isElectric: false,
-    },
+            vehicle: {
+          year: "",
+          make: "",
+          model: "",
+          currentMileage: "",
+          vin: "",
+          titleStatus: "clean",
+          loanStatus: "paid-off",
+          loanAmount: "",
+          secondSetOfKeys: false,
+          hasTitleInPossession: false,
+          titleInOwnName: false,
+          isElectric: false,
+        },
 
     // Required Images
     documents: {
@@ -254,7 +265,6 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
     },
   })
 
-  const [isSaving, setIsSaving] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingVinData, setIsLoadingVinData] = useState(false)
   const [isLoadingVehicleData, setIsLoadingVehicleData] = useState(false)
@@ -265,10 +275,12 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
   const [isInitialLoad, setIsInitialLoad] = useState(true)
   const { toast } = useToast()
 
-  // Start stage timer on mount
+  // Start stage timer on mount (only if not already started from saved data)
   useEffect(() => {
-    start();
-  }, []);
+    if (!startTime && !timerLoading) {
+      start();
+    }
+  }, [startTime, timerLoading, start]);
 
   // Load agent details on mount
   useEffect(() => {
@@ -346,7 +358,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
           vin: vehicleData.vehicle?.vin || "",
           titleStatus: vehicleData.vehicle?.titleStatus || "clean",
           loanStatus: vehicleData.vehicle?.loanStatus || "paid-off",
-          loanAmount: vehicleData.vehicle?.loanAmount || 0,
+          loanAmount: vehicleData.vehicle?.loanAmount ? vehicleData.vehicle.loanAmount.toString() : "",
           secondSetOfKeys: vehicleData.vehicle?.secondSetOfKeys || false,
           hasTitleInPossession: vehicleData.vehicle?.hasTitleInPossession || false,
           titleInOwnName: vehicleData.vehicle?.titleInOwnName || false,
@@ -358,9 +370,43 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
           vehicleTitle: null,
         }
       }));
+      
+      // Handle custom make/model values if they exist in the loaded data
+      if (vehicleData.vehicle?.make && vehicleData.vehicle?.model) {
+        const loadedMake = vehicleData.vehicle.make;
+        const loadedModel = vehicleData.vehicle.model;
+        
+        // Check if the loaded make is not in our predefined list (custom make)
+        if (!vehicleMakesAndModels[loadedMake]) {
+          setShowCustomMake(true);
+          setCustomMake(loadedMake);
+          setFormData(prev => ({
+            ...prev,
+            vehicle: {
+              ...prev.vehicle,
+              make: 'other' // Set to 'other' to show custom input
+            }
+          }));
+        }
+        
+        // Check if the loaded model is not in our predefined list for the make (custom model)
+        const availableModels = vehicleMakesAndModels[loadedMake] || [];
+        if (!availableModels.includes(loadedModel)) {
+          setShowCustomModel(true);
+          setCustomModel(loadedModel);
+          setFormData(prev => ({
+            ...prev,
+            vehicle: {
+              ...prev.vehicle,
+              model: 'other' // Set to 'other' to show custom input
+            }
+          }));
+        }
+      }
+      
       setIsInitialLoad(false);
     }
-  }, [vehicleData]);
+  }, [vehicleData, vehicleMakesAndModels]);
 
   // Load vehicle makes and models from API
   useEffect(() => {
@@ -440,14 +486,33 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
   useEffect(() => {
     const timer = setTimeout(() => {
       if (vehicleData?._id && !isInitialLoad) {
-        setIsSaving(true);
-        onUpdate(formData);
-        setTimeout(() => setIsSaving(false), 500);
+        
+        // Prepare vehicle data with custom make/model values for auto-save
+        const actualMake = formData.vehicle.make === 'other' ? customMake : formData.vehicle.make;
+        const actualModel = formData.vehicle.model === 'other' ? customModel : formData.vehicle.model;
+        
+        const autoSaveData = {
+          ...formData,
+          vehicle: {
+            ...formData.vehicle,
+            make: actualMake,
+            model: actualModel,
+            loanAmount: formData.vehicle.loanAmount ? Number(formData.vehicle.loanAmount) : undefined
+          }
+        };
+        
+        onUpdate({
+          ...autoSaveData,
+          vehicle: {
+            ...autoSaveData.vehicle,
+            loanAmount: autoSaveData.vehicle.loanAmount ? Number(autoSaveData.vehicle.loanAmount) : undefined
+          }
+        });
       }
-    }, 1000);
+    }, 5000);
 
     return () => clearTimeout(timer);
-  }, [formData, onUpdate, vehicleData?._id, isInitialLoad]);
+  }, [formData, customMake, customModel, onUpdate, vehicleData?._id, isInitialLoad]);
 
   const handleInputChange = (section: keyof FormData | 'customer' | 'vehicle', field: string, value: string | boolean | number) => {
     setFormData((prev) => {
@@ -705,16 +770,25 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
       setIsSubmitting(true)
 
       // Stop the stage timer and get timing data
-      const timingData = stop();
+      const timingData = await stop();
 
+      // Prepare vehicle data with custom make/model values if "Other" was selected
+      const actualMake = formData.vehicle.make === 'other' ? customMake : formData.vehicle.make;
+      const actualModel = formData.vehicle.model === 'other' ? customModel : formData.vehicle.model;
+      
       // Save custom vehicle if it was used
-      if (showCustomMake && customMake && formData.vehicle.make === customMake) {
-        await saveCustomVehicle(customMake, formData.vehicle.model);
+      if (showCustomMake && customMake && formData.vehicle.make === 'other') {
+        await saveCustomVehicle(customMake, actualModel);
       }
 
       const caseData = {
         customer: formData.customer,
-        vehicle: formData.vehicle,
+        vehicle: {
+          ...formData.vehicle,
+          make: actualMake,
+          model: actualModel,
+          loanAmount: formData.vehicle.loanAmount ? Number(formData.vehicle.loanAmount) : undefined
+        },
         documents: formData.documents.driverLicenseFront?.path || formData.documents.driverLicenseRear?.path || formData.documents.vehicleTitle?.path || "",
         agentInfo: {
           firstName: formData.agentFirstName,
@@ -840,11 +914,12 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
           {/* Stage Timer Display */}
           <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
             <Clock className="h-4 w-4 text-blue-600" />
-            <span className="text-sm font-medium text-blue-800">
-              Time: {elapsedFormatted}
-            </span>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-blue-800">
+                Time : {elapsedFormatted}
+              </span>
+            </div>
           </div>
-          <SaveIndicator isSaving={isSaving} />
         </div>
       </div>
 

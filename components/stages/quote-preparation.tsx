@@ -142,18 +142,28 @@ export function QuotePreparation({
   } | null>(null)
   const { toast } = useToast()
   
-  // Add stage timer
-  const { startTime, elapsed, start, stop, elapsedFormatted } = useStageTimer()
+  // Stage timer with case ID and stage name
+  const caseId = vehicleData._id;
+  const { 
+    startTime, 
+    elapsed, 
+    start, 
+    stop, 
+    elapsedFormatted, 
+    savedTimeFormatted, 
+    newTimeFormatted,
+    isLoading: timerLoading 
+  } = useStageTimer(caseId, 'quotePreparation')
   
   const canManageQuote = isEstimator || isAdmin || isAgent;
   const existingQuote = vehicleData.quote;
 
-  // Start timer when component mounts
+  // Start timer when component mounts (only if not already started from saved data)
   useEffect(() => {
-    if (!startTime) {
+    if (!startTime && !timerLoading) {
       start()
     }
-  }, [startTime, start])
+  }, [startTime, timerLoading, start])
 
   // Helper functions for inspection metrics
   const calculateAverageConditionRating = () => {
@@ -177,9 +187,10 @@ export function QuotePreparation({
       totalCost += vehicleData.inspection.maintenanceItems.reduce((sum, item) => sum + (item.estimatedCost || 0), 0);
     }
     
-    // Add OBD2 critical codes costs
-    if (existingQuote?.obd2Scan?.criticalCodes) {
-      existingQuote.obd2Scan.criticalCodes.forEach(code => {
+    // Add OBD2 critical codes costs (check both existing quote and local state)
+    const obd2Codes = obd2ScanData?.criticalCodes || existingQuote?.obd2Scan?.criticalCodes;
+    if (obd2Codes) {
+      obd2Codes.forEach(code => {
         const costString = code.estimatedRepairCost || '';
         
         // Handle price ranges like "$150 - $1000"
@@ -237,8 +248,9 @@ export function QuotePreparation({
   const formatCostSummary = () => {
     const totalCost = calculateTotalRepairCost();
     
-    // Check if we have any OBD2 codes with ranges
-    const hasRanges = existingQuote?.obd2Scan?.criticalCodes?.some(code => 
+    // Check if we have any OBD2 codes with ranges (check both existing quote and local state)
+    const obd2Codes = obd2ScanData?.criticalCodes || existingQuote?.obd2Scan?.criticalCodes;
+    const hasRanges = obd2Codes?.some(code => 
       code.estimatedRepairCost?.includes('-')
     );
     
@@ -324,6 +336,13 @@ export function QuotePreparation({
   const [isUploadingOBD2Scan, setIsUploadingOBD2Scan] = useState(false);
   const [obd2ScanData, setOBD2ScanData] = useState<OBD2ScanData | null>(null);
 
+  // Update local OBD2 scan data when existing quote changes
+  useEffect(() => {
+    if (existingQuote?.obd2Scan && !obd2ScanData) {
+      setOBD2ScanData(existingQuote.obd2Scan);
+    }
+  }, [existingQuote?.obd2Scan, obd2ScanData]);
+
   // Handle OBD2 scan upload
   const handleOBD2ScanUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files || !event.target.files[0]) return;
@@ -369,8 +388,8 @@ export function QuotePreparation({
         });
 
         // Update quote data
-        setQuoteData(prev => ({
-          ...prev,
+        const updatedQuoteData = {
+          ...quoteData,
           obd2Scan: {
             scanDate: new Date().toISOString(),
             filePath: response.data!.filePath,
@@ -384,7 +403,19 @@ export function QuotePreparation({
                 estimatedRepairCost: code.estimatedRepairCost || ''
               }))
           }
-        }));
+        };
+
+        setQuoteData(updatedQuoteData);
+
+        // Update parent component state to persist the OBD2 scan data
+        const updatedCaseData = {
+          ...vehicleData,
+          quote: {
+            ...vehicleData.quote,
+            obd2Scan: updatedQuoteData.obd2Scan
+          }
+        };
+        onUpdate(updatedCaseData);
 
         toast({
           title: "OBD2 Scan Uploaded",
@@ -480,24 +511,9 @@ export function QuotePreparation({
       }
 
       if (response.success) {
-        // Stop timer and send timing data
-        const timingData = stop();
-        if (timingData.startTime && timingData.endTime) {
-          const caseId = vehicleData.id || vehicleData._id;
-          if (caseId) {
-            try {
-              await api.updateStageTime(
-                caseId,
-                'quotePreparation',
-                timingData.startTime,
-                timingData.endTime
-              );
-              console.log('Stage timing data sent successfully');
-            } catch (error) {
-              console.error('Failed to send stage timing data:', error);
-            }
-          }
-        }
+        // Stop timer and get timing data (now handles saving automatically)
+        const timingData = await stop();
+        console.log('Stage timing data:', timingData);
 
         onUpdate({
           ...vehicleData,
@@ -578,21 +594,9 @@ export function QuotePreparation({
       const response = await api.generateQuoteSummary(caseId, currentQuoteData);
       
       if (response.success && response.data) {
-        // Stop timer and send timing data when generating summary
-        const timingData = stop();
-        if (timingData.startTime && timingData.endTime) {
-          try {
-            await api.updateStageTime(
-              caseId,
-              'quotePreparation',
-              timingData.startTime,
-              timingData.endTime
-            );
-            console.log('Stage timing data sent successfully');
-          } catch (error) {
-            console.error('Failed to send stage timing data:', error);
-          }
-        }
+        // Stop timer and get timing data (now handles saving automatically)
+        const timingData = await stop();
+        console.log('Stage timing data:', timingData);
 
         // Create a blob from the PDF data
         const blob = new Blob([response.data], { type: 'application/pdf' });
@@ -862,7 +866,7 @@ export function QuotePreparation({
           )}
 
           {/* OBD2 Scan Summary */}
-          {existingQuote?.obd2Scan && (
+          {(obd2ScanData || existingQuote?.obd2Scan) && (
             <div>
               <h4 className="font-medium text-gray-700 mb-2 flex items-center gap-2">
                 <Wrench className="h-4 w-4" />
@@ -870,16 +874,20 @@ export function QuotePreparation({
               </h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <div className="text-lg font-bold text-gray-600">{existingQuote.obd2Scan.extractedCodes?.length || 0}</div>
+                  <div className="text-lg font-bold text-gray-600">
+                    {(obd2ScanData?.extractedCodes || existingQuote?.obd2Scan?.extractedCodes)?.length || 0}
+                  </div>
                   <div className="text-xs text-gray-700">Total Codes</div>
                 </div>
                 <div className="text-center p-3 bg-red-50 rounded-lg">
-                  <div className="text-lg font-bold text-red-600">{existingQuote.obd2Scan.criticalCodes?.length || 0}</div>
+                  <div className="text-lg font-bold text-red-600">
+                    {(obd2ScanData?.criticalCodes || existingQuote?.obd2Scan?.criticalCodes)?.length || 0}
+                  </div>
                   <div className="text-xs text-red-700">Critical Codes</div>
                 </div>
                 <div className="text-center p-3 bg-yellow-50 rounded-lg">
                   <div className="text-lg font-bold text-yellow-600">
-                    {existingQuote.obd2Scan.criticalCodes?.filter(code => code.criticality >= 4).length || 0}
+                    {(obd2ScanData?.criticalCodes || existingQuote?.obd2Scan?.criticalCodes)?.filter(code => code.criticality >= 4).length || 0}
                   </div>
                   <div className="text-xs text-yellow-700">High Priority</div>
                 </div>
