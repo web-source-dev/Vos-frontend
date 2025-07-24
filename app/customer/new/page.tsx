@@ -82,7 +82,7 @@ export default function NewCustomer() {
   }
 
   const handleBackToDashboard = () => {
-    router.back()
+    router.push('/')
   }
 
   const renderCurrentStage = () => {

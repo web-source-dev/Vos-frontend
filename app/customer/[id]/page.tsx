@@ -119,7 +119,7 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
   }
 
   const handleBackToDashboard = () => {
-    router.back();
+    router.push('/');
   }
 
   const canAccessStage = (stage: number) => {
