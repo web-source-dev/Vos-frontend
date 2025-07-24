@@ -1132,7 +1132,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
                         <TooltipTrigger asChild>
                           <HelpCircle className="h-3 w-3 text-muted-foreground ml-2 cursor-help" />
                         </TooltipTrigger>
-                        <TooltipContent side="bottom" className="max-w-xs">
+                        <TooltipContent side="bottom right" className="max-w-xs">
                           <p className="text-sm">The vehicle has never been in a major accident and holds a standard title with no damage history.</p>
                         </TooltipContent>
                       </Tooltip>
