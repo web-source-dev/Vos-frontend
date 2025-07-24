@@ -135,6 +135,8 @@ export function CustomerDashboard() {
   const router = useRouter()
   // Add state to store time tracking data
   const [caseTimes, setCaseTimes] = useState<Record<string, number>>({});
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [caseToDelete, setCaseToDelete] = useState<string | null>(null);
   useEffect(() => {
     const fetchCases = async () => {
       try {
@@ -332,14 +334,31 @@ export function CustomerDashboard() {
     router.push(`/customer/${caseId}`)
   }
   
-  // Placeholder delete handler
-  const handleDeleteCase = (caseId: string) => {
-    // TODO: Implement actual delete logic
-    if (window.confirm("Are you sure you want to delete this case? This action cannot be undone.")) {
-      // Call API to delete case
-      alert(`Delete case ${caseId} (not implemented)`)
+  const handleDeleteCase = async () => {
+    if (!caseToDelete) return;
+    try {
+      const response = await api.deleteCase(caseToDelete);
+      if (response.success) {
+        setCases(prev => prev.filter(c => c._id !== caseToDelete));
+        toast({
+          title: "Case Deleted",
+          description: "The case and all related data have been deleted successfully.",
+        });
+      } else {
+        throw new Error(response.error || 'Failed to delete case');
+      }
+    } catch (error) {
+      console.error('Error deleting case:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete case.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      setCaseToDelete(null);
     }
-  }
+  };
 
   const handleSendCustomerForm = async () => {
     if (!customerEmail || !customerName) {
@@ -439,7 +458,12 @@ export function CustomerDashboard() {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                onClick={e => { e.preventDefault(); e.stopPropagation(); handleDeleteCase(caseData._id) }}
+                onClick={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setCaseToDelete(caseData._id);
+                  setDeleteDialogOpen(true);
+                }}
                 title="Delete customer"
               >
                 <Trash2 className="h-4 w-4 text-red-500" />
@@ -967,6 +991,25 @@ export function CustomerDashboard() {
           </Card>
         )}
       </div>
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Case</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this case? This action cannot be undone and will remove all related data for this customer case.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteCase}>
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

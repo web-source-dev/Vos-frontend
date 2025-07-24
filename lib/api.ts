@@ -859,6 +859,20 @@ export async function confirmPayoff(caseId: string, payoffStatus: 'pending' | 'c
     return handleError(error);
   }
 }
+
+export async function deleteCase(caseId: string): Promise<APIResponse<void>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}`, {
+      ...await defaultOptions(),
+      method: 'DELETE',
+    });
+    return await handleResponse<void>(response);
+  } catch (error) {
+    console.error('Error deleting case:', error);
+    return handleError(error);
+  }
+}
+
 const api = {
   // Auth functions
   loginUser,
@@ -914,6 +928,7 @@ const api = {
   sendCustomerIntakeEmail,
   updateStageTime,
   confirmPayoff,
+  deleteCase,
 };
 
 export default api;
