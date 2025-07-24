@@ -620,11 +620,6 @@ export function QuotePreparation({
       }
     } catch (error) {
       console.error('Error generating quote summary:', error);
-      toast({
-        title: "Error Generating Summary",
-        description: error instanceof Error ? error.message : "Failed to generate quote summary.",
-        variant: "destructive",
-      })
     } finally {
       setIsGeneratingSummary(false)
     }

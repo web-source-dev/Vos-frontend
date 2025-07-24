@@ -526,12 +526,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
         description: "Bill of Sale PDF has been downloaded successfully.",
       })
     } catch (error) {
-      const errorData = api.handleError(error)
-      toast({
-        title: "Error Generating Bill of Sale",
-        description: errorData.error,
-        variant: "destructive",
-      })
+      console.error('Error generating bill of sale:', error)
     } finally {
       setIsGeneratingPDF(false)
     }

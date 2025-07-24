@@ -298,12 +298,7 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
         description: "Complete case file has been downloaded successfully.",
       })
     } catch (error) {
-      const errorData = api.handleError(error);
-      toast({
-        title: "Error Downloading File",
-        description: errorData.error,
-        variant: "destructive",
-      })
+      console.error('Error downloading case file:', error)
     } finally {
       setIsGeneratingPDF(false)
     }
