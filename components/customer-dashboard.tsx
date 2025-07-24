@@ -900,6 +900,7 @@ export function CustomerDashboard() {
                     getPriorityColor(customer.priority),
                   )}
                   onClick={()=> handleLinkClick(customer._id)}
+                  key={customer._id}
                 >
                   {/* Mobile layout */}
                   <div className="md:hidden space-y-2">
@@ -915,7 +916,25 @@ export function CustomerDashboard() {
                           </p>
                         </div>
                       </div>
-                      {getStatusBadge(customer.currentStage, customer.status)}
+                      <div className="flex items-center gap-1">
+                        {getStatusBadge(customer.currentStage, customer.status)}
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={e => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setCaseToDelete(customer._id);
+                              setDeleteDialogOpen(true);
+                            }}
+                            title="Delete customer"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">VIN: {customer.vehicle?.vin || 'N/A'}</span>
@@ -961,6 +980,25 @@ export function CustomerDashboard() {
                       {customer.lastActivity?.timestamp ? new Date(customer.lastActivity.timestamp).toLocaleDateString() : 'N/A'}
                     </span>
                         </div>
+                        {/* Delete button for admin in desktop list view */}
+                        {isAdmin && (
+                          <div className="hidden md:flex items-center col-span-1 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={e => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setCaseToDelete(customer._id);
+                                setDeleteDialogOpen(true);
+                              }}
+                              title="Delete customer"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+                        )}
                 </div>
               ))}
                 </div>
