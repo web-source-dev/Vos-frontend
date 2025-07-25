@@ -47,7 +47,7 @@ interface ReportStats {
   topVehicles: Array<{ make: string; model: string; count: number; avgValue: number }>
   agentPerformance: Array<{ agentId: string; agentName: string; cases: number; revenue: number; avgRating: number }>
   decisionBreakdown: Array<{ decision: string; count: number; percentage: number }>
-  stageProgression: Array<{ stage: number; count: number; avgTime: number }>
+  stageProgression: Array<{ stage: number; stageName: string; count: number; avgTime: number }>
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D']
@@ -363,7 +363,7 @@ export function ReportsDashboard() {
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={stats.stageProgression}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="stage" />
+                  <XAxis dataKey="stageName" />
                   <YAxis />
                   <Tooltip formatter={(value, name) => [
                     name === 'avgTime' ? `${(value as number).toFixed(1)} days` : value,
@@ -455,7 +455,7 @@ export function ReportsDashboard() {
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={stats.stageProgression}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="stage" />
+                  <XAxis dataKey="stageName" />
                   <YAxis />
                   <Tooltip formatter={(value, name) => [
                     name === 'avgTime' ? `${(value as number).toFixed(1)} days` : value,

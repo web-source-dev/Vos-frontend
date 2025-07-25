@@ -114,8 +114,21 @@ export function AdminOverview() {
     setSelectedStage(stage);
     setSelectedStatus(null);
     const path = getDashboardPath();
-    // Extract stage number from 'Stage X'
-    const stageNum = stage.replace(/[^0-9]/g, "");
+    // Extract stage number from stage name
+    const getStageNumber = (stageName: string) => {
+      switch (stageName) {
+        case "Customer Intake": return "1"
+        case "Schedule Inspection": return "2"
+        case "Vehicle Inspection": return "3"
+        case "Quote Preparation": return "4"
+        case "Offer Decision": return "5"
+        case "Paperwork": return "6"
+        case "Completion": return "7"
+        case "Completed": return "8"
+        default: return stageName.replace(/[^0-9]/g, "")
+      }
+    }
+    const stageNum = getStageNumber(stage);
     router.push(`${path}?stage=${stageNum}`);
   };
 
@@ -179,8 +192,23 @@ export function AdminOverview() {
         }, {})
 
         // Cases by stage
+        const getStageName = (stage: number) => {
+          switch (stage) {
+            case 1: return "Customer Intake"
+            case 2: return "Schedule Inspection"
+            case 3: return "Vehicle Inspection"
+            case 4: return "Quote Preparation"
+            case 5: return "Offer Decision"
+            case 6: return "Paperwork"
+            case 7: return "Completion"
+            case 8: return "Completion"
+            default: return `Stage ${stage}`
+          }
+        }
+        
         const casesByStage = filteredCases.reduce((acc: Record<string, number>, c: CaseData) => {
-          acc[`Stage ${c.currentStage}`] = (acc[`Stage ${c.currentStage}`] || 0) + 1
+          const stageName = getStageName(c.currentStage)
+          acc[stageName] = (acc[stageName] || 0) + 1
           return acc
         }, {})
 
@@ -346,11 +374,6 @@ export function AdminOverview() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Cases by Status</CardTitle>
-            {(selectedStatus || selectedStage) && (
-              <Button size="sm" variant="outline" onClick={handleClearFilter}>
-                Clear
-              </Button>
-            )}
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -380,11 +403,6 @@ export function AdminOverview() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Cases by Stage</CardTitle>
-            {(selectedStatus || selectedStage) && (
-              <Button size="sm" variant="outline" onClick={handleClearFilter}>
-                Clear
-              </Button>
-            )}
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -434,9 +452,6 @@ export function AdminOverview() {
                   <Badge className={getStatusColor(activity.status)}>
                     {activity.status}
                   </Badge>
-                  <span className="text-sm text-muted-foreground">
-                    Stage {activity.stage}
-                  </span>
                   <span className="font-semibold text-green-600">
                     ${activity.amount.toLocaleString()}
                   </span>

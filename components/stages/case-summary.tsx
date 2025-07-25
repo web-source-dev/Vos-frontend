@@ -365,7 +365,19 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
     
     return sources[sourceKey] || sourceKey;
   };
-
+  const getStageName = (stage: number) => {
+    switch (stage) {
+      case 1: return "Customer Intake"
+      case 2: return "Schedule Inspection"
+      case 3: return "Vehicle Inspection"
+      case 4: return "Quote Preparation"
+      case 5: return "Offer Decision"
+      case 6: return "Paperwork"
+      case 7: return "Completion"
+      case 8: return "Completion"
+      default: return `Stage ${stage}`
+    }
+  }
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header */}
@@ -406,9 +418,8 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
                 <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
               </div>
               <div>
-                <p className="text-lg md:text-2xl font-bold">{Math.round(((vehicleData.currentStage || 1) / 7) * 100)}%</p>
-                <p className="text-xs md:text-sm text-muted-foreground">Progress</p>
-                <p className="text-xs text-gray-500">Stage {vehicleData.currentStage || 1} of 7</p>
+                <p className="text-sm md:text-lg font-bold">Progress</p>
+                <p className="text-sm text-gray-500"> {getStageName(vehicleData.currentStage || 1)}</p>
               </div>
             </div>
           </CardContent>
@@ -423,12 +434,6 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
               </div>
               <div>
                 <p className="text-sm md:text-lg font-bold">Created: {formatDate(vehicleData.createdAt)}</p>
-                <p className="text-xs md:text-sm text-muted-foreground">Last Updated: {formatDate(vehicleData.updatedAt)}</p>
-                {vehicleData.lastActivity && (
-                  <p className="text-xs text-gray-500">
-                    Last: {vehicleData.lastActivity.description}
-                  </p>
-                )}
               </div>
             </div>
           </CardContent>
@@ -1120,7 +1125,7 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
 
             {/* Section Details */}
             <div>
-              <h4 className="font-medium text-gray-900 mb-3 text-sm md:text-base">Section Breakdown</h4>
+              <h4 className="font-medium text-gray-900 mb-3 text-sm md:text-base">Inspection Breakdown</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {vehicleData.inspection.sections.map((section, index) => (
                   <div key={index} className="p-3 md:p-4 border rounded-lg hover:shadow-md transition-shadow">

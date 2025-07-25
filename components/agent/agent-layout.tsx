@@ -1,6 +1,6 @@
 "use client"
 
-import { ReactNode } from "react"
+import { ReactNode, useEffect } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import {
@@ -40,9 +40,41 @@ interface LayoutProps {
 }
 
 export function AgentLayout({ children }: LayoutProps) {
-  const { user, logout } = useAuth()
+  const { user, logout, loading, isAuthenticated, isAgent } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+
+  // Authentication validation
+  useEffect(() => {
+    if (!loading) {
+      if (!isAuthenticated) {
+        router.push('/login')
+        return
+      }
+      
+      if (!isAgent) {
+        router.push('/login')
+        return
+      }
+    }
+  }, [loading, isAuthenticated, isAgent, router])
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render the layout if user is not authenticated or not agent
+  if (!isAuthenticated || !isAgent) {
+    return null
+  }
 
   // Limited navigation for agents
   const navigation = [
@@ -65,7 +97,6 @@ export function AgentLayout({ children }: LayoutProps) {
         <Sidebar className="border-r">
           <SidebarHeader className="p-4 border-b">
             <div className="flex items-center gap-2">
-              <User className="h-6 w-6 text-blue-600" />
               <h1 className="text-lg font-semibold">VOS Agent</h1>
             </div>
           </SidebarHeader>

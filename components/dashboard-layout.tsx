@@ -1,7 +1,8 @@
 "use client"
 
-import { ReactNode, useState } from "react"
+import { ReactNode, useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   SidebarProvider,
   Sidebar,
@@ -41,8 +42,33 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { user, logout } = useAuth()
+  const { user, logout, loading, isAuthenticated } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const router = useRouter()
+
+  // Authentication validation
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.push('/login')
+    }
+  }, [loading, isAuthenticated])
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render the layout if user is not authenticated
+  if (!isAuthenticated) {
+    return null
+  }
 
   const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard, current: true },
@@ -63,7 +89,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <Sidebar className="border-r">
           <SidebarHeader className="p-4 border-b">
             <div className="flex items-center gap-2">
-              <Car className="h-6 w-6 text-blue-600" />
               <h1 className="text-lg font-semibold hidden sm:block">VOS System</h1>
               <h1 className="text-lg font-semibold sm:hidden">VOS</h1>
             </div>

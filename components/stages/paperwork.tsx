@@ -802,16 +802,12 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
             {paymentStatus === "completed" ? "Payment Sent" : paymentStatus === "processing" ? "Processing" : "Pending"}
           </Badge>
           
-          <Badge variant="outline" className="flex items-center gap-1">
+          <Badge variant="outline" className="flex items-center gap-1 hidden">
             <Clock className="h-3 w-3" />
             {timer.elapsedFormatted}
           </Badge>
         </div>
       </div>
-
-      {/* Signing Dialog */}
-      {/* Removed as per edit hint */}
-
       {/* Transaction Summary */}
       <Card>
         <CardHeader>

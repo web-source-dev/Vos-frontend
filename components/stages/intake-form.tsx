@@ -912,7 +912,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
         </div>
         <div className="flex items-center gap-4">
           {/* Stage Timer Display */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg hidden">
             <Clock className="h-4 w-4 text-blue-600" />
             <div className="flex flex-col">
               <span className="text-sm font-medium text-blue-800">

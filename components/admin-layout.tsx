@@ -1,6 +1,6 @@
 "use client"
 
-import { ReactNode } from "react"
+import { ReactNode, useEffect } from "react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import {
@@ -43,9 +43,41 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const { user, logout } = useAuth()
+  const { user, logout, loading, isAuthenticated, isAdmin } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+
+  // Authentication validation
+  useEffect(() => {
+    if (!loading) {
+      if (!isAuthenticated) {
+        router.push('/login')
+        return
+      }
+      
+      if (!isAdmin) {
+        router.push('/login')
+        return
+      }
+    }
+  }, [loading, isAuthenticated, isAdmin, router])
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render the layout if user is not authenticated or not admin
+  if (!isAuthenticated || !isAdmin) {
+    return null
+  }
 
   const navigation = [
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard, current: pathname === "/admin" },
@@ -71,7 +103,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <Sidebar className="border-r">
           <SidebarHeader className="p-4 border-b">
             <div className="flex items-center gap-2">
-              <User className="h-6 w-6 text-blue-600" />
               <h1 className="text-lg font-semibold">VOS Admin</h1>
             </div>
           </SidebarHeader>

@@ -91,6 +91,11 @@ interface QuoteData {
   createdAt?: string
   updatedAt?: string
   obd2Scan?: OBD2ScanData;
+  offerDecision?: {
+    decision: 'accepted' | 'declined' | 'negotiating' | 'presented';
+    reason?: string;
+    decisionDate?: string;
+  };
 }
 
 interface CaseData {
@@ -157,6 +162,12 @@ export function QuotePreparation({
   
   const canManageQuote = isEstimator || isAdmin || isAgent;
   const existingQuote = vehicleData.quote;
+
+  // Check if quote has already been decided (accepted or rejected)
+  const isQuoteDecided = existingQuote?.offerDecision?.decision === 'accepted' || 
+                        existingQuote?.offerDecision?.decision === 'declined' ||
+                        existingQuote?.status === 'accepted' || 
+                        existingQuote?.status === 'declined';
 
   // Start timer when component mounts (only if not already started from saved data)
   useEffect(() => {
@@ -635,6 +646,25 @@ export function QuotePreparation({
       )
     }
     
+    // Check if quote has been decided
+    if (isQuoteDecided) {
+      if (existingQuote.offerDecision?.decision === 'accepted' || existingQuote.status === 'accepted') {
+        return (
+          <Badge className="bg-green-100 text-green-800">
+            <CheckCircle className="h-4 w-4 mr-1" />
+            Accepted
+          </Badge>
+        )
+      } else {
+        return (
+          <Badge className="bg-red-100 text-red-800">
+            <AlertTriangle className="h-4 w-4 mr-1" />
+            Declined
+          </Badge>
+        )
+      }
+    }
+    
     switch (existingQuote.status) {
       case 'ready':
         return (
@@ -690,7 +720,7 @@ export function QuotePreparation({
       </div>
 
       {/* Timer Display */}
-      <Card className="bg-blue-50 border-blue-200">
+      <Card className="bg-blue-50 border-blue-200 hidden">
         <CardContent className="pt-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -704,7 +734,7 @@ export function QuotePreparation({
         </CardContent>
       </Card>
 
-      {isUpdating && (
+      {isUpdating && !isQuoteDecided && (
         <Card className="border-blue-200 bg-blue-50">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -947,7 +977,7 @@ export function QuotePreparation({
               </p>
           </div>
               
-              {canManageQuote && (
+              {canManageQuote && !isQuoteDecided && (
                 <div className="relative">
                   <input
                     type="file"
@@ -1066,110 +1096,201 @@ export function QuotePreparation({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="offerAmount">Offer Amount *</Label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="offerAmount"
-                  type="number"
-                  value={quoteData.offerAmount}
-                  onChange={(e) => handleQuoteChange('offerAmount', e.target.value)}
-                  placeholder="25000"
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Estimated Value</Label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <div className="flex items-center">
-                  <div className="flex-1 pl-10 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-md text-gray-700">
-                    {isLoadingPricing ? (
-                      <div className="flex items-center gap-2">
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                        <span className="text-sm">Fetching MarketCheck pricing...</span>
-                      </div>
-                    ) : pricingData ? (
-                      <div>
-                        <span className="font-semibold">${pricingData.estimatedValue.toLocaleString()}</span>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {pricingData.source} • {new Date(pricingData.lastUpdated).toLocaleDateString()}
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-gray-500">
-                        {vehicleData.vehicle?.vin 
-                          ? "Click refresh to fetch MarketCheck pricing" 
-                          : "VIN required for MarketCheck pricing"
-                        }
-                      </span>
+          {isQuoteDecided ? (
+            <div className="space-y-4">
+              {/* Quote Already Decided Message */}
+              <div className={`p-4 rounded-lg border ${
+                existingQuote?.offerDecision?.decision === 'accepted' || existingQuote?.status === 'accepted'
+                  ? 'bg-green-50 border-green-200 text-green-800'
+                  : 'bg-red-50 border-red-200 text-red-800'
+              }`}>
+                <div className="flex items-center gap-3">
+                  {existingQuote?.offerDecision?.decision === 'accepted' || existingQuote?.status === 'accepted' ? (
+                    <CheckCircle className="h-6 w-6 text-green-600" />
+                  ) : (
+                    <AlertTriangle className="h-6 w-6 text-red-600" />
+                  )}
+                  <div>
+                    <h3 className="font-semibold">
+                      {existingQuote?.offerDecision?.decision === 'accepted' || existingQuote?.status === 'accepted'
+                        ? 'Quote Already Accepted'
+                        : 'Quote Already Declined'
+                      }
+                    </h3>
+                    <p className="text-sm mt-1">
+                      {existingQuote?.offerDecision?.decision === 'accepted' || existingQuote?.status === 'accepted'
+                        ? 'This quote has already been accepted by the customer and cannot be modified.'
+                        : 'This quote has already been declined by the customer and cannot be modified.'
+                      }
+                    </p>
+                    {existingQuote?.offerDecision?.decisionDate && (
+                      <p className="text-xs mt-2 opacity-75">
+                        Decision made on: {new Date(existingQuote.offerDecision.decisionDate).toLocaleDateString()}
+                      </p>
                     )}
                   </div>
-                  {vehicleData.vehicle?.vin && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={fetchVehiclePricing}
-                      disabled={isLoadingPricing}
-                      className="absolute right-1 top-1 h-8 w-8 p-0"
-                    >
-                      <RefreshCw className={`h-4 w-4 ${isLoadingPricing ? 'animate-spin' : ''}`} />
-                    </Button>
-                  )}
                 </div>
               </div>
+
+              {/* Read-only Quote Information */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Offer Amount</Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <div className="pl-10 pr-3 py-3 bg-gray-50 border border-gray-200 rounded-md text-gray-700">
+                      ${existingQuote?.offerAmount?.toLocaleString() || 'N/A'}
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Estimated Value</Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <div className="pl-10 pr-3 py-3 bg-gray-50 border border-gray-200 rounded-md text-gray-700">
+                      ${existingQuote?.estimatedValue?.toLocaleString() || 'N/A'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Quote Expiry Date</Label>
+                <div className="py-3 px-3 bg-gray-50 border border-gray-200 rounded-md text-gray-700">
+                  {existingQuote?.expiryDate 
+                    ? new Date(existingQuote.expiryDate).toLocaleDateString()
+                    : 'N/A'
+                  }
+                </div>
+              </div>
+
+              {existingQuote?.notes && (
+                <div className="space-y-2">
+                  <Label>Additional Notes</Label>
+                  <div className="py-3 px-3 bg-gray-50 border border-gray-200 rounded-md text-gray-700">
+                    {existingQuote.notes}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Button */}
+              {(existingQuote?.offerDecision?.decision === 'accepted' || existingQuote?.status === 'accepted') && (
+                <Button 
+                  onClick={onComplete}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                >
+                  Proceed Next
+                </Button>
+              )}
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="offerAmount">Offer Amount *</Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="offerAmount"
+                      type="number"
+                      value={quoteData.offerAmount}
+                      onChange={(e) => handleQuoteChange('offerAmount', e.target.value)}
+                      placeholder="25000"
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Estimated Value</Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center">
+                      <div className="flex-1 pl-10 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-md text-gray-700">
+                        {isLoadingPricing ? (
+                          <div className="flex items-center gap-2">
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                            <span className="text-sm">Fetching MarketCheck pricing...</span>
+                          </div>
+                        ) : pricingData ? (
+                          <div>
+                            <span className="font-semibold">${pricingData.estimatedValue.toLocaleString()}</span>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {pricingData.source} • {new Date(pricingData.lastUpdated).toLocaleDateString()}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-500">
+                            {vehicleData.vehicle?.vin 
+                              ? "Click refresh to fetch MarketCheck pricing" 
+                              : "VIN required for MarketCheck pricing"
+                            }
+                          </span>
+                        )}
+                      </div>
+                      {vehicleData.vehicle?.vin && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={fetchVehiclePricing}
+                          disabled={isLoadingPricing}
+                          className="absolute right-1 top-1 h-8 w-8 p-0"
+                        >
+                          <RefreshCw className={`h-4 w-4 ${isLoadingPricing ? 'animate-spin' : ''}`} />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="expiryDate">Quote Expiry Date *</Label>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button type="button" className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">
-                      <Info className="h-3 w-3 text-blue-600" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-xs">
-                    <p className="text-sm">
-                      All quotes are valid for 48 hours from the time they&apos;re issued. If not accepted within that window, a new inspection may be required and the quote is subject to change based on updated vehicle condition.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <Input
-              id="expiryDate"
-              type="date"
-              value={quoteData.expiryDate}
-              onChange={(e) => handleQuoteChange('expiryDate', e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
-            />
-          </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="expiryDate">Quote Expiry Date *</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-100 hover:bg-blue-200 transition-colors">
+                          <Info className="h-3 w-3 text-blue-600" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="text-sm">
+                          All quotes are valid for 48 hours from the time they&apos;re issued. If not accepted within that window, a new inspection may be required and the quote is subject to change based on updated vehicle condition.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Input
+                  id="expiryDate"
+                  type="date"
+                  value={quoteData.expiryDate}
+                  onChange={(e) => handleQuoteChange('expiryDate', e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="notes">Additional Notes</Label>
-            <Textarea
-              id="notes"
-              value={quoteData.notes}
-              onChange={(e) => handleQuoteChange('notes', e.target.value)}
-              placeholder="Any additional notes about the vehicle condition or offer..."
-              rows={3}
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="notes">Additional Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={quoteData.notes}
+                  onChange={(e) => handleQuoteChange('notes', e.target.value)}
+                  placeholder="Any additional notes about the vehicle condition or offer..."
+                  rows={3}
+                />
+              </div>
 
-          <Button 
-            onClick={handleSubmitQuote} 
-            disabled={!quoteData.offerAmount || !quoteData.expiryDate || isSubmitting || (!canManageQuote && !vehicleData.quote?.accessToken)}
-            className="w-full"
-          >
-            {isSubmitting ? "Submitting..." : isUpdating ? "Update Quote" : "Submit Quote"}
-          </Button>
+              <Button 
+                onClick={handleSubmitQuote} 
+                disabled={!quoteData.offerAmount || !quoteData.expiryDate || isSubmitting || (!canManageQuote && !vehicleData.quote?.accessToken)}
+                className="w-full"
+              >
+                {isSubmitting ? "Submitting..." : isUpdating ? "Update Quote" : "Submit Quote"}
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
 

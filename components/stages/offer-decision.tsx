@@ -369,7 +369,7 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
         </div>
         <div className="flex items-center gap-4">
           {/* Timer Display */}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground hidden">
             <Clock className="h-4 w-4" />
             <span>Time: {stageTimer.elapsedFormatted}</span>
           </div>

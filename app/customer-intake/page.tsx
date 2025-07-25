@@ -12,6 +12,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
 import { ArrowLeft, Car, User, CheckCircle, Search, Loader2, Zap } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { HelpCircle } from 'lucide-react'
 
 // Import API functions for VIN lookup
 import api from '@/lib/api'
@@ -128,7 +130,7 @@ interface CustomerIntakeForm {
     titleNumber: string
     titleStatus: 'clean' | 'salvage' | 'rebuilt' | 'lemon' | 'flood' | 'junk' | 'not-sure'
     loanStatus: 'paid-off' | 'still-has-loan' | 'not-sure'
-    loanAmount: number
+    loanAmount: string | number
     secondSetOfKeys: boolean
     hasTitleInPossession: boolean
     titleInOwnName: boolean
@@ -177,26 +179,26 @@ export default function CustomerIntakePage() {
       otherQuoteAmount: 0,
       notes: ''
     },
-    vehicle: {
-      year: '',
-      make: '',
-      model: '',
-      currentMileage: '',
-      vin: '',
-      color: '',
-      bodyStyle: '',
-      licensePlate: '',
-      licenseState: '',
-      titleNumber: '',
-      titleStatus: 'clean',
-      loanStatus: 'paid-off',
-      loanAmount: 0,
-      secondSetOfKeys: false,
-      hasTitleInPossession: false,
-      titleInOwnName: false,
-      knownDefects: '',
-      isElectric: false
-    }
+      vehicle: {
+    year: '',
+    make: '',
+    model: '',
+    currentMileage: '',
+    vin: '',
+    color: '',
+    bodyStyle: '',
+    licensePlate: '',
+    licenseState: '',
+    titleNumber: '',
+    titleStatus: 'clean',
+    loanStatus: 'paid-off',
+    loanAmount: '',
+    secondSetOfKeys: false,
+    hasTitleInPossession: false,
+    titleInOwnName: false,
+    knownDefects: '',
+    isElectric: false
+  }
   })
 
   // Load vehicle makes and models from API
@@ -949,31 +951,118 @@ export default function CustomerIntakePage() {
             </SelectContent>
           </Select>
         </div>
-
-        <div>
-          <Label htmlFor="titleNumber">Title Number</Label>
-          <Input
-            id="titleNumber"
-            value={formData.vehicle.titleNumber}
-            onChange={(e) => handleVehicleChange('titleNumber', e.target.value)}
-            placeholder="Title number"
-          />
-        </div>
-
         <div>
           <Label htmlFor="titleStatus">Title Status</Label>
-          <Select value={formData.vehicle.titleStatus} onValueChange={(value) => handleVehicleChange('titleStatus', value as 'clean' | 'salvage' | 'rebuilt' | 'lemon' | 'flood' | 'junk' | 'not-sure')}>
+          <Select value={formData.vehicle.titleStatus} onValueChange={(value) => handleVehicleChange('titleStatus', value as any)}>
             <SelectTrigger>
               <SelectValue placeholder="Select title status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="clean">Clean</SelectItem>
-              <SelectItem value="salvage">Salvage</SelectItem>
-              <SelectItem value="rebuilt">Rebuilt</SelectItem>
-              <SelectItem value="lemon">Lemon</SelectItem>
-              <SelectItem value="flood">Flood</SelectItem>
-              <SelectItem value="junk">Junk</SelectItem>
-              <SelectItem value="not-sure">Not Sure</SelectItem>
+              <SelectItem value="clean">
+                <div className="flex items-center justify-between w-full">
+                  <span>Clean</span>
+                  <TooltipProvider>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground ml-2 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom right" className="max-w-xs">
+                        <p className="text-sm">The vehicle has never been in a major accident and holds a standard title with no damage history.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </SelectItem>
+              <SelectItem value="salvage">
+                <div className="flex items-center justify-between w-full">
+                  <span>Salvage</span>
+                  <TooltipProvider>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground ml-2 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom right" className="max-w-xs">
+                        <p className="text-sm">The vehicle was declared a total loss by an insurance company due to significant damage or theft.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </SelectItem>
+              <SelectItem value="rebuilt">
+                <div className="flex items-center justify-between w-full">
+                  <span>Rebuilt</span>
+                  <TooltipProvider>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground ml-2 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom right" className="max-w-xs">
+                        <p className="text-sm">The vehicle was previously salvage but has been repaired and passed state inspection for road use.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </SelectItem>
+              <SelectItem value="lemon">
+                <div className="flex items-center justify-between w-full">
+                  <span>Lemon</span>
+                  <TooltipProvider>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground ml-2 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom right" className="max-w-xs">
+                        <p className="text-sm">The vehicle has a history of repeated, unfixable problems and is classified as a lemon under state law.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </SelectItem>
+              <SelectItem value="flood">
+                <div className="flex items-center justify-between w-full">
+                  <span>Flood</span>
+                  <TooltipProvider>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground ml-2 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom right" className="max-w-xs">
+                        <p className="text-sm">The vehicle has been damaged by flood waters and is marked as such on the title.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </SelectItem>
+              <SelectItem value="junk">
+                <div className="flex items-center justify-between w-full">
+                  <span>Junk</span>
+                  <TooltipProvider>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground ml-2 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <p className="text-sm">The vehicle is not roadworthy and is only suitable for parts or scrap.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </SelectItem>
+              <SelectItem value="not-sure">
+                <div className="flex items-center justify-between w-full">
+                  <span>Not Sure</span>
+                  <TooltipProvider>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3 w-3 text-muted-foreground ml-2 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <p className="text-sm">The title status of the vehicle is unknown or hasn't been confirmed by the seller.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -998,8 +1087,8 @@ export default function CustomerIntakePage() {
             <Input
               id="loanAmount"
               type="number"
-              value={formData.vehicle.loanAmount}
-              onChange={(e) => handleVehicleChange('loanAmount', parseFloat(e.target.value) || 0)}
+              value={formData.vehicle.loanAmount || ''}
+              onChange={(e) => handleVehicleChange('loanAmount', e.target.value ? parseFloat(e.target.value) : '')}
               placeholder="0.00"
             />
           </div>
@@ -1118,8 +1207,8 @@ export default function CustomerIntakePage() {
       </div>
 
       <div className="bg-blue-50 p-4 rounded-lg">
-        <p className="text-blue-800 text-sm">
-          <strong>Next Steps:</strong> After submitting, our team will review your information and contact you within 24 hours to schedule an inspection and provide a quote.
+        <p className="text-blue-800 text-sm font-500">
+        After submitting, our team will review your information and follow up with the next steps for a quick inspection of your vehicle.
         </p>
       </div>
     </div>
@@ -1142,16 +1231,9 @@ export default function CustomerIntakePage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
         <div className="mb-8">
-          <button
-            onClick={() => router.push('/')}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors mb-4"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Home
-          </button>
           
           <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Vehicle Intake Form</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">VIN On Spot Vehicle Intake Form</h1>
             <p className="text-gray-600">Please provide your information to get started with your vehicle appraisal</p>
           </div>
         </div>

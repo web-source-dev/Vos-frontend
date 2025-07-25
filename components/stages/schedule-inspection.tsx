@@ -398,7 +398,7 @@ export function ScheduleInspection({
       </div>
 
       {/* Timer Display */}
-      <Card className="bg-blue-50 border-blue-200">
+      <Card className="bg-blue-50 border-blue-200 hidden">
         <CardContent className="pt-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

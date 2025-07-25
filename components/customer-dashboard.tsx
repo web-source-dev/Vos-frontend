@@ -54,13 +54,14 @@ interface CaseData {
 }
 
 const stages = [
-  { id: 1, name: "Intake", color: "bg-blue-100 text-blue-800" },
-  { id: 2, name: "Schedule", color: "bg-purple-100 text-purple-800" },
-  { id: 3, name: "Inspection", color: "bg-orange-100 text-orange-800" },
-  { id: 4, name: "Quote", color: "bg-yellow-100 text-yellow-800" },
-  { id: 5, name: "Decision", color: "bg-pink-100 text-pink-800" },
+  { id: 1, name: "Customer Intake", color: "bg-blue-100 text-blue-800" },
+  { id: 2, name: "Schedule Inspection", color: "bg-purple-100 text-purple-800" },
+  { id: 3, name: "Vehicle Inspection", color: "bg-orange-100 text-orange-800" },
+  { id: 4, name: "Quote Preparation", color: "bg-yellow-100 text-yellow-800" },
+  { id: 5, name: "Offer Decision", color: "bg-pink-100 text-pink-800" },
   { id: 6, name: "Paperwork", color: "bg-indigo-100 text-indigo-800" },
-  { id: 7, name: "Complete", color: "bg-green-100 text-green-800" },
+  { id: 7, name: "Completion", color: "bg-green-100 text-green-800" },
+  { id: 8, name: "Completion", color: "bg-green-100 text-green-800" },
 ]
 
 // New status mapping based on current stage
@@ -81,6 +82,8 @@ const getStatusFromStage = (currentStage: number, status: string) => {
       return "Pending Paperwork"
     case 7:
       return "Pending Completion"
+    case 8:
+      return "Completed"
     default:
       return "Pending Inspection Scheduling"
   }
@@ -128,7 +131,6 @@ export function CustomerDashboard() {
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const [formUrl, setFormUrl] = useState("")
   const [isLinkCopied, setIsLinkCopied] = useState(false)
-  const [showMobileFilters, setShowMobileFilters] = useState(false)
   const { isAdmin } = useAuth()
   const pathname = usePathname()
   const searchParams = useSearchParams()

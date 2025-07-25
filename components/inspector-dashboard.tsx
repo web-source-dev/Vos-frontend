@@ -47,7 +47,39 @@ export function InspectorDashboard() {
   const [showInspectionDialog, setShowInspectionDialog] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, loading, isAuthenticated, isInspector } = useAuth()
+
+  // Authentication validation
+  useEffect(() => {
+    if (!loading) {
+      if (!isAuthenticated) {
+        router.push('/login')
+        return
+      }
+      
+      if (!isInspector) {
+        router.push('/login')
+        return
+      }
+    }
+  }, [loading, isAuthenticated, isInspector, router])
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render the dashboard if user is not authenticated or not inspector
+  if (!isAuthenticated || !isInspector) {
+    return null
+  }
 
   // Fetch inspections assigned to the current inspector
   useEffect(() => {
@@ -232,17 +264,17 @@ export function InspectorDashboard() {
 
       {/* Inspection Start Dialog */}
       <Dialog open={showInspectionDialog} onOpenChange={setShowInspectionDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-gray-900">
-              Begin Vehicle Inspection
-            </DialogTitle>
-            <DialogDescription className="text-gray-600">
-              Review important information before starting the inspection
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[80vh] sm:max-h-[80vh] md:max-h-[80vh] lg:max-h-[80vh] overflow-y-auto sm:rounded-2xl rounded-xl p-0 sm:p-0">
+          <div className="p-4 sm:p-6 max-h-[60vh] sm:max-h-[70vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-gray-900">
+                Begin Vehicle Inspection
+              </DialogTitle>
+              <DialogDescription className="text-gray-600">
+                Review important information before starting the inspection
+              </DialogDescription>
+            </DialogHeader>
           
-          <div className="space-y-6">
             {/* Timer Information */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center gap-3 mb-3">
@@ -342,7 +374,7 @@ export function InspectorDashboard() {
             )}
           </div>
 
-          <DialogFooter className="flex flex-col sm:flex-row gap-3">
+          <DialogFooter className="flex flex-col sm:flex-row gap-3 mt-4">
             <Button
               variant="outline"
               onClick={() => setShowInspectionDialog(false)}
