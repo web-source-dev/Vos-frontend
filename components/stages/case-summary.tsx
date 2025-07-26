@@ -299,27 +299,20 @@ const stages = [
   },
   { 
     id: 4, 
-    name: 'Quote Preparation', 
-    description: 'Quote prepared and submitted',
+    name: 'Quote & Decision', 
+    description: 'Quote prepared and customer decision captured',
     icon: DollarSign,
     color: 'bg-yellow-100 text-yellow-800'
   },
   { 
     id: 5, 
-    name: 'Offer Decision', 
-    description: 'Customer decision captured',
-    icon: CheckCircle,
-    color: 'bg-pink-100 text-pink-800'
-  },
-  { 
-    id: 6, 
     name: 'Paperwork', 
     description: 'Transaction paperwork completed',
     icon: FileText,
     color: 'bg-indigo-100 text-indigo-800'
   },
   { 
-    id: 7, 
+    id: 6, 
     name: 'Completion', 
     description: 'Transaction finalized',
     icon: CheckCircle,
@@ -370,11 +363,10 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
       case 1: return "Customer Intake"
       case 2: return "Schedule Inspection"
       case 3: return "Vehicle Inspection"
-      case 4: return "Quote Preparation"
-      case 5: return "Offer Decision"
-      case 6: return "Paperwork"
+      case 4: return "Quote & Decision"
+      case 5: return "Paperwork"
+      case 6: return "Completion"
       case 7: return "Completion"
-      case 8: return "Completion"
       default: return `Stage ${stage}`
     }
   }
@@ -839,51 +831,53 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
                         </div>
                       )}
 
-                      {stage.id === 4 && vehicleData.quote && (
+                      {stage.id === 4 && (
                         <div className="space-y-3 text-xs md:text-sm">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                            <div>
-                              {vehicleData.quote.offerAmount && (
-                                <p><strong>Offer Amount:</strong> {formatCurrency(vehicleData.quote.offerAmount)}</p>
+                          {/* Quote Information */}
+                          {vehicleData.quote && (
+                            <>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                                <div>
+                                  {vehicleData.quote.offerAmount && (
+                                    <p><strong>Offer Amount:</strong> {formatCurrency(vehicleData.quote.offerAmount)}</p>
+                                  )}
+                                  {vehicleData.quote.estimatedValue && (
+                                    <p><strong>Estimated Value:</strong> {formatCurrency(vehicleData.quote.estimatedValue)}</p>
+                                  )}
+                                </div>
+                                <div>
+                                  {vehicleData.quote.expiryDate && (
+                                    <p><strong>Expires:</strong> {formatDate(vehicleData.quote.expiryDate)}</p>
+                                  )}
+                                  {vehicleData.quote.emailSent && (
+                                    <p><strong>Email Sent:</strong> Yes</p>
+                                  )}
+                                  {vehicleData.quote.titleReminder && (
+                                    <p><strong>Title Reminder:</strong> Sent</p>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {vehicleData.quote.estimator && (
+                                <div className="p-2 bg-purple-50 rounded border border-purple-200">
+                                  <p><strong>Estimator:</strong> {vehicleData.quote.estimator.firstName} {vehicleData.quote.estimator.lastName}</p>
+                                  <p className="text-xs">{vehicleData.quote.estimator.email}</p>
+                                  {vehicleData.quote.estimator.phone && (
+                                    <p className="text-xs">{vehicleData.quote.estimator.phone}</p>
+                                  )}
+                                </div>
                               )}
-                              {vehicleData.quote.estimatedValue && (
-                                <p><strong>Estimated Value:</strong> {formatCurrency(vehicleData.quote.estimatedValue)}</p>
+                              
+                              {vehicleData.quote.notes && (
+                                <div className="p-2 bg-yellow-50 rounded border border-yellow-200">
+                                  <p><strong>Notes:</strong> {vehicleData.quote.notes}</p>
+                                </div>
                               )}
-                            </div>
-                            <div>
-                              {vehicleData.quote.expiryDate && (
-                                <p><strong>Expires:</strong> {formatDate(vehicleData.quote.expiryDate)}</p>
-                              )}
-                              {vehicleData.quote.emailSent && (
-                                <p><strong>Email Sent:</strong> Yes</p>
-                              )}
-                              {vehicleData.quote.titleReminder && (
-                                <p><strong>Title Reminder:</strong> Sent</p>
-                              )}
-                            </div>
-                          </div>
-                          
-                          {vehicleData.quote.estimator && (
-                            <div className="p-2 bg-purple-50 rounded border border-purple-200">
-                              <p><strong>Estimator:</strong> {vehicleData.quote.estimator.firstName} {vehicleData.quote.estimator.lastName}</p>
-                              <p className="text-xs">{vehicleData.quote.estimator.email}</p>
-                              {vehicleData.quote.estimator.phone && (
-                                <p className="text-xs">{vehicleData.quote.estimator.phone}</p>
-                              )}
-                            </div>
+                            </>
                           )}
-                          
-                          {vehicleData.quote.notes && (
-                            <div className="p-2 bg-yellow-50 rounded border border-yellow-200">
-                              <p><strong>Notes:</strong> {vehicleData.quote.notes}</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
 
-                      {stage.id === 5 && (
-                        <div className="space-y-3 text-xs md:text-sm">
-                          {vehicleData.offerDecision ? (
+                          {/* Offer Decision Information */}
+                          {vehicleData.offerDecision && (
                             <>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                                 <div>
@@ -922,52 +916,13 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
                                   <p><strong>Customer Notes:</strong> {vehicleData.offerDecision.customerNotes}</p>
                                 </div>
                               )}
-                              
-                              {vehicleData.offerDecision.reason && (
-                                <div className="p-2 bg-red-50 rounded border border-red-200">
-                                  <p><strong>Reason:</strong> {vehicleData.offerDecision.reason}</p>
-                                </div>
-                              )}
+                             
                             </>
-                          ) : (
-                            <div className="space-y-3 text-xs md:text-sm">
-                              <div className="p-2 md:p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                                <p className="text-xs md:text-sm text-yellow-800">
-                                  <strong>Status:</strong> Awaiting customer decision
-                                </p>
-                              </div>
-                              
-                              {vehicleData.quote && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                                  <div>
-                                    <p><strong>Offer Amount:</strong> {formatCurrency(vehicleData.quote.offerAmount || 0)}</p>
-                                  </div>
-                                  <div>
-                                    {vehicleData.quote.expiryDate && (
-                                      <p><strong>Expires:</strong> {formatDate(vehicleData.quote.expiryDate)}</p>
-                                    )}
-                                    {vehicleData.quote.emailSent && (
-                                      <p><strong>Email Sent:</strong> Yes</p>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {vehicleData.quote?.estimator && (
-                                <div className="p-2 bg-purple-50 rounded border border-purple-200">
-                                  <p><strong>Estimator:</strong> {vehicleData.quote.estimator.firstName} {vehicleData.quote.estimator.lastName}</p>
-                                  <p className="text-xs">{vehicleData.quote.estimator.email}</p>
-                                  {vehicleData.quote.estimator.phone && (
-                                    <p className="text-xs">{vehicleData.quote.estimator.phone}</p>
-                                  )}
-                                </div>
-                              )}
-                            </div>
                           )}
                         </div>
                       )}
 
-                      {stage.id === 6 && vehicleData.transaction && (
+                      {stage.id === 5 && vehicleData.transaction && (
                         <div className="space-y-3 text-xs md:text-sm">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                             <div>
@@ -1050,7 +1005,7 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
                         </div>
                       )}
 
-                      {stage.id === 7 && vehicleData.completion && (
+                      {stage.id === 6 && vehicleData.completion && (
                         <div className="space-y-3 text-xs md:text-sm">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                             <div>

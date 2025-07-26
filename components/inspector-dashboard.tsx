@@ -64,26 +64,14 @@ export function InspectorDashboard() {
     }
   }, [loading, isAuthenticated, isInspector, router])
 
-  // Show loading state while checking authentication
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Don't render the dashboard if user is not authenticated or not inspector
-  if (!isAuthenticated || !isInspector) {
-    return null
-  }
-
   // Fetch inspections assigned to the current inspector
   useEffect(() => {
     const fetchInspections = async () => {
+      // Only fetch if authenticated and is inspector
+      if (loading || !isAuthenticated || !isInspector) {
+        return
+      }
+
       try {
         const response = await api.getInspectorInspections();
         
@@ -109,7 +97,7 @@ export function InspectorDashboard() {
     };
 
     fetchInspections();
-  }, [toast]);
+  }, [loading, isAuthenticated, isInspector, toast]);
 
   const handleInspectVehicle = (inspection: InspectionData) => {
     setSelectedInspection(inspection)
@@ -152,6 +140,23 @@ export function InspectorDashboard() {
     const ampm = hour >= 12 ? 'PM' : 'AM'
     const displayHour = hour % 12 || 12
     return `${displayHour}:${minutes} ${ampm}`
+  }
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Don't render the dashboard if user is not authenticated or not inspector
+  if (!isAuthenticated || !isInspector) {
+    return null
   }
 
   if (isLoading) {
@@ -374,7 +379,7 @@ export function InspectorDashboard() {
             )}
           </div>
 
-          <DialogFooter className="flex flex-col sm:flex-row gap-3 mt-4">
+          <DialogFooter className="flex flex-col sm:flex-row gap-3 my-2 mr-4">
             <Button
               variant="outline"
               onClick={() => setShowInspectionDialog(false)}

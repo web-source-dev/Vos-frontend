@@ -7,11 +7,12 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useToast } from "@/hooks/use-toast"
-import { DollarSign, FileText, CheckCircle, Edit, RefreshCw, Info, Upload, Loader2, AlertTriangle, Wrench, Car, ClipboardList, Clock } from "lucide-react"
+import { DollarSign, FileText, CheckCircle, Edit, RefreshCw, Info, Upload, Loader2, AlertTriangle, Wrench, Car, ClipboardList, Clock, User } from "lucide-react"
 import api from '@/lib/api'
-import { useStageTimer } from '@/components/useStageTimer'
+
 
 // TypeScript interfaces for quote preparation data
 interface CustomerData {
@@ -28,6 +29,13 @@ interface VehicleData {
   estimatedValue?: number
   pricingSource?: string
   pricingLastUpdated?: string
+  color?: string
+  bodyStyle?: string
+  licensePlate?: string
+  licenseState?: string
+  titleNumber?: string
+  titleStatus?: string
+  knownDefects?: string
 }
 
 interface InspectorData {
@@ -105,6 +113,19 @@ interface CaseData {
   vehicle: VehicleData
   inspection?: InspectionData
   quote?: QuoteData
+  transaction?: {
+    billOfSale?: {
+      sellerName?: string
+      sellerAddress?: string
+      sellerCity?: string
+      sellerState?: string
+      sellerZip?: string
+      sellerPhone?: string
+      sellerEmail?: string
+      sellerDLNumber?: string
+      sellerDLState?: string
+    }
+  }
   createdAt?: string
   updatedAt?: string
   stageStatuses?: { [key: number]: string }
@@ -149,16 +170,7 @@ export function QuotePreparation({
   
   // Stage timer with case ID and stage name
   const caseId = vehicleData._id;
-  const { 
-    startTime, 
-    elapsed, 
-    start, 
-    stop, 
-    elapsedFormatted, 
-    savedTimeFormatted, 
-    newTimeFormatted,
-    isLoading: timerLoading 
-  } = useStageTimer(caseId, 'quotePreparation')
+  
   
   const canManageQuote = isEstimator || isAdmin || isAgent;
   const existingQuote = vehicleData.quote;
@@ -169,12 +181,7 @@ export function QuotePreparation({
                         existingQuote?.status === 'accepted' || 
                         existingQuote?.status === 'declined';
 
-  // Start timer when component mounts (only if not already started from saved data)
-  useEffect(() => {
-    if (!startTime && !timerLoading) {
-      start()
-    }
-  }, [startTime, timerLoading, start])
+
 
   // Helper functions for inspection metrics
   const calculateAverageConditionRating = () => {
@@ -296,7 +303,23 @@ export function QuotePreparation({
         setIsUpdating(true);
       }
     }
-  }, [existingQuote]);
+  }, [existingQuote, vehicleData.quote]);
+
+  // Update local state when vehicleData changes (after parent component updates)
+  useEffect(() => {
+    if (vehicleData.quote) {
+      const updatedQuote = vehicleData.quote;
+      setQuoteData(prev => ({
+        ...prev,
+        offerAmount: updatedQuote.offerAmount?.toString() || prev.offerAmount,
+        estimatedValue: updatedQuote.estimatedValue?.toString() || prev.estimatedValue,
+        expiryDate: updatedQuote.expiryDate ? new Date(updatedQuote.expiryDate).toISOString().split('T')[0] : prev.expiryDate,
+        notes: updatedQuote.notes || prev.notes,
+        createdAt: updatedQuote.createdAt || prev.createdAt,
+        updatedAt: updatedQuote.updatedAt || prev.updatedAt,
+      }));
+    }
+  }, [vehicleData.quote]);
 
   const fetchVehiclePricing = useCallback(async () => {
     if (!vehicleData.vehicle?.vin) {
@@ -531,28 +554,6 @@ export function QuotePreparation({
           quote: response.data as unknown as QuoteData,
         })
 
-        // Update stage statuses to mark stage 4 as complete and stage 5 as active
-        const currentStageStatuses = vehicleData.stageStatuses || {};
-        const stageData = {
-          currentStage: vehicleData.currentStage || 5, // Preserve current stage or default to 5
-          stageStatuses: {
-            ...currentStageStatuses,
-            4: 'complete', // Mark stage 4 (Quote Preparation) as complete
-            5: 'active'    // Mark stage 5 (Offer Decision) as active
-          }
-        };
-        
-        // Update stage statuses in the database
-        const caseId = vehicleData.id || vehicleData._id;
-        if (caseId) {
-          try {
-            await api.updateCaseStageByCaseId(caseId, stageData);
-            console.log('Successfully updated stage statuses');
-          } catch (error) {
-            console.error('Failed to update stage statuses:', error);
-          }
-        }
-
         toast({
           title: isUpdating ? "Quote Updated" : "Quote Created",
           description: isUpdating 
@@ -560,7 +561,7 @@ export function QuotePreparation({
             : "Quote has been prepared and is ready for customer review.",
         })
 
-        onComplete()
+        // Note: Stage advancement is now handled manually by the user clicking "Next Step"
       }
     } catch (error) {
       const errorData = api.handleError(error)
@@ -633,6 +634,224 @@ export function QuotePreparation({
       console.error('Error generating quote summary:', error);
     } finally {
       setIsGeneratingSummary(false)
+    }
+  }
+
+  // Seller and Vehicle Information state
+  const [sellerInfo, setSellerInfo] = useState({
+    sellerName: '',
+    sellerAddress: '',
+    sellerCity: '',
+    sellerState: '',
+    sellerZip: '',
+    sellerPhone: '',
+    sellerEmail: '',
+    sellerDLNumber: '',
+    sellerDLState: ''
+  })
+
+  const [vehicleInfo, setVehicleInfo] = useState({
+    vehicleVIN: vehicleData.vehicle?.vin || '',
+    vehicleYear: vehicleData.vehicle?.year || '',
+    vehicleMake: vehicleData.vehicle?.make || '',
+    vehicleModel: vehicleData.vehicle?.model || '',
+    vehicleColor: vehicleData.vehicle?.color || '',
+    vehicleBodyStyle: vehicleData.vehicle?.bodyStyle || '',
+    vehicleLicensePlate: vehicleData.vehicle?.licensePlate || '',
+    vehicleLicenseState: vehicleData.vehicle?.licenseState || '',
+    vehicleTitleNumber: vehicleData.vehicle?.titleNumber || '',
+    vehicleMileage: vehicleData.vehicle?.currentMileage || '',
+    titleStatus: vehicleData.vehicle?.titleStatus || 'clean',
+    knownDefects: vehicleData.vehicle?.knownDefects || ''
+  })
+
+  // Initialize seller and vehicle info from existing data
+  useEffect(() => {
+    if (vehicleData.transaction?.billOfSale) {
+      const billOfSale = vehicleData.transaction.billOfSale
+      setSellerInfo({
+        sellerName: billOfSale.sellerName || '',
+        sellerAddress: billOfSale.sellerAddress || '',
+        sellerCity: billOfSale.sellerCity || '',
+        sellerState: billOfSale.sellerState || '',
+        sellerZip: billOfSale.sellerZip || '',
+        sellerPhone: billOfSale.sellerPhone || '',
+        sellerEmail: billOfSale.sellerEmail || '',
+        sellerDLNumber: billOfSale.sellerDLNumber || '',
+        sellerDLState: billOfSale.sellerDLState || ''
+      })
+    }
+
+    if (vehicleData.vehicle) {
+      setVehicleInfo({
+        vehicleVIN: vehicleData.vehicle.vin || '',
+        vehicleYear: vehicleData.vehicle.year || '',
+        vehicleMake: vehicleData.vehicle.make || '',
+        vehicleModel: vehicleData.vehicle.model || '',
+        vehicleColor: vehicleData.vehicle.color || '',
+        vehicleBodyStyle: vehicleData.vehicle.bodyStyle || '',
+        vehicleLicensePlate: vehicleData.vehicle.licensePlate || '',
+        vehicleLicenseState: vehicleData.vehicle.licenseState || '',
+        vehicleTitleNumber: vehicleData.vehicle.titleNumber || '',
+        vehicleMileage: vehicleData.vehicle.currentMileage || '',
+        titleStatus: vehicleData.vehicle.titleStatus || 'clean',
+        knownDefects: vehicleData.vehicle.knownDefects || ''
+      })
+    }
+  }, [vehicleData])
+
+  const handleSellerInfoChange = (field: string, value: string) => {
+    setSellerInfo(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleVehicleInfoChange = (field: string, value: string) => {
+    setVehicleInfo(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleSaveSellerVehicleInfo = async () => {
+    try {
+      const caseId = vehicleData.id || vehicleData._id
+      if (!caseId) throw new Error("Case ID not found")
+
+      // Save to paperwork component using existing API
+      const paperworkData = {
+        billOfSale: {
+          ...sellerInfo,
+          ...vehicleInfo
+        }
+      }
+
+      const response = await api.savePaperworkByCaseId(caseId, paperworkData)
+      if (response.success) {
+        toast({
+          title: "Information Saved",
+          description: "Seller and vehicle information has been saved successfully.",
+        })
+      } else {
+        throw new Error(response.error || "Failed to save information")
+      }
+    } catch (error) {
+      console.error('Error saving seller/vehicle info:', error)
+      const errorData = api.handleError(error)
+      toast({
+        title: "Error",
+        description: errorData.error,
+        variant: "destructive",
+      })
+    }
+  }
+
+  // New consolidated save function that handles all three save operations
+  const handleConsolidatedSave = async () => {
+    if (!quoteData.offerAmount || !quoteData.expiryDate) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in offer amount and expiry date.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+
+      // Step 1: Save seller and vehicle information
+      const caseId = vehicleData.id || vehicleData._id
+      if (!caseId) throw new Error("Case ID not found")
+
+      const paperworkData = {
+        billOfSale: {
+          ...sellerInfo,
+          ...vehicleInfo
+        }
+      }
+
+      const paperworkResponse = await api.savePaperworkByCaseId(caseId, paperworkData)
+      if (!paperworkResponse.success) {
+        throw new Error(paperworkResponse.error || "Failed to save seller and vehicle information")
+      }
+
+      // Update local seller and vehicle info state to reflect saved data
+      // The saved data is now in the response, so we can update our local state
+      // This ensures the form fields remain filled with the saved data
+
+      // Step 2: Submit quote
+      let quoteResponse;
+      
+      if (!caseId && !vehicleData.quote?.accessToken) {
+        throw new Error("Cannot identify case - neither ID nor access token found");
+      }
+      
+      // If user is admin, agent, or estimator and we have a case ID, use the case ID endpoint
+      if (canManageQuote && caseId) {
+        quoteResponse = await api.updateQuoteByCaseId(caseId, {
+          offerAmount: Number(quoteData.offerAmount),
+          estimatedValue: Number(quoteData.estimatedValue),
+          expiryDate: new Date(quoteData.expiryDate),
+          notes: quoteData.notes,
+          status: 'ready'
+        });
+      } 
+      // Otherwise use the token-based endpoint
+      else if (vehicleData.quote?.accessToken) {
+        quoteResponse = await api.submitQuote(
+          vehicleData.quote.accessToken,
+          {
+            offerAmount: Number(quoteData.offerAmount),
+            estimatedValue: Number(quoteData.estimatedValue),
+            expiryDate: new Date(quoteData.expiryDate),
+            notes: quoteData.notes,
+            status: 'ready'
+          }
+        );
+      } else {
+        throw new Error("Cannot submit quote - no access method available");
+      }
+
+      if (quoteResponse.success) {
+        // Stop timer and get timing data (now handles saving automatically)
+        const timingData = await stop();
+        console.log('Stage timing data:', timingData);
+
+        // Update local state to reflect the saved data
+        const savedQuote = quoteResponse.data as unknown as QuoteData;
+        
+        // Update quote data state
+        setQuoteData(prev => ({
+          ...prev,
+          offerAmount: savedQuote.offerAmount?.toString() || prev.offerAmount,
+          estimatedValue: savedQuote.estimatedValue?.toString() || prev.estimatedValue,
+          expiryDate: savedQuote.expiryDate ? new Date(savedQuote.expiryDate).toISOString().split('T')[0] : prev.expiryDate,
+          notes: savedQuote.notes || prev.notes,
+          createdAt: savedQuote.createdAt || prev.createdAt,
+          updatedAt: savedQuote.updatedAt || prev.updatedAt,
+        }));
+
+        // Set updating flag to true since we now have saved data
+        setIsUpdating(true);
+
+        // Update parent component
+        onUpdate({
+          ...vehicleData,
+          quote: savedQuote,
+        })
+
+        toast({
+          title: "All Information Saved Successfully",
+          description: "Seller information, vehicle information, and quote have been saved successfully. You can now proceed to the next step.",
+        })
+      } else {
+        throw new Error(quoteResponse.error || "Failed to submit quote")
+      }
+    } catch (error) {
+      const errorData = api.handleError(error)
+      toast({
+        title: "Error Saving Information",
+        description: errorData.error,
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -719,20 +938,7 @@ export function QuotePreparation({
         {getStatusBadge()}
       </div>
 
-      {/* Timer Display */}
-      <Card className="bg-blue-50 border-blue-200 hidden">
-        <CardContent className="pt-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-700">Time spent on this stage:</span>
-            </div>
-            <div className="text-lg font-bold text-blue-800">
-              {elapsedFormatted}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+
 
       {isUpdating && !isQuoteDecided && (
         <Card className="border-blue-200 bg-blue-50">
@@ -1087,6 +1293,233 @@ export function QuotePreparation({
         </CardContent>
       </Card>
 
+      {/* Seller Information */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Seller Information
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="sellerName">Full Name *</Label>
+              <Input
+                id="sellerName"
+                value={sellerInfo.sellerName}
+                onChange={(e) => handleSellerInfoChange('sellerName', e.target.value)}
+                placeholder="Enter seller's full name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="sellerPhone">Phone Number</Label>
+              <Input
+                id="sellerPhone"
+                value={sellerInfo.sellerPhone}
+                onChange={(e) => handleSellerInfoChange('sellerPhone', e.target.value)}
+                placeholder="Enter phone number"
+              />
+            </div>
+            <div>
+              <Label htmlFor="sellerEmail">Email Address</Label>
+              <Input
+                id="sellerEmail"
+                type="email"
+                value={sellerInfo.sellerEmail}
+                onChange={(e) => handleSellerInfoChange('sellerEmail', e.target.value)}
+                placeholder="Enter email address"
+              />
+            </div>
+            <div>
+              <Label htmlFor="sellerDLNumber">Driver's License Number</Label>
+              <Input
+                id="sellerDLNumber"
+                value={sellerInfo.sellerDLNumber}
+                onChange={(e) => handleSellerInfoChange('sellerDLNumber', e.target.value)}
+                placeholder="Enter DL number"
+              />
+            </div>
+            <div>
+              <Label htmlFor="sellerDLState">Driver's License State</Label>
+              <Input
+                id="sellerDLState"
+                value={sellerInfo.sellerDLState}
+                onChange={(e) => handleSellerInfoChange('sellerDLState', e.target.value)}
+                placeholder="Enter DL state"
+              />
+            </div>
+            <div>
+              <Label htmlFor="sellerAddress">Street Address</Label>
+              <Input
+                id="sellerAddress"
+                value={sellerInfo.sellerAddress}
+                onChange={(e) => handleSellerInfoChange('sellerAddress', e.target.value)}
+                placeholder="Enter street address"
+              />
+            </div>
+            <div>
+              <Label htmlFor="sellerCity">City</Label>
+              <Input
+                id="sellerCity"
+                value={sellerInfo.sellerCity}
+                onChange={(e) => handleSellerInfoChange('sellerCity', e.target.value)}
+                placeholder="Enter city"
+              />
+            </div>
+            <div>
+              <Label htmlFor="sellerState">State</Label>
+              <Input
+                id="sellerState"
+                value={sellerInfo.sellerState}
+                onChange={(e) => handleSellerInfoChange('sellerState', e.target.value)}
+                placeholder="Enter state"
+              />
+            </div>
+            <div>
+              <Label htmlFor="sellerZip">ZIP Code</Label>
+              <Input
+                id="sellerZip"
+                value={sellerInfo.sellerZip}
+                onChange={(e) => handleSellerInfoChange('sellerZip', e.target.value)}
+                placeholder="Enter ZIP code"
+              />
+            </div>
+          </div>
+          {/* Save button removed - now consolidated with quote submission */}
+        </CardContent>
+      </Card>
+
+      {/* Vehicle Information */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Car className="h-5 w-5" />
+            Vehicle Information
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="vehicleVIN">VIN Number</Label>
+              <Input
+                id="vehicleVIN"
+                value={vehicleInfo.vehicleVIN}
+                onChange={(e) => handleVehicleInfoChange('vehicleVIN', e.target.value)}
+                placeholder="Enter VIN number"
+              />
+            </div>
+            <div>
+              <Label htmlFor="vehicleYear">Year</Label>
+              <Input
+                id="vehicleYear"
+                value={vehicleInfo.vehicleYear}
+                onChange={(e) => handleVehicleInfoChange('vehicleYear', e.target.value)}
+                placeholder="Enter year"
+              />
+            </div>
+            <div>
+              <Label htmlFor="vehicleMake">Make</Label>
+              <Input
+                id="vehicleMake"
+                value={vehicleInfo.vehicleMake}
+                onChange={(e) => handleVehicleInfoChange('vehicleMake', e.target.value)}
+                placeholder="Enter make"
+              />
+            </div>
+            <div>
+              <Label htmlFor="vehicleModel">Model</Label>
+              <Input
+                id="vehicleModel"
+                value={vehicleInfo.vehicleModel}
+                onChange={(e) => handleVehicleInfoChange('vehicleModel', e.target.value)}
+                placeholder="Enter model"
+              />
+            </div>
+            <div>
+              <Label htmlFor="vehicleColor">Color</Label>
+              <Input
+                id="vehicleColor"
+                value={vehicleInfo.vehicleColor}
+                onChange={(e) => handleVehicleInfoChange('vehicleColor', e.target.value)}
+                placeholder="Enter color"
+              />
+            </div>
+            <div>
+              <Label htmlFor="vehicleBodyStyle">Body Style</Label>
+              <Input
+                id="vehicleBodyStyle"
+                value={vehicleInfo.vehicleBodyStyle}
+                onChange={(e) => handleVehicleInfoChange('vehicleBodyStyle', e.target.value)}
+                placeholder="Enter body style"
+              />
+            </div>
+            <div>
+              <Label htmlFor="vehicleLicensePlate">License Plate</Label>
+              <Input
+                id="vehicleLicensePlate"
+                value={vehicleInfo.vehicleLicensePlate}
+                onChange={(e) => handleVehicleInfoChange('vehicleLicensePlate', e.target.value)}
+                placeholder="Enter license plate"
+              />
+            </div>
+            <div>
+              <Label htmlFor="vehicleLicenseState">License State</Label>
+              <Input
+                id="vehicleLicenseState"
+                value={vehicleInfo.vehicleLicenseState}
+                onChange={(e) => handleVehicleInfoChange('vehicleLicenseState', e.target.value)}
+                placeholder="Enter license state"
+              />
+            </div>
+            <div>
+              <Label htmlFor="vehicleTitleNumber">Title Number</Label>
+              <Input
+                id="vehicleTitleNumber"
+                value={vehicleInfo.vehicleTitleNumber}
+                onChange={(e) => handleVehicleInfoChange('vehicleTitleNumber', e.target.value)}
+                placeholder="Enter title number"
+              />
+            </div>
+            <div>
+              <Label htmlFor="vehicleMileage">Current Mileage</Label>
+              <Input
+                id="vehicleMileage"
+                value={vehicleInfo.vehicleMileage}
+                onChange={(e) => handleVehicleInfoChange('vehicleMileage', e.target.value)}
+                placeholder="Enter current mileage"
+              />
+            </div>
+            <div>
+              <Label htmlFor="titleStatus">Title Status</Label>
+              <Select value={vehicleInfo.titleStatus} onValueChange={(value) => handleVehicleInfoChange('titleStatus', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select title status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="clean">Clean</SelectItem>
+                  <SelectItem value="salvage">Salvage</SelectItem>
+                  <SelectItem value="rebuilt">Rebuilt</SelectItem>
+                  <SelectItem value="flood">Flood</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor="knownDefects">Known Defects</Label>
+              <Textarea
+                id="knownDefects"
+                value={vehicleInfo.knownDefects}
+                onChange={(e) => handleVehicleInfoChange('knownDefects', e.target.value)}
+                placeholder="Describe any known defects or issues with the vehicle"
+                rows={3}
+              />
+            </div>
+          </div>
+          {/* Save button removed - now consolidated with quote submission */}
+        </CardContent>
+      </Card>
+
       {/* Quote Details */}
       <Card>
         <CardHeader>
@@ -1173,15 +1606,7 @@ export function QuotePreparation({
                 </div>
               )}
 
-              {/* Action Button */}
-              {(existingQuote?.offerDecision?.decision === 'accepted' || existingQuote?.status === 'accepted') && (
-                <Button 
-                  onClick={onComplete}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                >
-                  Proceed Next
-                </Button>
-              )}
+
             </div>
           ) : (
             <>
@@ -1282,13 +1707,7 @@ export function QuotePreparation({
                 />
               </div>
 
-              <Button 
-                onClick={handleSubmitQuote} 
-                disabled={!quoteData.offerAmount || !quoteData.expiryDate || isSubmitting || (!canManageQuote && !vehicleData.quote?.accessToken)}
-                className="w-full"
-              >
-                {isSubmitting ? "Submitting..." : isUpdating ? "Update Quote" : "Submit Quote"}
-              </Button>
+
             </>
           )}
         </CardContent>
@@ -1342,7 +1761,39 @@ export function QuotePreparation({
                   Generate Quote Summary
                 </>
               )}
-          </Button>
+            </Button>
+
+            {/* Single Action Button */}
+            <div className="pt-4 border-t">
+              <Button
+                onClick={isQuoteDecided ? onComplete : handleConsolidatedSave}
+                disabled={isQuoteDecided ? false : (!quoteData.offerAmount || !quoteData.expiryDate || isSubmitting || (!canManageQuote && !vehicleData.quote?.accessToken))}
+                className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving All Information...
+                  </>
+                ) : isQuoteDecided ? (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    Proceed Next
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    {isUpdating ? "Update" : "Submit"}
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                {isQuoteDecided 
+                  ? "Proceed to the next stage of the process."
+                  : "This will save seller information, vehicle information, and submit the quote."
+                }
+              </p>
+            </div>
         </CardContent>
       </Card>
     </div>

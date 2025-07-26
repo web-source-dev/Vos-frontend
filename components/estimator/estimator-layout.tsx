@@ -77,10 +77,9 @@ export function EstimatorLayout({ children }: LayoutProps) {
     return null
   }
 
-  // Navigation for estimators (Dashboard, Customers, Reports)
+  // Navigation for estimators (Dashboard, Reports)
   const navigation = [
     { name: "Dashboard", href: "/estimator", icon: LayoutDashboard, current: pathname === "/estimator" },
-    { name: "Customers", href: "/estimator/customers", icon: Home, current: pathname === "/estimator/customers" },
     { name: "Reports", href: "/estimator/reports", icon: BarChart3, current: pathname === "/estimator/reports" },
   ]
 

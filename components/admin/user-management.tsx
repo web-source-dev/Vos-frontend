@@ -18,10 +18,12 @@ import {
   Calculator,
   Search,
   Shield,
+  BarChart3,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 import api from "@/lib/api"
 import type { User as UserType } from "@/lib/types"
 
@@ -35,6 +37,7 @@ interface UserFormData {
 }
 
 export function UserManagement() {
+  const router = useRouter()
   const [users, setUsers] = useState<UserType[]>([])
   const [roleFilter, setRoleFilter] = useState<string>("all")
   const [search, setSearch] = useState("")
@@ -274,6 +277,10 @@ export function UserManagement() {
   const openDeleteDialog = (user: UserType) => {
     setSelectedUser(user)
     setIsDeleteDialogOpen(true)
+  }
+
+  const viewUserDetails = (user: UserType) => {
+    router.push(`/admin/users/${user.id || user._id}`)
   }
 
   const getRoleColor = (role: string) => {
@@ -627,8 +634,18 @@ export function UserManagement() {
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                onClick={() => viewUserDetails(user)}
+                                className="h-8 w-8 hover:bg-green-50"
+                                title="View Details"
+                              >
+                                <BarChart3 className="h-4 w-4 text-green-500" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => openEditDialog(user)}
                                 className="h-8 w-8 hover:bg-blue-50"
+                                title="Edit User"
                               >
                                 <Edit className="h-4 w-4 text-blue-500" />
                               </Button>
@@ -637,6 +654,7 @@ export function UserManagement() {
                                 size="icon"
                                 onClick={() => openDeleteDialog(user)}
                                 className="h-8 w-8 hover:bg-red-50"
+                                title="Delete User"
                               >
                                 <Trash2 className="h-4 w-4 text-red-500" />
                               </Button>
@@ -682,8 +700,18 @@ export function UserManagement() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              onClick={() => viewUserDetails(user)}
+                              className="h-8 w-8 hover:bg-green-50"
+                              title="View Details"
+                            >
+                              <BarChart3 className="h-4 w-4 text-green-500" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               onClick={() => openEditDialog(user)}
                               className="h-8 w-8 hover:bg-blue-50"
+                              title="Edit User"
                             >
                               <Edit className="h-4 w-4 text-blue-500" />
                             </Button>
@@ -692,6 +720,7 @@ export function UserManagement() {
                               size="icon"
                               onClick={() => openDeleteDialog(user)}
                               className="h-8 w-8 hover:bg-red-50"
+                              title="Delete User"
                             >
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>

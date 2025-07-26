@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { FileText, CreditCard, Upload, CheckCircle, X, Loader2, Clock } from "lucide-react"
+import { FileText, CreditCard, Upload, CheckCircle, X, Loader2, Clock, Info } from "lucide-react"
 import api from '@/lib/api'
 import Image from "next/image"
 import { useStageTimer } from "@/components/useStageTimer"
@@ -166,20 +166,10 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
     witnessPhone: "",
   })
 
-  const [documentsUploaded, setDocumentsUploaded] = useState<{
-    [key: string]: boolean;
-  }>({
-    signedBillOfSale: false,
-  })
 
-  const [documentPreviews, setDocumentPreviews] = useState<{
-    [key: string]: string | null;
-  }>({
-    signedBillOfSale: null,
-  })
 
   const [paymentStatus, setPaymentStatus] = useState("pending") // pending, processing, completed
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+
   const [isLoading, setIsLoading] = useState(true)
   const [hasExistingData, setHasExistingData] = useState(false)
   const { toast } = useToast()
@@ -190,10 +180,17 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
 
   const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<string>("Wire");
 
+  // Add bank details state
+  const [bankDetails, setBankDetails] = useState({
+    bankName: "",
+    loanNumber: "",
+    payoffAmount: 0
+  });
+
   // Add payoff confirmation state
   const [payoffStatus, setPayoffStatus] = useState<'pending' | 'confirmed' | 'completed' | 'not_required'>('not_required');
   const [payoffNotes, setPayoffNotes] = useState<string>('');
-  const [isConfirmingPayoff, setIsConfirmingPayoff] = useState(false);
+
 
   // Stage timer with case ID and stage name
   const caseId = vehicleData._id;
@@ -244,7 +241,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
           ? vehicleData.vehicle.titleStatus : "clean",
         knownDefects: (vehicleData.vehicle && typeof vehicleData.vehicle === 'object' && 'knownDefects' in vehicleData.vehicle)
           ? vehicleData.vehicle.knownDefects : "",
-        salePrice: vehicleData.offerDecision?.finalAmount || vehicleData.quote?.offerAmount || 0,
+        salePrice: vehicleData.quote?.offerAmount || vehicleData.offerDecision?.finalAmount || 0,
         saleDate: new Date().toISOString().split("T")[0], // Always set current date
         saleTime: new Date().toTimeString().split(" ")[0].slice(0, 5), // Always set current time
       }
@@ -294,36 +291,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
         });
       }
 
-      if (vehicleData.transaction?.documents) {
-        const documents = vehicleData.transaction.documents;
-        setDocumentsUploaded(prev => ({
-          ...prev,
-          ...Object.fromEntries(
-            Object.entries(documents).map(([key, value]) => [key, Boolean(value)])
-          )
-        }))
-        
-        // Set document previews if files exist - fix URL paths
-        const previews: { [key: string]: string | null } = {}
-        Object.keys(documents).forEach(key => {
-          if (documents[key]) {
-            // Fix URL paths to include backend base URL
-            const documentPath = documents[key]
-            if (documentPath && typeof documentPath === 'string' && !documentPath.startsWith('http')) {
-              // Add backend base URL if it's a relative path
-              const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
-              previews[key] = `${baseUrl}${documentPath}`
-            } else if (documentPath && typeof documentPath === 'string') {
-              // Use the path as is if it's already a full URL
-              previews[key] = documentPath
-            }
-          }
-        })
-        setDocumentPreviews(prev => ({
-          ...prev,
-          ...previews
-        }))
-      }
+
 
       // Set payment status - if transaction exists and is completed, show completed
       if (vehicleData.transaction?.paymentStatus) {
@@ -341,9 +309,23 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
         setPayoffStatus('pending');
       }
 
+      // Initialize bank details from existing transaction data
+      if (vehicleData.transaction?.bankDetails) {
+        setBankDetails({
+          bankName: vehicleData.transaction.bankDetails.bankName || "",
+          loanNumber: vehicleData.transaction.bankDetails.loanNumber || "",
+          payoffAmount: vehicleData.transaction.bankDetails.payoffAmount || 0
+        });
+      }
+
       // Initialize payoff notes from existing transaction data
       if (vehicleData.transaction?.payoffNotes) {
         setPayoffNotes(vehicleData.transaction.payoffNotes);
+      }
+
+      // Initialize preferred payment method from existing transaction data
+      if (vehicleData.transaction?.preferredPaymentMethod) {
+        setPreferredPaymentMethod(vehicleData.transaction.preferredPaymentMethod);
       }
 
       // If there's transaction data, set formSaved to true
@@ -388,62 +370,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
     )
   }
 
-  const renderDocumentPreview = (docType: string) => {
-    const preview = documentPreviews[docType]
-    const isUploaded = documentsUploaded[docType]
-    
-    if (!isUploaded) return null
 
-    const isImage = docType === 'idRescan' || docType === 'titlePhoto' || docType === 'sellerSignature'
-    
-    return (
-      <div className="mt-2 p-3 border rounded-lg bg-gray-50">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">
-            {docType === "idRescan" ? "ID Rescan" : 
-             docType === "signedBillOfSale" ? "Signed Bill of Sale" : 
-             docType === "titlePhoto" ? "Vehicle Title" : 
-             docType === "insuranceDeclaration" ? "Insurance Declaration" : 
-             docType === "sellerSignature" ? "Seller's Signature" : 
-             "Additional Document"}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => removeDocument(docType)}
-            className="h-6 w-6 p-0"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        
-        {isImage && preview ? (
-          <Image 
-            src={preview} 
-            alt={`${docType} preview`}
-            width={400}
-            height={128}
-            className="w-full h-32 object-cover rounded border"
-            onError={(e) => {
-              console.error('Image failed to load:', preview)
-              // Fallback to document icon if image fails to load
-              e.currentTarget.style.display = 'none'
-              e.currentTarget.nextElementSibling?.classList.remove('hidden')
-            }}
-          />
-        ) : null}
-        
-        {(!isImage || !preview) && (
-          <div className="flex items-center justify-center h-32 bg-white border rounded">
-            <FileText className="h-8 w-8 text-gray-400" />
-            <span className="ml-2 text-sm text-gray-500">
-              {isImage ? "Image uploaded" : "Document uploaded"}
-            </span> 
-          </div>
-        )}
-      </div>
-    )
-  }
 
   const handleBillOfSaleChange = (field: string, value: string | boolean | number) => {
     setBillOfSale((prev) => ({
@@ -452,147 +379,46 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
     }))
   }
 
-  const removeDocument = (docType: string) => {
-    setDocumentsUploaded(prev => ({
+  const handleBankDetailsChange = (field: string, value: string | number) => {
+    setBankDetails((prev) => ({
       ...prev,
-      [docType]: false
+      [field]: value,
     }))
-    
-    if (documentPreviews[docType]) {
-      URL.revokeObjectURL(documentPreviews[docType]!)
-      setDocumentPreviews(prev => ({
-        ...prev,
-        [docType]: null
-      }))
-    }
   }
 
-  const handlePrintBillOfSale = async () => {
-    if (!formSaved) {
-      toast({
-        title: 'Data not saved',
-        description: 'Please save your data before printing the bill of sale.',
-        variant: 'destructive'
-      });
-      return;
-    }
-    
-    try {
-      setIsGeneratingPDF(true)
-      
-      // Get the case ID
-      const caseId = vehicleData.id || vehicleData._id
-      
-      if (!caseId) {
-        throw new Error("Case ID not found")
-      }
 
-      // For estimators, save the current paperwork data first to ensure the PDF has the latest information
-      if (isEstimator || isAdmin || isAgent) {
-        const paperworkData = {
-          billOfSale,
-          preferredPaymentMethod,
-          submittedAt: new Date(),
-          status: "pending",
-        }
 
-        try {
-          await api.savePaperworkByCaseId(caseId, paperworkData)
-          toast({
-            title: "Data Saved",
-            description: "Paperwork data saved before generating bill of sale.",
-          })
-        } catch (error) {
-          console.error('Error saving paperwork data:', error)
-          // Continue with PDF generation even if save fails
-        }
-      }
 
-      // Generate Bill of Sale PDF
-      const pdfBlob = await api.generateBillOfSalePDF(caseId)
-      
-      // Create download link
-      const url = window.URL.createObjectURL(pdfBlob)
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `bill-of-sale-${caseId}.pdf`)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      window.URL.revokeObjectURL(url)
 
-      toast({
-        title: "Bill of Sale Generated",
-        description: "Bill of Sale PDF has been downloaded successfully.",
-      })
-    } catch (error) {
-      console.error('Error generating bill of sale:', error)
-    } finally {
-      setIsGeneratingPDF(false)
-    }
-  }
 
-  const handleUploadSignedDocument = async (file: File) => {
-    try {
-      const caseId = vehicleData.id || vehicleData._id
-      if (!caseId) {
-        throw new Error("Case ID not found")
-      }
-
-      // Upload the signed document
-      const response = await api.uploadDocument(file)
-      
-      if (response.success && response.data) {
-        // Update document previews
-        setDocumentPreviews(prev => ({
-          ...prev,
-          signedBillOfSale: response.data?.path || ''
-        }))
-        
-        // Mark as uploaded
-        setDocumentsUploaded(prev => ({
-          ...prev,
-          signedBillOfSale: true
-        }))
-
-        toast({
-          title: "Document Uploaded",
-          description: "Signed bill of sale uploaded successfully.",
-        })
-      } else {
-        throw new Error(response.error || 'Failed to upload document')
-      }
-    } catch (error) {
-      console.error('Error uploading document:', error)
-      toast({
-        title: 'Error',
-        description: 'Failed to upload document. Please try again.',
-        variant: 'destructive'
-      })
-    }
-  }
 
   const handleComplete = async () => {
-   
+    // This function now handles both payoff status saving and completion
     try {
-      // Check if payoff confirmation is required
-      const hasPayoff = vehicleData.transaction?.bankDetails?.payoffAmount && Number(vehicleData.transaction.bankDetails.payoffAmount) > 0;
-      const payoffStatus = vehicleData.transaction?.payoffStatus;
-      
-      if (hasPayoff && payoffStatus !== 'completed' && payoffStatus !== 'not_required') {
-        toast({
-          title: 'Payoff Confirmation Required',
-          description: 'Please confirm the payoff status before completing the transaction.',
-          variant: 'destructive'
-        });
-        return;
+      // First, save the payoff status data
+      const payoffCaseId = vehicleData.id || vehicleData._id;
+      if (payoffCaseId) {
+        try {
+          const payoffResponse = await api.confirmPayoff(payoffCaseId, payoffStatus, payoffNotes);
+          if (payoffResponse && payoffResponse.success && payoffResponse.data) {
+            // Update case data with updated transaction
+            onUpdate({
+              ...vehicleData,
+              transaction: payoffResponse.data.transaction as TransactionData
+            });
+          }
+        } catch (error) {
+          console.error('Error saving payoff status:', error);
+          // Continue with completion even if payoff save fails
+        }
       }
 
       const completeData = {
         billOfSale,
+        bankDetails,
         preferredPaymentMethod,
-        documentsUploaded,
-        documents: documentPreviews,
+        payoffStatus,
+        payoffNotes,
         submittedAt: new Date(),
         status: "completed",
         paymentStatus: "completed"
@@ -628,21 +454,21 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
         });
       }
 
-      // Update stage statuses to mark stage 6 as complete
+      // Update stage statuses to mark stage 5 as complete
       const currentStageStatuses = vehicleData.stageStatuses || {};
       const stageData = {
-        currentStage: vehicleData.currentStage || 7, // Preserve current stage or default to 7
+        currentStage: vehicleData.currentStage || 6, // Preserve current stage or default to 6
         stageStatuses: {
           ...currentStageStatuses,
-          6: 'complete' // Mark stage 6 (Paperwork) as complete
+          5: 'complete' // Mark stage 5 (Paperwork) as complete
         }
       };
       
       // Update stage statuses in the database
-      const caseId = vehicleData.id || vehicleData._id;
-      if (caseId) {
+      const stageCaseId = vehicleData.id || vehicleData._id;
+      if (stageCaseId) {
         try {
-          await api.updateCaseStageByCaseId(caseId, stageData);
+          await api.updateCaseStageByCaseId(stageCaseId, stageData);
           console.log('Successfully updated stage statuses');
         } catch (error) {
           console.error('Failed to update stage statuses:', error);
@@ -650,10 +476,10 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
       }
 
       // Send stage time data to API
-      if (caseId && timer.startTime) {
+      if (stageCaseId && timer.startTime) {
         try {
           const endTime = new Date();
-          await api.updateStageTime(caseId, 'paperwork', timer.startTime, endTime);
+          await api.updateStageTime(stageCaseId, 'paperwork', timer.startTime, endTime);
           console.log('Successfully sent stage time data');
         } catch (error) {
           console.error('Failed to send stage time data:', error);
@@ -684,7 +510,10 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
       // Save only the basic paperwork data without documents or payment status
       const paperworkData = {
         billOfSale,
+        bankDetails,
         preferredPaymentMethod,
+        payoffStatus,
+        payoffNotes,
         submittedAt: new Date(),
       }
 
@@ -740,44 +569,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
     }
   };
 
-  const handleConfirmPayoff = async () => {
-    try {
-      setIsConfirmingPayoff(true);
-      
-      const caseId = vehicleData.id || vehicleData._id;
-      if (!caseId) {
-        throw new Error('No valid case ID found for payoff confirmation');
-      }
 
-      const response = await api.confirmPayoff(caseId, payoffStatus, payoffNotes);
-
-      if (response && response.success) {
-        // Update case data with updated transaction
-        if (response.data) {
-          onUpdate({
-            ...vehicleData,
-            transaction: response.data.transaction as TransactionData
-          });
-        }
-        
-        toast({
-          title: 'Payoff Status Updated',
-          description: `Payoff status has been updated to ${payoffStatus}`,
-        });
-      } else {
-        throw new Error(response?.error || 'Failed to confirm payoff');
-      }
-    } catch (error) {
-      console.error('Error confirming payoff:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to confirm payoff. Please try again.',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsConfirmingPayoff(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -835,216 +627,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Bill of Sale - Seller Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Seller Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="sellerName">Full Legal Name *</Label>
-                <Input
-                  id="sellerName"
-                  value={billOfSale.sellerName}
-                  onChange={(e) => handleBillOfSaleChange("sellerName", e.target.value)}
-                  placeholder="Customer&apos;s full legal name"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="sellerAddress">Address *</Label>
-                <Input
-                  id="sellerAddress"
-                  value={billOfSale.sellerAddress}
-                  onChange={(e) => handleBillOfSaleChange("sellerAddress", e.target.value)}
-                  placeholder="Street address"
-                />
-              </div>
-              
-              <div className="grid grid-cols-3 gap-2">
-                <div className="space-y-2">
-                  <Label htmlFor="sellerCity">City *</Label>
-                  <Input
-                    id="sellerCity"
-                    value={billOfSale.sellerCity}
-                    onChange={(e) => handleBillOfSaleChange("sellerCity", e.target.value)}
-                    placeholder="City"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sellerState">State *</Label>
-                  <Input
-                    id="sellerState"
-                    value={billOfSale.sellerState}
-                    onChange={(e) => handleBillOfSaleChange("sellerState", e.target.value)}
-                    placeholder="ST"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sellerZip">ZIP *</Label>
-                  <Input
-                    id="sellerZip"
-                    value={billOfSale.sellerZip}
-                    onChange={(e) => handleBillOfSaleChange("sellerZip", e.target.value)}
-                    placeholder="12345"
-                  />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sellerPhone">Phone *</Label>
-                  <Input
-                    id="sellerPhone"
-                    value={billOfSale.sellerPhone}
-                    onChange={(e) => handleBillOfSaleChange("sellerPhone", e.target.value)}
-                    placeholder="(555) 123-4567"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sellerEmail">Email *</Label>
-                  <Input
-                    id="sellerEmail"
-                    value={billOfSale.sellerEmail}
-                    onChange={(e) => handleBillOfSaleChange("sellerEmail", e.target.value)}
-                    placeholder="email@example.com"
-                  />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sellerDLNumber">Driver&apos;s License # *</Label>
-                  <Input
-                    id="sellerDLNumber"
-                    value={billOfSale.sellerDLNumber}
-                    onChange={(e) => handleBillOfSaleChange("sellerDLNumber", e.target.value)}
-                    placeholder="DL Number"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sellerDLState">DL State *</Label>
-                  <Input
-                    id="sellerDLState"
-                    value={billOfSale.sellerDLState}
-                    onChange={(e) => handleBillOfSaleChange("sellerDLState", e.target.value)}
-                    placeholder="ST"
-                  />
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Bill of Sale - Vehicle Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Vehicle Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="vehicleYear">Year *</Label>
-                <Input
-                  id="vehicleYear"
-                  value={billOfSale.vehicleYear}
-                  onChange={(e) => handleBillOfSaleChange("vehicleYear", e.target.value)}
-                  placeholder="2020"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="vehicleMake">Make *</Label>
-                <Input
-                  id="vehicleMake"
-                  value={billOfSale.vehicleMake}
-                  onChange={(e) => handleBillOfSaleChange("vehicleMake", e.target.value)}
-                  placeholder="Toyota"
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="vehicleModel">Model *</Label>
-                <Input
-                  id="vehicleModel"
-                  value={billOfSale.vehicleModel}
-                  onChange={(e) => handleBillOfSaleChange("vehicleModel", e.target.value)}
-                  placeholder="Camry"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="vehicleColor">Color *</Label>
-                <Input
-                  id="vehicleColor"
-                  value={billOfSale.vehicleColor}
-                  onChange={(e) => handleBillOfSaleChange("vehicleColor", e.target.value)}
-                  placeholder="Silver"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="vehicleVIN">VIN *</Label>
-              <Input
-                id="vehicleVIN"
-                value={billOfSale.vehicleVIN}
-                onChange={(e) => handleBillOfSaleChange("vehicleVIN", e.target.value)}
-                placeholder="1HGBH41JXMN109186"
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="vehicleLicensePlate">License Plate #</Label>
-                <Input
-                  id="vehicleLicensePlate"
-                  value={billOfSale.vehicleLicensePlate}
-                  onChange={(e) => handleBillOfSaleChange("vehicleLicensePlate", e.target.value)}
-                  placeholder="ABC123"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="vehicleLicenseState">State</Label>
-                <Input
-                  id="vehicleLicenseState"
-                  value={billOfSale.vehicleLicenseState}
-                  onChange={(e) => handleBillOfSaleChange("vehicleLicenseState", e.target.value)}
-                  placeholder="State"
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="vehicleBodyStyle">Body Style</Label>
-                <Input
-                  id="vehicleBodyStyle"
-                  value={billOfSale.vehicleBodyStyle}
-                  onChange={(e) => handleBillOfSaleChange("vehicleBodyStyle", e.target.value)}
-                  placeholder="Sedan"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="vehicleTitleNumber">Title Number</Label>
-                <Input
-                  id="vehicleTitleNumber"
-                  value={billOfSale.vehicleTitleNumber}
-                  onChange={(e) => handleBillOfSaleChange("vehicleTitleNumber", e.target.value)}
-                  placeholder="Title #"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-6 lg:grid-cols-1">
 
         {/* Transaction Details */}
         <Card>
@@ -1057,7 +640,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="saleDate">Sale Date *</Label>
+                <Label htmlFor="saleDate">Date *</Label>
                 <Input
                   id="saleDate"
                   type="date"
@@ -1066,7 +649,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="saleTime">Sale Time</Label>
+                <Label htmlFor="saleTime">Time</Label>
                 <Input
                   id="saleTime"
                   type="time"
@@ -1077,13 +660,15 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="salePrice">Sale Price *</Label>
+              <Label htmlFor="salePrice">Vehicle Price *</Label>
               <Input
                 id="salePrice"
                 type="number"
                 value={billOfSale.salePrice}
                 onChange={(e) => handleBillOfSaleChange("salePrice", parseFloat(e.target.value) || 0)}
                 placeholder="0.00"
+                disabled={true}
+                className="bg-gray-100 cursor-not-allowed"
               />
             </div>
             
@@ -1212,17 +797,8 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
               <Label htmlFor="bankName">Bank Name</Label>
               <Input
                 id="bankName"
-                value={vehicleData.transaction?.bankDetails?.bankName || ""}
-                onChange={(e) => {
-                  const updatedTransaction = {
-                    ...vehicleData.transaction,
-                    bankDetails: {
-                      ...vehicleData.transaction?.bankDetails,
-                      bankName: e.target.value
-                    }
-                  };
-                  onUpdate({ transaction: updatedTransaction });
-                }}
+                value={bankDetails.bankName}
+                onChange={(e) => handleBankDetailsChange("bankName", e.target.value)}
                 placeholder="Enter bank name"
               />
             </div>
@@ -1231,17 +807,8 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
               <Label htmlFor="loanNumber">Loan Number</Label>
               <Input
                 id="loanNumber"
-                value={vehicleData.transaction?.bankDetails?.loanNumber || ""}
-                onChange={(e) => {
-                  const updatedTransaction = {
-                    ...vehicleData.transaction,
-                    bankDetails: {
-                      ...vehicleData.transaction?.bankDetails,
-                      loanNumber: e.target.value
-                    }
-                  };
-                  onUpdate({ transaction: updatedTransaction });
-                }}
+                value={bankDetails.loanNumber}
+                onChange={(e) => handleBankDetailsChange("loanNumber", e.target.value)}
                 placeholder="Enter loan number"
               />
             </div>
@@ -1251,17 +818,8 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
               <Input
                 id="payoffAmount"
                 type="number"
-                value={vehicleData.transaction?.bankDetails?.payoffAmount || ""}
-                onChange={(e) => {
-                  const updatedTransaction = {
-                    ...vehicleData.transaction,
-                    bankDetails: {
-                      ...vehicleData.transaction?.bankDetails,
-                      payoffAmount: parseFloat(e.target.value) || 0
-                    }
-                  };
-                  onUpdate({ transaction: updatedTransaction });
-                }}
+                value={bankDetails.payoffAmount || ""}
+                onChange={(e) => handleBankDetailsChange("payoffAmount", parseFloat(e.target.value) || 0)}
                 placeholder="0.00"
               />
             </div>
@@ -1343,21 +901,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
                 />
               </div>
               
-              <Button
-                onClick={handleConfirmPayoff}
-                disabled={isConfirmingPayoff}
-                className="w-full"
-                variant="default"
-              >
-                {isConfirmingPayoff ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Updating Payoff Status...
-                  </>
-                ) : (
-                  'Update Payoff Status'
-                )}
-              </Button>
+
               
               {vehicleData.transaction?.payoffStatus && (
                 <div className="text-sm text-gray-600">
@@ -1376,70 +920,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
             </CardContent>
           </Card>
 
-        {/* Document Upload */}
-        <Card className="border-blue-200 bg-blue-50 w-full">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              Required Documents
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Signed Bill of Sale *</Label>
-              <div className="flex gap-2">
-                <Button onClick={handlePrintBillOfSale} className="flex-1">
-                  {isGeneratingPDF ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="h-4 w-4 mr-2" />
-                      Print Bill of Sale
-                    </>
-                  )}
-                </Button>
-                <div className="relative">
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        handleUploadSignedDocument(file);
-                      }
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <Upload className="h-4 w-4" />
-                    Upload Signed
-                  </Button>
-                </div>
-              </div>
-              {renderDocumentPreview("signedBillOfSale")}
-            </div>
-          </CardContent>
-        </Card>
-      {paymentStatus === "completed" && (
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <div>
-                <h3 className="font-semibold text-green-800">Payment Initiated</h3>
-                <p className="text-sm text-green-700">
-                  ACH transfer of ${billOfSale.salePrice.toLocaleString()} has been successfully initiated. Funds will
-                  arrive in 1-2 business days.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
 
 
       <div className="flex justify-between">
@@ -1449,24 +929,8 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
           onClick={handleComplete} 
           size="lg" 
           className="px-8"
-          disabled={
-            Boolean(
-              vehicleData.transaction?.bankDetails?.payoffAmount && 
-              Number(vehicleData.transaction.bankDetails.payoffAmount) > 0 && 
-              vehicleData.transaction?.payoffStatus !== 'completed' && 
-              vehicleData.transaction?.payoffStatus !== 'not_required'
-            )
-          }
         >
-          {(() => {
-            const hasPayoff = vehicleData.transaction?.bankDetails?.payoffAmount && Number(vehicleData.transaction.bankDetails.payoffAmount) > 0;
-            const payoffStatus = vehicleData.transaction?.payoffStatus;
-            
-            if (hasPayoff && payoffStatus !== 'completed' && payoffStatus !== 'not_required') {
-              return 'Complete Payoff First';
-            }
-            return 'Continue to Completion';
-          })()}
+          Continue to Completion
         </Button>
       </div>
       </>

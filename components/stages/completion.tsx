@@ -590,7 +590,7 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
       </Card>
 
       {/* Case File Download */}
-      <Card>
+      <Card className="hidden">
         <CardHeader className="pb-3 md:pb-4">
           <CardTitle className="flex items-center gap-2 text-base md:text-lg">
             <Download className="h-4 w-4 md:h-5 md:w-5" />

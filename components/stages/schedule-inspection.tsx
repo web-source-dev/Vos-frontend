@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { Calendar, User as UserIcon, Clock, CheckCircle, Edit, FileText } from "lucide-react"
+import { Calendar, User as UserIcon, Clock, CheckCircle, Edit, FileText, Calculator } from "lucide-react"
 import api from '@/lib/api'
 import type { User } from '@/lib/types'
 import { useStageTimer } from '@/components/useStageTimer'
@@ -34,6 +34,13 @@ interface InspectorData {
   location?: string
 }
 
+interface EstimatorData {
+  firstName?: string
+  lastName?: string
+  email?: string
+  location?: string
+}
+
 interface InspectionData {
   status?: string
   scheduledDate?: string
@@ -50,6 +57,9 @@ interface CaseData {
   customer?: CustomerData
   vehicle?: VehicleData
   inspection?: InspectionData
+  quote?: {
+    estimator?: EstimatorData
+  }
   currentStage?: number
   status?: string
   stageStatuses?: { [key: number]: string }
@@ -67,7 +77,9 @@ export function ScheduleInspection({
   onComplete,
 }: ScheduleInspectionProps) {
   const [inspectors, setInspectors] = useState<User[]>([])
+  const [estimators, setEstimators] = useState<User[]>([])
   const [selectedInspector, setSelectedInspector] = useState<string>("")
+  const [selectedEstimator, setSelectedEstimator] = useState<string>("none")
   const [scheduledDate, setScheduledDate] = useState("")
   const [scheduledTime, setScheduledTime] = useState("")
   const [dueByDate, setDueByDate] = useState("")
@@ -75,6 +87,7 @@ export function ScheduleInspection({
   const [notesForInspector, setNotesForInspector] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [inspectorsLoading, setInspectorsLoading] = useState(true)
+  const [estimatorsLoading, setEstimatorsLoading] = useState(true)
   const [isRescheduling, setIsRescheduling] = useState(false)
   const { toast } = useToast()
   
@@ -122,6 +135,29 @@ export function ScheduleInspection({
     fetchInspectors();
   }, []);
 
+  // Fetch available estimators from user database
+  useEffect(() => {
+    const fetchEstimators = async () => {
+      try {
+        setEstimatorsLoading(true);
+        const response = await api.getUsersByRole('estimator');
+        console.log('getUsersByRole estimator response:', response);
+        if (response.success && response.data) {
+          console.log('Setting estimators:', response.data);
+          setEstimators(response.data);
+        } else {
+          console.error('Failed to fetch estimators:', response.error);
+        }
+      } catch (error) {
+        console.error('Error fetching estimators:', error);
+      } finally {
+        setEstimatorsLoading(false);
+      }
+    };
+
+    fetchEstimators();
+  }, []);
+
   // Auto-fill existing inspection data if available
   useEffect(() => {
     if (vehicleData.inspection) {
@@ -158,6 +194,16 @@ export function ScheduleInspection({
     }
   }, [vehicleData.inspection, inspectors]);
 
+  // Auto-fill existing estimator data if available
+  useEffect(() => {
+    if (vehicleData.quote?.estimator?.email && estimators.length > 0) {
+      const existingEstimator = estimators.find(e => e.email === vehicleData.quote!.estimator!.email);
+      if (existingEstimator) {
+        setSelectedEstimator(existingEstimator._id || existingEstimator.id || "");
+      }
+    }
+  }, [vehicleData.quote?.estimator, estimators]);
+
   const handleInspectorChange = (field: string, value: string) => {
     console.log('handleInspectorChange called:', field, value);
     console.log('Current inspectors:', inspectors);
@@ -174,6 +220,11 @@ export function ScheduleInspection({
     } else if (field === 'dueByTime') {
       setDueByTime(value);
     }
+  }
+
+  const handleEstimatorChange = (value: string) => {
+    console.log('handleEstimatorChange called:', value);
+    setSelectedEstimator(value);
   }
 
   const handleReschedule = () => {
@@ -212,6 +263,13 @@ export function ScheduleInspection({
       }
       if (inspection.notesForInspector) {
         setNotesForInspector(inspection.notesForInspector);
+      }
+    }
+    // Restore original estimator
+    if (vehicleData.quote?.estimator?.email && estimators.length > 0) {
+      const existingEstimator = estimators.find(e => e.email === vehicleData.quote!.estimator!.email);
+      if (existingEstimator) {
+        setSelectedEstimator(existingEstimator._id || existingEstimator.id || "");
       }
     }
   }
@@ -286,6 +344,31 @@ export function ScheduleInspection({
       );
 
       if (response.success) {
+        // Assign estimator if selected
+        if (selectedEstimator && selectedEstimator !== 'none') {
+          const selectedEstimatorData = estimators.find(e => (e._id || e.id) === selectedEstimator);
+          if (selectedEstimatorData) {
+            try {
+              await api.assignEstimatorDuringInspection(
+                caseId,
+                {
+                  firstName: selectedEstimatorData.firstName,
+                  lastName: selectedEstimatorData.lastName,
+                  email: selectedEstimatorData.email
+                }
+              );
+              console.log('Estimator assigned successfully');
+            } catch (error) {
+              console.error('Failed to assign estimator:', error);
+              toast({
+                title: "Warning",
+                description: "Inspection scheduled but failed to assign estimator. You can assign one later.",
+                variant: "destructive",
+              });
+            }
+          }
+        }
+
         // Stop timer and get timing data (now handles saving automatically)
         const timingData = await stop();
         console.log('Stage timing data:', timingData);
@@ -297,6 +380,9 @@ export function ScheduleInspection({
             dueByDate,
             dueByTime
           },
+          quote: selectedEstimator && selectedEstimator !== 'none' ? {
+            estimator: estimators.find(e => (e._id || e.id) === selectedEstimator)
+          } : undefined,
           currentStage: vehicleData.currentStage || 3, // Preserve current stage or default to 3
           status: 'scheduled'
         })
@@ -323,9 +409,10 @@ export function ScheduleInspection({
         }
 
         const actionText = isRescheduling ? "Rescheduled" : "Scheduled";
+        const estimatorText = selectedEstimator ? ` and estimator assigned` : '';
         toast({
           title: `Inspection ${actionText}`,
-          description: `Inspection ${actionText.toLowerCase()} with ${selectedInspectorData.firstName} ${selectedInspectorData.lastName} for ${scheduledDate} at ${scheduledTime}.`,
+          description: `Inspection ${actionText.toLowerCase()} with ${selectedInspectorData.firstName} ${selectedInspectorData.lastName} for ${scheduledDate} at ${scheduledTime}${estimatorText}.`,
         })
 
         setIsRescheduling(false);
@@ -349,24 +436,6 @@ export function ScheduleInspection({
     console.log('Stage timing data:', timingData);
     onComplete();
   }
-
-  const getStatusBadge = () => {
-    if (vehicleData.inspection?.status === 'scheduled') {
-      return (
-        <div className="flex items-center gap-2 text-green-600">
-          <CheckCircle className="h-4 w-4" />
-          <span className="text-sm font-medium">Scheduled</span>
-        </div>
-      )
-    }
-    return (
-      <div className="flex items-center gap-2 text-yellow-600">
-        <Clock className="h-4 w-4" />
-        <span className="text-sm font-medium">Pending</span>
-      </div>
-    )
-  }
-
   const hasExistingInspection = vehicleData.inspection && vehicleData.inspection.status === 'scheduled';
 
   return (
@@ -382,7 +451,6 @@ export function ScheduleInspection({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {getStatusBadge()}
           {hasExistingInspection && !isRescheduling && (
             <Button
               variant="outline"
@@ -477,6 +545,8 @@ export function ScheduleInspection({
         </Card>
       )}
 
+<div className="grid grid-cols-1 gap-4 md:grid-cols-1">
+
       {/* Inspector Selection */}
       {(!hasExistingInspection || isRescheduling) && (
         <Card>
@@ -522,11 +592,11 @@ export function ScheduleInspection({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              {isRescheduling ? "New Schedule Details" : "Schedule Details"}
+              {isRescheduling ? "New Schedule Inspection" : "Schedule Inspection"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="date">Date *</Label>
                 <Input
@@ -560,7 +630,7 @@ export function ScheduleInspection({
 
             <div className="border-t border-gray-100 pt-4 mt-4">
               <h3 className="text-sm font-semibold mb-4">Inspection Due By</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="dueByDate">Due Date</Label>
                   <Input
@@ -595,6 +665,8 @@ export function ScheduleInspection({
           </CardContent>
         </Card>
       )}
+</div>
+<div className="grid grid-cols-1 gap-4 md:grid-cols-1">
 
       {/* Notes Section */}
       {(!hasExistingInspection || isRescheduling) && (
@@ -615,6 +687,51 @@ export function ScheduleInspection({
           </CardContent>
         </Card>
       )}
+
+
+      {/* Estimator Assignment */}
+      {(!hasExistingInspection || isRescheduling) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calculator className="h-5 w-5" />
+              Assign Estimator
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="estimator">Estimator</Label>
+              {estimatorsLoading ? (
+                <div className="p-3 bg-gray-50 rounded-md border">
+                  <p className="text-sm text-gray-500">Loading estimators...</p>
+                </div>
+              ) : estimators.length === 0 ? (
+                <div className="p-3 bg-yellow-50 rounded-md border border-yellow-200">
+                  <p className="text-sm text-yellow-600">No estimators available. You can assign one later.</p>
+                </div>
+              ) : (
+                <Select value={selectedEstimator} onValueChange={handleEstimatorChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose an estimator" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No estimator assigned</SelectItem>
+                    {estimators.map((estimator) => (
+                      <SelectItem key={estimator._id || estimator.id} value={estimator._id || estimator.id || ''}>
+                        {estimator.firstName} {estimator.lastName} - {estimator.location || 'No location'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Assigning an estimator now will send them an email notification and prepare the case for quote preparation.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
 
       {/* Action Buttons */}
       <div className="flex justify-end gap-2">

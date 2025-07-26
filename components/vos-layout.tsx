@@ -98,10 +98,9 @@ export function VosLayout({
     { id: 1, name: 'Customer Intake', description: 'Collect customer and vehicle information' },
     { id: 2, name: 'Schedule Inspection', description: 'Assign inspector and schedule inspection' },
     { id: 3, name: 'Vehicle Inspection', description: 'Complete vehicle inspection' },
-    { id: 4, name: 'Quote Preparation', description: 'Prepare and submit quote' },
-    { id: 5, name: 'Offer Decision', description: 'Customer decision on offer' },
-    { id: 6, name: 'Paperwork', description: 'Complete transaction paperwork' },
-    { id: 7, name: 'Completion', description: 'Finalize transaction' }
+    { id: 4, name: 'Quote & Decision', description: 'Prepare and submit quote' },
+    { id: 5, name: 'Paperwork', description: 'Complete transaction paperwork' },
+    { id: 6, name: 'Completion', description: 'Finalize transaction' }
   ]
 
   const SidebarContent = () => (

@@ -120,11 +120,10 @@ export function AdminOverview() {
         case "Customer Intake": return "1"
         case "Schedule Inspection": return "2"
         case "Vehicle Inspection": return "3"
-        case "Quote Preparation": return "4"
-        case "Offer Decision": return "5"
-        case "Paperwork": return "6"
-        case "Completion": return "7"
-        case "Completed": return "8"
+        case "Quote & Decision": return "4"
+        case "Paperwork": return "5"
+        case "Completion": return "6"
+        case "Completed": return "7"
         default: return stageName.replace(/[^0-9]/g, "")
       }
     }
@@ -197,11 +196,10 @@ export function AdminOverview() {
             case 1: return "Customer Intake"
             case 2: return "Schedule Inspection"
             case 3: return "Vehicle Inspection"
-            case 4: return "Quote Preparation"
-            case 5: return "Offer Decision"
-            case 6: return "Paperwork"
+            case 4: return "Quote & Decision"
+            case 5: return "Paperwork"
+            case 6: return "Completion"
             case 7: return "Completion"
-            case 8: return "Completion"
             default: return `Stage ${stage}`
           }
         }

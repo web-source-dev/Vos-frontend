@@ -16,8 +16,7 @@ interface TimeTrackingData {
     intake?: StageTimeData;
     scheduleInspection?: StageTimeData;
     inspection?: StageTimeData;
-    quotePreparation?: StageTimeData;
-    offerDecision?: StageTimeData;
+    quoteAndDecision?: StageTimeData;
     paperwork?: StageTimeData;
     completion?: StageTimeData;
   };

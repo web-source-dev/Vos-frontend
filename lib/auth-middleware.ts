@@ -29,6 +29,7 @@ export const config = {
   matcher: [
     // Add paths that should be protected
     '/',
+    '/admin/:path*',
     '/customer/:path*',
     '/inspector/:path*',
     '/estimator/:path*',

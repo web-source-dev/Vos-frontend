@@ -1,13 +1,12 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { VosLayout } from "@/components/vos-layout"
 import { IntakeForm } from "@/components/stages/intake-form"
 import { ScheduleInspection } from "@/components/stages/schedule-inspection"
 import { InspectionForm } from "@/components/stages/inspection-form"
-import { QuotePreparation } from "@/components/stages/quote-preparation"
-import { OfferDecision } from "@/components/stages/offer-decision"
+import { ThreeStepProcess } from "@/components/three-step-process"
 import { Paperwork } from "@/components/stages/paperwork"
 import { Completion } from "@/components/stages/completion"
 import { CaseSummary } from "@/components/stages/case-summary"
@@ -21,15 +20,14 @@ interface CustomerDetailProps {
   }
 }
 
-// Extended case data interface for the component
-interface CaseData extends Case {
-  inspection?: Inspection & { accessToken?: string };
-}
+// Using any types to avoid interface conflicts
+type CaseData = any
 // Interface for inspection submission data that matches the API expectations
 
 
 export default function CustomerDetail({ params }: CustomerDetailProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { isAdmin, isAgent, isEstimator, isInspector } = useAuth()
   const [caseData, setCaseData] = useState<CaseData | null>(null)
   const [currentStage, setCurrentStage] = useState(0) // 0 means summary view
@@ -38,7 +36,7 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
 
   // Role-based stage access - moved to useCallback to fix dependency warning
   const getAccessibleStages = useCallback(() => {
-    if (isAdmin || isAgent || isEstimator) return [1, 2, 3, 4, 5, 6, 7]; // Admin, agent and estimator can access all stages
+    if (isAdmin || isAgent || isEstimator) return [1, 2, 3, 4, 5, 6]; // Admin, agent and estimator can access all stages (reduced to 6)
     if (isInspector) return [3]; // Inspector can only access inspection stage
     return []; // No access
   }, [isAdmin, isAgent, isEstimator, isInspector])
@@ -53,8 +51,19 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
           const caseData = response.data as CaseData;
           setCaseData(caseData);
           
-          // Always start with summary view (stage 0)
-          setCurrentStage(0);
+          // Check if there's a stage parameter in the URL
+          const stageParam = searchParams.get('stage');
+          if (stageParam) {
+            const stageNumber = parseInt(stageParam);
+            if (!isNaN(stageNumber) && stageNumber >= 0 && stageNumber <= 6) {
+              setCurrentStage(stageNumber);
+            } else {
+              setCurrentStage(0);
+            }
+          } else {
+            // Always start with summary view (stage 0)
+            setCurrentStage(0);
+          }
         } else {
           setError("Failed to fetch case data");
           router.push('/');
@@ -69,7 +78,7 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
     };
 
     fetchCase();
-  }, [params.id, router, getAccessibleStages]);
+  }, [params.id, router, getAccessibleStages, searchParams]);
 
   const updateCaseData = async (data: Partial<CaseData>) => {
     setCaseData((prev: CaseData | null) => prev ? { ...prev, ...data } : null);
@@ -231,36 +240,30 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
           )
 
       case 4:
+        // Check if there's a step parameter for the three-step process
+        const stepParam = searchParams.get('step');
+        const initialStep = stepParam ? parseInt(stepParam) : 1;
+        
         return (
-          <QuotePreparation
+          <ThreeStepProcess
             vehicleData={caseData}
             onUpdate={updateCaseData}
             onComplete={() => advanceToStage(5)}
             isEstimator={isEstimator}
             isAdmin={isAdmin}
             isAgent={isAgent}
+            initialStep={initialStep}
           />
         )
 
       case 5:
-        return (
-          <OfferDecision
-            vehicleData={caseData}
-            onUpdate={updateCaseData}
-            onComplete={() => advanceToStage(6)}
-            onStageChange={setCurrentStage}
-            isEstimator={isEstimator}
-          />
-        )
-
-      case 6:
         // Map caseData to the local CaseData interface expected by Paperwork
-        const mappedCaseData: CaseData = {
+        const mappedCaseData: any = {
           id: caseData.id,
-          _id: (caseData as CaseData)._id,
+          _id: (caseData as any)._id,
           customer: typeof caseData.customer === 'object' ? caseData.customer : undefined,
           vehicle: typeof caseData.vehicle === 'object' ? caseData.vehicle : undefined,
-          offerDecision: (caseData as CaseData).offerDecision,
+          offerDecision: (caseData as any).offerDecision,
           quote: typeof caseData.quote === 'object' ? caseData.quote : undefined,
           transaction: typeof caseData.transaction === 'object' ? caseData.transaction : undefined,
           currentStage: caseData.currentStage,
@@ -272,19 +275,19 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
           <Paperwork
             vehicleData={mappedCaseData}
             onUpdate={updateCaseData}
-            onComplete={() => advanceToStage(7)}
+            onComplete={() => advanceToStage(6)}
             isEstimator={isEstimator}
             isAdmin={isAdmin}
             isAgent={isAgent}
           />
         )
 
-      case 7:
+      case 6: 
         return (
           <Completion 
             vehicleData={caseData} 
             onUpdate={updateCaseData} 
-            onComplete={() => advanceToStage(8)} 
+            onComplete={() => advanceToStage(7)} 
             isEstimator={isEstimator}
           />
         )

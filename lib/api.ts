@@ -233,15 +233,44 @@ export async function assignEstimator(
   caseId: string,
   estimatorData: { firstName: string; lastName: string; email: string; phone?: string }
 ): Promise<APIResponse<Quote>> {
-  const options = await defaultOptions();
-  const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/estimator`, {
-    ...options,
-    method: 'POST',
-    body: JSON.stringify({
-      estimator: estimatorData,
-    }),
-  });
-  return handleResponse<Quote>(response);
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/estimator`, {
+      ...(await defaultOptions()),
+      method: 'POST',
+      body: JSON.stringify({ estimator: estimatorData }),
+    });
+    return await handleResponse<Quote>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+export async function assignEstimatorDuringInspection(
+  caseId: string,
+  estimatorData: { firstName: string; lastName: string; email: string; phone?: string }
+): Promise<APIResponse<Quote>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/estimator-during-inspection`, {
+      ...(await defaultOptions()),
+      method: 'POST',
+      body: JSON.stringify({ estimator: estimatorData }),
+    });
+    return await handleResponse<Quote>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+export async function getEstimatorCases(): Promise<APIResponse<Case[]>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/cases/estimator`, {
+      ...(await defaultOptions()),
+      method: 'GET',
+    });
+    return await handleResponse<Case[]>(response);
+  } catch (error) {
+    return handleError(error);
+  }
 }
 
 export async function getQuoteByToken(token: string): Promise<APIResponse<Quote>> {
@@ -427,6 +456,24 @@ export async function uploadDocument(file: File): Promise<APIResponse<{ path: st
   });
 
   return handleResponse<{ path: string }>(response);
+}
+
+export async function uploadBillOfSaleDocument(caseId: string, file: File): Promise<APIResponse<{ path: string; transaction: any }>> {
+  console.log('Uploading bill of sale document:', file.name, 'for case:', caseId);
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const headers = await getAuthHeaders();
+  delete headers['Content-Type']; // Let browser set correct content type for FormData
+
+  const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/bill-of-sale-upload`, {
+    method: 'POST',
+    headers,
+    credentials: 'include',
+    body: formData
+  });
+
+  return handleResponse<{ path: string; transaction: any }>(response);
 }
 
 export async function getUsersByRole(role: string): Promise<APIResponse<User[]>> {
@@ -873,6 +920,19 @@ export async function deleteCase(caseId: string): Promise<APIResponse<void>> {
   }
 }
 
+export async function getUserAnalytics(userId: string, timeRange: string = '30d'): Promise<APIResponse<any>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/users/${userId}/analytics?timeRange=${timeRange}`, {
+      ...await defaultOptions(),
+      method: 'GET',
+    });
+    return await handleResponse<any>(response);
+  } catch (error) {
+    console.error('Error fetching user analytics:', error);
+    return handleError(error);
+  }
+}
+
 const api = {
   // Auth functions
   loginUser,
@@ -883,6 +943,7 @@ const api = {
   
   // Case functions
   getCases,
+  getEstimatorCases,
   getCase,
   createCustomerCase,
   updateCustomerCase,
@@ -892,6 +953,7 @@ const api = {
   submitInspection,
   savePendingInspection,
   assignEstimator,
+  assignEstimatorDuringInspection,
   getQuoteByToken,
   submitQuote,
   completeCase,
@@ -902,6 +964,7 @@ const api = {
   updateCaseStatus,
   handleError,
   uploadDocument,
+  uploadBillOfSaleDocument,
   updateOfferDecision,
   updateOfferDecisionByCaseId,
   updatePaperwork,
@@ -929,6 +992,9 @@ const api = {
   updateStageTime,
   confirmPayoff,
   deleteCase,
+  getUserAnalytics,
+  getTimeTrackingByCaseId,
+  getTimeTrackingAnalytics,
 };
 
 export default api;

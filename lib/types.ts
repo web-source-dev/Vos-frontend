@@ -218,6 +218,7 @@ export interface Case {
   };
   pdfCaseFile?: string;
   createdBy?: string;
+  estimatorId?: string;
 }
 
 export interface APIResponse<T> {

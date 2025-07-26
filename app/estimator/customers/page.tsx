@@ -3,11 +3,8 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { EstimatorLayout } from '@/components/estimator/estimator-layout'
+import { EstimatorDashboard } from '@/components/estimator-dashboard'
 import { useAuth } from '@/lib/auth'
-
-// Import the same component used in the admin customers page
-// You may need to adapt this import based on your actual component structure
-import { CustomerDashboard } from '@/components/customer-dashboard'
 
 export default function EstimatorCustomersPage() {
   const { isEstimator, isAuthenticated, loading } = useAuth()
@@ -45,7 +42,7 @@ export default function EstimatorCustomersPage() {
   return (
     <EstimatorLayout>
       <div className="p-6">
-        <CustomerDashboard />
+        <EstimatorDashboard />
       </div>
     </EstimatorLayout>
   )

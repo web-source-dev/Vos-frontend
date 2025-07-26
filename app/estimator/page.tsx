@@ -2,11 +2,11 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { AdminOverview } from '@/components/admin/admin-overview'
+import { EstimatorDashboard } from '@/components/estimator-dashboard'
 import { EstimatorLayout } from '@/components/estimator/estimator-layout'
 import { useAuth } from '@/lib/auth'
 
-export default function EstimatorDashboard() {
+export default function EstimatorDashboardPage() {
   const { isEstimator, isAuthenticated, loading } = useAuth()
   const router = useRouter()
 
@@ -42,7 +42,7 @@ export default function EstimatorDashboard() {
   return (
     <EstimatorLayout>
       <div className="p-6">
-        <AdminOverview />
+        <EstimatorDashboard />
       </div>
     </EstimatorLayout>
   )

@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from "@/hooks/use-toast"
 import {  Mail, CheckCircle, X, Clock, Edit } from "lucide-react"
 import api from '@/lib/api'
-import { useStageTimer } from '@/components/useStageTimer'
+
+import { useRouter } from "next/navigation"
 
 // TypeScript interfaces for offer decision data
 interface CustomerData {
@@ -72,16 +73,15 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
   const { toast } = useToast()
+  const router = useRouter()
   
-  // Stage timer with case ID and stage name
-  const caseId = vehicleData._id;
-  const stageTimer = useStageTimer(caseId, 'offerDecision')
+
 
   const quote = vehicleData.quote || {}
   const offerAmount = quote.offerAmount || 0
   const offerDecision = quote.offerDecision || vehicleData.offerDecision
 
-  // Initialize decision state from existing data and start timer
+  // Initialize decision state from existing data
   useEffect(() => {
     // Set decision state from offerDecision
     if (offerDecision?.decision && offerDecision.decision !== 'pending') {
@@ -92,19 +92,11 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
     } else {
       setDecision("")
     }
-    // Only start timer if no decision and timer not started from saved data
-    if ((!offerDecision?.decision || offerDecision.decision === 'pending') && !stageTimer.startTime && !stageTimer.isLoading) {
-      stageTimer.start();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stageTimer.startTime, stageTimer.isLoading]);
+  }, [offerDecision]);
 
   const handleAccept = async () => {
     try {
       setIsSubmitting(true)
-      // Stop the timer and get timing data (now handles saving automatically)
-      const timerData = await stageTimer.stop();
-      console.log('Stage timing data:', timerData);
       const caseId = vehicleData.id || vehicleData._id;
       if (!caseId) throw new Error("Case ID not found");
       const decisionData = {
@@ -120,35 +112,26 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
           offerDecision: response.data as unknown as OfferDecisionData,
         })
 
-        // Update stage statuses to mark stage 5 as complete and stage 6 as active
-        const currentStageStatuses = vehicleData.stageStatuses || {};
-        const stageData = {
-          currentStage: vehicleData.currentStage || 6, // Preserve current stage or default to 6
-          stageStatuses: {
-            ...currentStageStatuses,
-            5: 'complete', // Mark stage 5 (Offer Decision) as complete
-            6: 'active'    // Mark stage 6 (Paperwork) as active
-          }
+        // Update the vehicle data with the new offer decision
+        const updatedVehicleData = {
+          ...vehicleData,
+          offerDecision: response.data as unknown as OfferDecisionData,
         };
         
-        console.log('Stage data to update:', stageData);
-        
-        // Update stage statuses in the database
-        try {
-          const stageResponse = await api.updateCaseStageByCaseId(caseId, stageData);
-          console.log('Stage update response:', stageResponse);
-        } catch (error) {
-          console.error('Failed to update stage statuses:', error);
-        }
+        onUpdate(updatedVehicleData);
         
         setDecision("accepted");
         toast({
           title: "Offer Accepted",
-          description: `Customer accepted the offer of $${offerAmount.toLocaleString()}. Title documentation pending.`,
+          description: `Customer accepted the offer of $${offerAmount.toLocaleString()}. You can now proceed to the next step manually.`,
         });
         
-        // Call onComplete to advance to next stage
-        onComplete();
+        // Reload the page to stay on the same stage (stage 4, step 2)
+        setTimeout(() => {
+          const caseId = vehicleData.id || vehicleData._id;
+          router.push(`/customer/${caseId}?stage=4&step=2`);
+        }, 1500);
+        
       } else {
         console.error('API call failed:', response.error);
         throw new Error(response.error || "Failed to update offer decision");
@@ -169,9 +152,6 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
   const handleDecline = async () => {
     try {
       setIsSubmitting(true)
-      // Stop the timer and get timing data (now handles saving automatically)
-      const timerData = await stageTimer.stop();
-      console.log('Stage timing data:', timerData);
       const caseId = vehicleData.id || vehicleData._id;
       if (!caseId) throw new Error("Case ID not found");
       const decisionData = {
@@ -182,41 +162,28 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
       }
       const response = await api.updateOfferDecisionByCaseId(caseId, decisionData);
       if (response.success) {
-        if (response.data) {
-          onUpdate({ 
-            ...vehicleData,
-            quote: response.data as unknown as QuoteData 
-          });
-        }
-        setDecision("declined");
-        setShowDeclineDialog(false);
-        
-        // For declined offers, mark stage 5 as complete but don't advance to stage 6
-        const currentStageStatuses = vehicleData.stageStatuses || {};
-        const stageData = {
-          currentStage: vehicleData.currentStage || 5, // Keep at current stage
-          stageStatuses: {
-            ...currentStageStatuses,
-            5: 'complete' // Mark stage 5 (Offer Decision) as complete
-          }
+        // Update the vehicle data with the new offer decision
+        const updatedVehicleData = {
+          ...vehicleData,
+          offerDecision: response.data as unknown as OfferDecisionData,
         };
         
-        console.log('Stage data for declined offer:', stageData);
+        onUpdate(updatedVehicleData);
         
-        // Update stage statuses in the database
-        try {
-          const stageResponse = await api.updateCaseStageByCaseId(caseId, stageData);
-          console.log('Stage update response for declined offer:', stageResponse);
-        } catch (error) {
-          console.error('Failed to update stage statuses for declined offer:', error);
-        }
+        setDecision("declined");
+        setShowDeclineDialog(false);
         
         toast({
           title: "Offer Declined",
           description: "Customer has declined the offer. Case marked as closed.",
         });
         
-        // For declined offers, don't call onComplete - case is closed
+        // Reload the page to stay on the same stage (stage 4, step 2)
+        setTimeout(() => {
+          const caseId = vehicleData.id || vehicleData._id;
+          router.push(`/customer/${caseId}?stage=4&step=2`);
+        }, 1500);
+        
       } else {
         console.error('Decline API call failed:', response.error);
         throw new Error(response.error || "Failed to update offer decision");
@@ -265,80 +232,12 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
     }
   }
 
-  const handleComplete = async () => {
-    if (decision !== "accepted") {
-      toast({
-        title: "Cannot Proceed",
-        description: "Customer must accept the offer to continue to paperwork.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      // Stop the timer and get timing data if not already stopped
-      const timerData = await stageTimer.stop();
-      console.log('Stage timing data:', timerData);
-      const caseId = vehicleData.id || vehicleData._id;
-      
-      // Update stage statuses to mark stage 5 as complete
-      const currentStageStatuses = vehicleData.stageStatuses || {};
-      const stageData = {
-        currentStage: vehicleData.currentStage || 6, // Preserve current stage or default to 6
-        stageStatuses: {
-          ...currentStageStatuses,
-          5: 'complete' // Mark stage 5 (Offer Decision) as complete
-        }
-      };
-      
-      // Update stage statuses in the database
-      if (caseId) {
-        try {
-          await api.updateCaseStageByCaseId(caseId, stageData);
-          console.log('Successfully updated stage statuses');
-          
-          // Send stage time data to API if timer was running
-          // This block is now redundant as updateStageTime is called in handleAccept/handleDecline
-          // if (timerData.startTime && timerData.endTime) {
-          //   try {
-          //     await api.updateStageTime(
-          //       caseId,
-          //       'offerDecision',
-          //       timerData.startTime,
-          //       timerData.endTime,
-          //       { decision: 'accepted', completed: true }
-          //     );
-          //     console.log('Stage time updated successfully for completion');
-          //   } catch (error) {
-          //     console.error('Failed to update stage time for completion:', error);
-          //   }
-          // }
-        } catch (error) {
-          console.error('Failed to update stage statuses:', error);
-        }
-      }
-      
-      onComplete()
-      toast({
-        title: "Proceeding to Paperwork",
-        description: "Moving to the paperwork stage.",
-      })
-    } catch (error) {
-      const errorData = api.handleError(error)
-      toast({
-        title: "Error",
-        description: errorData.error,
-        variant: "destructive",
-      })
-    }
-  }
-
   const handleChangeQuote = () => {
     if (onStageChange) {
-      onStageChange(4); // Go back to Quote Preparation stage
+      onStageChange(1); // Go back to step 1 (Quote Preparation) within the three-step process
       toast({
-        title: "Changing Quote",
-        description: "Navigating to quote preparation to modify the offer.",
+        title: "Restarting Quote",
+        description: "Navigating back to quote preparation to modify the offer.",
       });
     }
   }
@@ -368,11 +267,7 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
           </p>
         </div>
         <div className="flex items-center gap-4">
-          {/* Timer Display */}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground hidden">
-            <Clock className="h-4 w-4" />
-            <span>Time: {stageTimer.elapsedFormatted}</span>
-          </div>
+
           {getStatusBadge()}
         </div>
       </div>
@@ -590,11 +485,7 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
         </Card>
       )}
 
-      <div className="flex justify-end">
-        <Button onClick={handleComplete} disabled={decision !== "accepted" || isSubmitting} size="lg" className="px-8">
-          Continue to Paperwork
-        </Button>
-      </div>
+      {/* Next Step button removed - navigation is handled by the three-step process component */}
     </div>
   )
 }
