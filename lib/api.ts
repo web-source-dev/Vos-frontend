@@ -933,6 +933,19 @@ export async function getUserAnalytics(userId: string, timeRange: string = '30d'
   }
 }
 
+export async function getEstimatorAnalytics(timeRange: string = '30d'): Promise<APIResponse<any>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/estimator/analytics?timeRange=${timeRange}`, {
+      ...await defaultOptions(),
+      method: 'GET',
+    });
+    return await handleResponse<any>(response);
+  } catch (error) {
+    console.error('Error fetching estimator analytics:', error);
+    return handleError(error);
+  }
+}
+
 const api = {
   // Auth functions
   loginUser,
@@ -993,6 +1006,7 @@ const api = {
   confirmPayoff,
   deleteCase,
   getUserAnalytics,
+  getEstimatorAnalytics,
   getTimeTrackingByCaseId,
   getTimeTrackingAnalytics,
 };

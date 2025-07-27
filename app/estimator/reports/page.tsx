@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ReportsDashboard } from '@/components/admin/reports-dashboard'
+import { EstimatorReports } from '@/components/estimator/estimator-reports'
 import { EstimatorLayout } from '@/components/estimator/estimator-layout'
 import { useAuth } from '@/lib/auth'
 
@@ -42,7 +42,7 @@ export default function EstimatorReportsPage() {
   return (
     <EstimatorLayout>
       <div className="p-6">
-        <ReportsDashboard />
+        <EstimatorReports />
       </div>
     </EstimatorLayout>
   )
