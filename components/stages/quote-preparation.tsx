@@ -1540,7 +1540,6 @@ export function QuotePreparation({
                   <SelectItem value="clean">Clean</SelectItem>
                   <SelectItem value="salvage">Salvage</SelectItem>
                   <SelectItem value="rebuilt">Rebuilt</SelectItem>
-                  <SelectItem value="flood">Flood</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>

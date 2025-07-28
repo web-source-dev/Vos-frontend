@@ -241,7 +241,7 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
         title: "Restarting Quote",
         description: "Navigating back to quote preparation to modify the offer.",
       });
-      router.refresh();
+      window.location.reload();
     } else {
       toast({
         title: "Error",
