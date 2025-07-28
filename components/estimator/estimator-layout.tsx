@@ -24,6 +24,7 @@ import {
   BarChart3,
   Home,
   Calculator,
+  Users,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { 
@@ -80,6 +81,7 @@ export function EstimatorLayout({ children }: LayoutProps) {
   // Navigation for estimators (Dashboard, Reports)
   const navigation = [
     { name: "Dashboard", href: "/estimator", icon: LayoutDashboard, current: pathname === "/estimator" },
+    { name: "Customers", href: "/estimator/customers", icon: Users, current: pathname === "/estimator/customers" },
     { name: "Reports", href: "/estimator/reports", icon: BarChart3, current: pathname === "/estimator/reports" },
   ]
 

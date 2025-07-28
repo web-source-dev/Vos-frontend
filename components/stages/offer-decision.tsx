@@ -178,10 +178,10 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
           description: "Customer has declined the offer. Case marked as closed.",
         });
         
-        // Reload the page to stay on the same stage (stage 4, step 2)
+        // Redirect to completion stage for declined offers
         setTimeout(() => {
           const caseId = vehicleData.id || vehicleData._id;
-          router.push(`/customer/${caseId}?stage=4&step=2`);
+          router.push(`/customer/${caseId}?stage=6`);
         }, 1500);
         
       } else {
@@ -233,11 +233,20 @@ export function OfferDecision({ vehicleData, onUpdate, onComplete, onStageChange
   }
 
   const handleChangeQuote = () => {
-    if (onStageChange) {
-      onStageChange(1); // Go back to step 1 (Quote Preparation) within the three-step process
+    const caseId = vehicleData.id || vehicleData._id;
+    if (caseId) {
+      // Refresh the page and load step 1 of the three-step process
+      router.push(`/customer/${caseId}?stage=4&step=1`);
       toast({
         title: "Restarting Quote",
         description: "Navigating back to quote preparation to modify the offer.",
+      });
+      router.refresh();
+    } else {
+      toast({
+        title: "Error",
+        description: "Unable to restart quote - case ID not found.",
+        variant: "destructive",
       });
     }
   }

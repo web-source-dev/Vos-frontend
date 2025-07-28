@@ -1763,6 +1763,13 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
             if (question.id === "seat_adjustment") {
               return currentAnswer === "no";
             }
+            // Special handling for glass components questions - only show subquestions when negative score is selected
+            if (question.id === "glass_condition" || question.id === "glass_components") {
+              if (!currentAnswer || currentAnswer === "") return false;
+              // Find the selected option and check if it has negative points
+              const selectedOption = question.options?.find(option => option.value === currentAnswer);
+              return selectedOption && selectedOption.points < 0;
+            }
             // Default behavior for other radio questions
             return currentAnswer && currentAnswer !== "";
           } else if (question.type === 'checkbox') {
@@ -1777,8 +1784,8 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
               <p className="text-sm font-semibold text-blue-800 uppercase tracking-wide">Follow-up Questions</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {question.subQuestions.map((subQ: InspectionQuestion) => (
-                <div key={subQ.id} className={`bg-white rounded-lg p-4 border border-gray-200 shadow-sm ${question.subQuestions.length === 1 ? 'md:col-span-2' : ''}`}>
+              {(question as any).subQuestions.map((subQ: InspectionQuestion) => (
+                <div key={subQ.id} className={`bg-white rounded-lg p-4 border border-gray-200 shadow-sm ${(question as any).subQuestions.length === 1 ? 'md:col-span-2' : ''}`}>
                   <Label className="text-sm font-medium text-gray-700 mb-3 block">
                     {subQ.question}
                   </Label>

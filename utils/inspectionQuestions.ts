@@ -69,7 +69,7 @@ export const inspectionSections = [
         {
           id: "glass_condition",
           question: "Check all glass components:",
-          type: "checkbox",
+          type: "radio",
           options: [
             { value: "no_damage", label: "No glass damage - All components in good condition", points: 5 },
             { value: "windshield_cracked", label: "Windshield cracked", points: -3 },
@@ -349,7 +349,7 @@ export const inspectionSections = [
           type: "checkbox",
           required: true,
           options: [
-            { value: "completed", label: "OBD2 scan completed", points: 5 }
+            { value: "completed", label: "OBD2 scan completed", points: 0 }
           ]
         },
         {
@@ -600,19 +600,6 @@ export const inspectionSections = [
           ]
         },
         {
-          id: "overall_tire_condition",
-          question: "Overall tire condition assessment:",
-          type: "radio",
-          required: true,
-          options: [
-            { value: "excellent", label: "Excellent - All tires like new", points: 5 },
-            { value: "good", label: "Good - All tires adequate", points: 4 },
-            { value: "fair", label: "Fair - Some wear on tires", points: 3 },
-            { value: "poor", label: "Poor - Multiple tires need replacement", points: 2 },
-            { value: "very_poor", label: "Very Poor - Unsafe tires", points: 0 }
-          ]
-        },
-        {
           id: "tire_photos",
           question: "Take photos of all four tires and wheels - Include tread depth, sidewall condition, wheel damage, and any visible wear patterns. Take close-ups of any damage or issues.",
           type: "photo",
@@ -796,15 +783,22 @@ export const inspectionSections = [
         {
           id: "glass_components",
           question: "Check all glass components:",
-          type: "checkbox",
-          required: false,
+          type: "radio",
           options: [
-            { value: "windshield_cracked", label: "Windshield cracked (-3)", points: -3 },
-            { value: "windshield_chipped", label: "Windshield chipped (-1)", points: -1 },
-            { value: "side_windows_damaged", label: "Side windows damaged (-2)", points: -2 },
-            { value: "rear_window_damaged", label: "Rear window damaged (-2)", points: -2 },
-            { value: "side_mirrors_damaged", label: "Side mirrors damaged (-1)", points: -1 },
-            { value: "tint_damaged", label: "Tint damaged (-1)", points: -1 }
+            { value: "no_damage", label: "No glass damage - All components in good condition", points: 5 },
+            { value: "windshield_cracked", label: "Windshield cracked", points: -3 },
+            { value: "windshield_chipped", label: "Windshield chipped", points: -1 },
+            { value: "side_windows_damaged", label: "Side windows damaged", points: -2 },
+            { value: "rear_window_damaged", label: "Rear window damaged", points: -2 },
+            { value: "side_mirrors_damaged", label: "Side mirrors damaged", points: -1 },
+            { value: "tint_damaged", label: "Tint damaged", points: -1 }
+          ],
+          subQuestions: [
+            {
+              id: "glass_damage_details",
+              question: "Describe any glass damage in detail:",
+              type: "text"
+            }
           ]
         },
         {
@@ -1046,20 +1040,7 @@ export const inspectionSections = [
       name: "Tires & Wheels",
       icon: CarIcon,
       description: "Tread depth, damage, and wheel condition",
-      questions: [
-        {
-          id: "overall_tire_condition",
-          question: "Overall tire condition:  ",
-          type: "radio",
-          required: true,
-          options: [
-            { value: "excellent", label: "Excellent – Like new", points: 5 },
-            { value: "good", label: "Good – Minor wear", points: 4 },
-            { value: "fair", label: "Fair – Some wear", points: 3 },
-            { value: "poor", label: "Poor – Significant wear", points: 2 },
-            { value: "very_poor", label: "Very Poor – Needs replacement", points: 1 }
-          ]
-        },
+      questions: [      
         {
           id: "tread_depth",
           question: "Tread depth measurements (32nds):",

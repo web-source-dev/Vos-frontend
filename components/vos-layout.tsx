@@ -86,6 +86,12 @@ export function VosLayout({
     if (stageId === 0) {
       return true;
     }
+    
+    // Check if offer is declined - if so, only allow access to completion stage (6)
+    if ((vehicleData as any)?.offerDecision?.decision === 'declined') {
+      return stageId === 6;
+    }
+    
     // Allow access to stages up to the max stage reached
     // If accessibleStages is provided, also check that
     if (accessibleStages.length > 0) {

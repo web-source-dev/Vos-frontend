@@ -36,10 +36,15 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
 
   // Role-based stage access - moved to useCallback to fix dependency warning
   const getAccessibleStages = useCallback(() => {
+    // Check if offer is declined - if so, only allow access to completion stage (6)
+    if (caseData?.offerDecision?.decision === 'declined') {
+      return [0, 6]; // Summary and completion only
+    }
+    
     if (isAdmin || isAgent || isEstimator) return [1, 2, 3, 4, 5, 6]; // Admin, agent and estimator can access all stages (reduced to 6)
     if (isInspector) return [3]; // Inspector can only access inspection stage
     return []; // No access
-  }, [isAdmin, isAgent, isEstimator, isInspector])
+  }, [isAdmin, isAgent, isEstimator, isInspector, caseData?.offerDecision?.decision])
 
   // Fetch case data based on the ID
   useEffect(() => {
@@ -136,6 +141,12 @@ export default function CustomerDetail({ params }: CustomerDetailProps) {
     if (stage === 0) {
       return true;
     }
+    
+    // Check if offer is declined - if so, only allow access to completion stage (6)
+    if (caseData?.offerDecision?.decision === 'declined') {
+      return stage === 6;
+    }
+    
     return getAccessibleStages().includes(stage);
   }
 

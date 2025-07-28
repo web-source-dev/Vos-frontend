@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { CheckCircle, Download, Mail, Key, Car, FileText, Heart, Save, Clock } from "lucide-react"
+import { CheckCircle, Download, Mail, Key, Car, FileText, Heart, Save, Clock, XCircle } from "lucide-react"
 import api from '@/lib/api'
 import { useStageTimer } from '@/components/useStageTimer'
 import { useRouter } from "next/navigation"
@@ -36,6 +36,8 @@ interface QuoteData {
 interface OfferDecisionData {
   finalAmount?: number
   decision?: string
+  reason?: string
+  declinedAt?: string
 }
 
 interface TransactionData {
@@ -135,6 +137,9 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
     ? `${vehicleData.vehicle.year || ''} ${vehicleData.vehicle.make || ''} ${vehicleData.vehicle.model || ''}`.trim()
     : 'Unknown Vehicle'
 
+  // Check if offer was declined
+  const isOfferDeclined = vehicleData.offerDecision?.decision === 'declined'
+
   const handleLeaveBehindsChange = (item: string, checked: boolean) => {
     const newLeaveBehinds = {
       ...leaveBehinds,
@@ -207,6 +212,13 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
       const timingData = await timer.stop()
       console.log('Stage timing data:', timingData)
 
+      // Send thank you email to customer
+      const emailResponse = await api.sendCustomerEmail(caseId, 'thank-you');
+      
+      if (!emailResponse.success) {
+        throw new Error(emailResponse.error || 'Failed to send thank you email');
+      }
+
       let response;
       
       if (isEstimator) {
@@ -219,7 +231,7 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
       } else {
         // For authenticated users, use the separate endpoints
         
-        // Update case status and send thank you email
+        // Update case status
         await api.updateCaseStatus(caseId, 'completed');
 
         setThankYouSent(true)
@@ -390,55 +402,97 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <div className="text-center">
-        <div className="mx-auto w-12 h-12 md:w-16 md:h-16 bg-green-100 rounded-full flex items-center justify-center mb-3 md:mb-4">
-          <CheckCircle className="h-6 w-6 md:h-8 md:w-8 text-green-600" />
+      {/* Show declined offer screen */}
+      {isOfferDeclined ? (
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 md:w-16 md:h-16 bg-red-100 rounded-full flex items-center justify-center mb-3 md:mb-4">
+            <XCircle className="h-6 w-6 md:h-8 md:w-8 text-red-600" />
+          </div>
+          <h1 className="text-2xl md:text-3xl font-bold text-red-800">Offer Declined - Case Closed</h1>
+          <p className="text-muted-foreground mt-2">Customer has declined the offer</p>
         </div>
-        <h1 className="text-2xl md:text-3xl font-bold text-green-800">Transaction Complete!</h1>
-        <p className="text-muted-foreground mt-2">Vehicle purchase has been successfully completed</p>
-      </div>
+      ) : (
+        <div className="text-center">
+          <div className="mx-auto w-12 h-12 md:w-16 md:h-16 bg-green-100 rounded-full flex items-center justify-center mb-3 md:mb-4">
+            <CheckCircle className="h-6 w-6 md:h-8 md:w-8 text-green-600" />
+          </div>
+          <h1 className="text-2xl md:text-3xl font-bold text-green-800">Transaction Complete!</h1>
+          <p className="text-muted-foreground mt-2">Vehicle purchase has been successfully completed</p>
+        </div>
+      )}
 
       {/* Transaction Summary */}
-      <Card className="border-green-200 bg-green-50">
+      <Card className={isOfferDeclined ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"}>
         <CardHeader className="pb-3 md:pb-4">
-          <CardTitle className="text-green-800 text-base md:text-lg">Final Transaction Summary</CardTitle>
+          <CardTitle className={isOfferDeclined ? "text-red-800 text-base md:text-lg" : "text-green-800 text-base md:text-lg"}>
+            {isOfferDeclined ? "Declined Offer Summary" : "Final Transaction Summary"}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 md:space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
             <div>
-              <Label className="text-xs md:text-sm font-medium text-green-700">Customer</Label>
+              <Label className={isOfferDeclined ? "text-xs md:text-sm font-medium text-red-700" : "text-xs md:text-sm font-medium text-green-700"}>Customer</Label>
               <p className="text-base md:text-lg font-semibold">{customerName}</p>
             </div>
             <div>
-              <Label className="text-xs md:text-sm font-medium text-green-700">Vehicle</Label>
+              <Label className={isOfferDeclined ? "text-xs md:text-sm font-medium text-red-700" : "text-xs md:text-sm font-medium text-green-700"}>Vehicle</Label>
               <p className="text-base md:text-lg font-semibold">{vehicleDescription}</p>
             </div>
             <div>
-              <Label className="text-xs md:text-sm font-medium text-green-700">VIN</Label>
+              <Label className={isOfferDeclined ? "text-xs md:text-sm font-medium text-red-700" : "text-xs md:text-sm font-medium text-green-700"}>VIN</Label>
               <p className="text-base md:text-lg font-semibold">{vehicleData.vehicle?.vin || 'Not provided'}</p>
             </div>
             <div>
-              <Label className="text-xs md:text-sm font-medium text-green-700">Final Amount</Label>
-              <p className="text-xl md:text-2xl font-bold text-green-600">${finalAmount.toLocaleString()}</p>
+              <Label className={isOfferDeclined ? "text-xs md:text-sm font-medium text-red-700" : "text-xs md:text-sm font-medium text-green-700"}>
+                {isOfferDeclined ? "Declined Amount" : "Final Amount"}
+              </Label>
+              <p className={`text-xl md:text-2xl font-bold ${isOfferDeclined ? "text-red-600" : "text-green-600"}`}>
+                ${finalAmount.toLocaleString()}
+              </p>
             </div>
           </div>
 
           <Separator />
 
-          <div className="grid grid-cols-3 gap-3 md:gap-4 text-center">
-            <div>
-              <Badge className="bg-green-100 text-green-800 mb-2 text-xs">Inspection</Badge>
-              <p className="text-xs md:text-sm">Completed</p>
+          {isOfferDeclined ? (
+            <div className="space-y-3">
+              {vehicleData.offerDecision?.reason && (
+                <div className="p-3 bg-white border border-red-200 rounded">
+                  <p className="text-sm font-medium text-red-800 mb-1">Customer's Reason for Declining:</p>
+                  <p className="text-sm text-red-700">{vehicleData.offerDecision.reason}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3 md:gap-4 text-center">
+                <div>
+                  <Badge className="bg-red-100 text-red-800 mb-2 text-xs">Inspection</Badge>
+                  <p className="text-xs md:text-sm">Completed</p>
+                </div>
+                <div>
+                  <Badge className="bg-red-100 text-red-800 mb-2 text-xs">Status</Badge>
+                  <p className="text-xs md:text-sm">Declined</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <Badge className="bg-green-100 text-green-800 mb-2 text-xs">Payment</Badge>
-              <p className="text-xs md:text-sm">{vehicleData.transaction?.paymentStatus === 'completed' ? 'Completed' : 'Processing'}</p>
+          ) : (
+            <div className="grid grid-cols-4 gap-3 md:gap-4 text-center">
+                <div>
+                <Badge className="bg-green-100 text-green-800 mb-2 text-xs">Intake</Badge>
+                <p className="text-xs md:text-sm">Completed</p>
+              </div>
+              <div>
+                <Badge className="bg-green-100 text-green-800 mb-2 text-xs">Inspection</Badge>
+                <p className="text-xs md:text-sm">Completed</p>
+              </div>
+              <div>
+                <Badge className="bg-green-100 text-green-800 mb-2 text-xs">Paperwork</Badge>
+                <p className="text-xs md:text-sm">{vehicleData.transaction?.paymentStatus === 'completed' ? 'Completed' : 'Processing'}</p>
+              </div>
+              <div>
+                <Badge className="bg-green-100 text-green-800 mb-2 text-xs">Payment</Badge>
+                <p className="text-xs md:text-sm">Completed</p>
+              </div>
             </div>
-            <div>
-              <Badge className="bg-green-100 text-green-800 mb-2 text-xs">Status</Badge>
-              <p className="text-xs md:text-sm">Complete</p>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 

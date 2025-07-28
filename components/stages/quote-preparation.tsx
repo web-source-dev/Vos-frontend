@@ -18,6 +18,11 @@ import api from '@/lib/api'
 interface CustomerData {
   firstName: string
   lastName: string
+  cellPhone?: string
+  homePhone?: string
+  email1?: string
+  email2?: string
+  email3?: string
 }
 
 interface VehicleData {
@@ -667,6 +672,7 @@ export function QuotePreparation({
 
   // Initialize seller and vehicle info from existing data
   useEffect(() => {
+    // First, try to populate from existing bill of sale data
     if (vehicleData.transaction?.billOfSale) {
       const billOfSale = vehicleData.transaction.billOfSale
       setSellerInfo({
@@ -679,6 +685,21 @@ export function QuotePreparation({
         sellerEmail: billOfSale.sellerEmail || '',
         sellerDLNumber: billOfSale.sellerDLNumber || '',
         sellerDLState: billOfSale.sellerDLState || ''
+      })
+    } 
+    // If no bill of sale data, populate from customer information
+    else if (vehicleData.customer) {
+      const customer = vehicleData.customer
+      setSellerInfo({
+        sellerName: `${customer.firstName} ${customer.lastName}`,
+        sellerAddress: '', // Customer address not typically stored
+        sellerCity: '', // Customer city not typically stored
+        sellerState: '', // Customer state not typically stored
+        sellerZip: '', // Customer zip not typically stored
+        sellerPhone: customer.cellPhone || customer.homePhone || '',
+        sellerEmail: customer.email1 || '',
+        sellerDLNumber: '', // Customer DL not typically stored
+        sellerDLState: '' // Customer DL state not typically stored
       })
     }
 
@@ -925,6 +946,13 @@ export function QuotePreparation({
         )
     }
   }
+  const states = [
+    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+    'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+    'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+    'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+    'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
+  ]
 
   return (
     <div className="space-y-6">
@@ -1342,12 +1370,18 @@ export function QuotePreparation({
             </div>
             <div>
               <Label htmlFor="sellerDLState">Driver's License State</Label>
-              <Input
-                id="sellerDLState"
-                value={sellerInfo.sellerDLState}
-                onChange={(e) => handleSellerInfoChange('sellerDLState', e.target.value)}
-                placeholder="Enter DL state"
-              />
+              <Select value={sellerInfo.sellerDLState} onValueChange={(value) => handleSellerInfoChange('sellerDLState', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select state" />
+                </SelectTrigger>
+                <SelectContent>
+                  {states.map((state) => (
+                    <SelectItem key={state} value={state}>
+                      {state}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label htmlFor="sellerAddress">Street Address</Label>
@@ -1369,12 +1403,18 @@ export function QuotePreparation({
             </div>
             <div>
               <Label htmlFor="sellerState">State</Label>
-              <Input
-                id="sellerState"
-                value={sellerInfo.sellerState}
-                onChange={(e) => handleSellerInfoChange('sellerState', e.target.value)}
-                placeholder="Enter state"
-              />
+              <Select value={sellerInfo.sellerState} onValueChange={(value) => handleSellerInfoChange('sellerState', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select state" />
+                </SelectTrigger>
+                <SelectContent>
+                  {states.map((state) => (
+                    <SelectItem key={state} value={state}>
+                      {state}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label htmlFor="sellerZip">ZIP Code</Label>
@@ -1505,7 +1545,7 @@ export function QuotePreparation({
                 </SelectContent>
               </Select>
             </div>
-            <div className="md:col-span-2">
+            <div className="md:col-span-2 hidden">
               <Label htmlFor="knownDefects">Known Defects</Label>
               <Textarea
                 id="knownDefects"

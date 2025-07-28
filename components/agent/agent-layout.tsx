@@ -23,6 +23,7 @@ import {
   ChevronDown,
   Home,
   User,
+  BarChart3,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { 
@@ -80,6 +81,7 @@ export function AgentLayout({ children }: LayoutProps) {
   const navigation = [
     { name: "Dashboard", href: "/agent", icon: LayoutDashboard, current: pathname === "/agent" },
     { name: "Customers", href: "/agent/customers", icon: Home, current: pathname === "/agent/customers" },
+    { name: "Reports", href: "/agent/reports", icon: BarChart3, current: pathname === "/agent/reports" },
   ]
 
   function getInitials(firstName: string, lastName: string) {

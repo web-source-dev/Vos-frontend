@@ -22,11 +22,11 @@ interface ThreeStepProcessProps {
   initialStep?: number
 }
 
-export function ThreeStepProcess({ 
-  vehicleData, 
-  onUpdate, 
-  onComplete, 
-  isEstimator = false, 
+export function ThreeStepProcess({
+  vehicleData,
+  onUpdate,
+  onComplete,
+  isEstimator = false,
   isAdmin = false,
   isAgent = false,
   initialStep = 1
@@ -58,28 +58,28 @@ export function ThreeStepProcess({
   // Update completed steps based on vehicle data
   useEffect(() => {
     const completed: number[] = []
-    
+
     // Check if quote is ready or beyond
-    if (vehicleData.quote?.status === 'ready' || 
-        vehicleData.quote?.status === 'presented' || 
-        vehicleData.quote?.status === 'accepted' || 
-        vehicleData.quote?.status === 'declined') {
+    if (vehicleData.quote?.status === 'ready' ||
+      vehicleData.quote?.status === 'presented' ||
+      vehicleData.quote?.status === 'accepted' ||
+      vehicleData.quote?.status === 'declined') {
       completed.push(1)
     }
-    
+
     // Check if offer decision is made
-    if (vehicleData.offerDecision?.decision === 'accepted' || 
-        vehicleData.offerDecision?.decision === 'declined' ||
-        vehicleData.quote?.offerDecision?.decision === 'accepted' ||
-        vehicleData.quote?.offerDecision?.decision === 'declined') {
+    if (vehicleData.offerDecision?.decision === 'accepted' ||
+      vehicleData.offerDecision?.decision === 'declined' ||
+      vehicleData.quote?.offerDecision?.decision === 'accepted' ||
+      vehicleData.quote?.offerDecision?.decision === 'declined') {
       completed.push(2)
     }
-    
+
     // Check if bill of sale is completed
     if (vehicleData.transaction?.billOfSale) {
       completed.push(3)
     }
-    
+
     setCompletedSteps(completed)
   }, [vehicleData])
 
@@ -91,6 +91,18 @@ export function ThreeStepProcess({
   }, [initialStep])
 
   const handleStepComplete = async () => {
+    // Check if offer is declined - if so, redirect to completion stage
+    const isOfferDeclined = vehicleData.offerDecision?.decision === 'declined' ||
+      vehicleData.quote?.offerDecision?.decision === 'declined';
+
+    if (isOfferDeclined) {
+      const caseId = vehicleData.id || vehicleData._id;
+      if (caseId) {
+        window.location.href = `/customer/${caseId}?stage=4&step=2`;
+        return;
+      }
+    }
+
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1)
     } else {
@@ -102,6 +114,15 @@ export function ThreeStepProcess({
   }
 
   const handleStepChange = (step: number) => {
+    // Check if offer is declined
+    const isOfferDeclined = vehicleData.offerDecision?.decision === 'declined' ||
+      vehicleData.quote?.offerDecision?.decision === 'declined';
+
+    // Prevent navigation to step 3 if offer is declined
+    if (step === 3 && isOfferDeclined) {
+      return;
+    }
+
     // Allow navigation to any step (1-3)
     if (step >= 1 && step <= 3) {
       setCurrentStep(step)
@@ -165,20 +186,21 @@ export function ThreeStepProcess({
               const status = getStepStatus(step.id)
               const isCompleted = status === 'completed'
               const isActive = status === 'active'
-              
+
               return (
                 <div key={step.id} className="flex items-center">
                   {/* Step Circle */}
                   <button
                     onClick={() => handleStepChange(step.id)}
-                    className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-200 ${
-                      isCompleted
+                    className={`flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-200 ${isCompleted
                         ? 'bg-green-500 border-green-500 text-white'
                         : isActive
-                        ? 'bg-blue-500 border-blue-500 text-white'
-                        : 'bg-gray-100 border-gray-300 text-gray-500 hover:border-gray-400'
-                    }`}
-                    disabled={false}
+                          ? 'bg-blue-500 border-blue-500 text-white'
+                          : step.id === 3 && (vehicleData.offerDecision?.decision === 'declined' || vehicleData.quote?.offerDecision?.decision === 'declined')
+                            ? 'bg-red-100 border-red-300 text-red-400 cursor-not-allowed'
+                            : 'bg-gray-100 border-gray-300 text-gray-500 hover:border-gray-400'
+                      }`}
+                    disabled={step.id === 3 && (vehicleData.offerDecision?.decision === 'declined' || vehicleData.quote?.offerDecision?.decision === 'declined')}
                   >
                     {isCompleted ? (
                       <CheckCircle className="h-6 w-6" />
@@ -186,17 +208,23 @@ export function ThreeStepProcess({
                       <span className="font-semibold">{step.id}</span>
                     )}
                   </button>
-                  
+
                   {/* Step Info */}
                   <div className="ml-4">
-                    <h3 className={`font-semibold ${
-                      isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-500'
-                    }`}>
+                    <h3 className={`font-semibold ${isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' :
+                        step.id === 3 && (vehicleData.offerDecision?.decision === 'declined' || vehicleData.quote?.offerDecision?.decision === 'declined') ? 'text-red-400' : 'text-gray-500'
+                      }`}>
                       {step.title}
                     </h3>
-                    <p className="text-sm text-gray-500">{step.description}</p>
+                    <p className={`text-sm ${step.id === 3 && (vehicleData.offerDecision?.decision === 'declined' || vehicleData.quote?.offerDecision?.decision === 'declined') ? 'text-red-400' : 'text-gray-500'
+                      }`}>
+                      {step.id === 3 && (vehicleData.offerDecision?.decision === 'declined' || vehicleData.quote?.offerDecision?.decision === 'declined')
+                        ? 'Not available - Offer declined'
+                        : step.description
+                      }
+                    </p>
                   </div>
-                  
+
                   {/* Arrow */}
                   {index < steps.length - 1 && (
                     <ArrowRight className="h-6 w-6 text-gray-300 mx-6" />
@@ -243,23 +271,28 @@ export function ThreeStepProcess({
           <ArrowLeft className="h-4 w-4" />
           Previous Step
         </Button>
-        
+
         <div className="flex items-center gap-4">
           <Badge variant="outline" className="text-sm">
             Step {currentStep} of {steps.length}
           </Badge>
-          
+
           {currentStep < 3 && (
             <Button
               variant="outline"
               onClick={() => handleStepChange(currentStep + 1)}
-              disabled={false}
+              disabled={
+                (currentStep === 2 &&
+                  (vehicleData.offerDecision?.decision === 'declined' ||
+                    vehicleData.quote?.offerDecision?.decision === 'declined'))
+              }
               className="flex items-center gap-2"
             >
               Next Step
               <ArrowRight className="h-4 w-4" />
             </Button>
           )}
+
         </div>
       </div>
     </div>

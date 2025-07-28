@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { FileText, CreditCard, Upload, CheckCircle, X, Loader2, Clock, Info } from "lucide-react"
+import { FileText, CreditCard, Upload, CheckCircle, X, Loader2, Clock, Info, AlertTriangle } from "lucide-react"
 import api from '@/lib/api'
 import Image from "next/image"
 import { useStageTimer } from "@/components/useStageTimer"
@@ -109,7 +109,7 @@ interface PaperworkProps {
   isAgent?: boolean;
 }
 
-export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,isAgent = false, isEstimator = false }: PaperworkProps) {
+export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, isAgent = false, isEstimator = false }: PaperworkProps) {
   const [billOfSale, setBillOfSale] = useState({
     // Seller Information
     sellerName: "",
@@ -121,7 +121,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
     sellerEmail: "",
     sellerDLNumber: "",
     sellerDLState: "",
-    
+
     // Buyer Information
     buyerName: "VOS - Vehicle Offer Service",
     buyerAddress: "123 Business Ave",
@@ -130,7 +130,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
     buyerZip: "12345",
     buyerBusinessLicense: "VOS-12345-AB",
     buyerRepName: "Agent Smith",
-    
+
     // Vehicle Details
     vehicleVIN: "",
     vehicleYear: "",
@@ -142,7 +142,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
     vehicleTitleNumber: "",
     vehicleLicensePlate: "",
     vehicleLicenseState: "",
-    
+
     // Transaction Details
     saleDate: new Date().toISOString().split("T")[0],
     saleTime: new Date().toTimeString().split(" ")[0].slice(0, 5),
@@ -151,13 +151,13 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
     odometerReading: "",
     odometerAccurate: true,
     titleStatus: "clean",
-    
+
     // Disclosures
     knownDefects: "",
     asIsAcknowledgment: false,
     sellerDisclosure: false,
     buyerDisclosure: false,
-    
+
     // Legal
     notaryRequired: false,
     notaryName: "",
@@ -447,7 +447,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
         } else {
           updatedTransaction = response.data;
         }
-        
+
         onUpdate({
           ...vehicleData,
           transaction: updatedTransaction as TransactionData
@@ -463,7 +463,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
           5: 'complete' // Mark stage 5 (Paperwork) as complete
         }
       };
-      
+
       // Update stage statuses in the database
       const stageCaseId = vehicleData.id || vehicleData._id;
       if (stageCaseId) {
@@ -488,7 +488,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
 
       // Proceed to next stage
       onComplete();
-      
+
       toast({
         title: "Paperwork Complete",
         description: "All documentation and payment processing completed successfully.",
@@ -506,7 +506,25 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
   const handleSaveData = async () => {
     try {
       setSaving(true);
-      
+
+      // First, save the payoff status data
+      const payoffCaseId = vehicleData.id || vehicleData._id;
+      if (payoffCaseId) {
+        try {
+          const payoffResponse = await api.confirmPayoff(payoffCaseId, payoffStatus, payoffNotes);
+          if (payoffResponse && payoffResponse.success && payoffResponse.data) {
+            // Update case data with updated transaction
+            onUpdate({
+              ...vehicleData,
+              transaction: payoffResponse.data.transaction as TransactionData
+            });
+          }
+        } catch (error) {
+          console.error('Error saving payoff status:', error);
+          // Continue with save even if payoff save fails
+        }
+      }
+
       // Save only the basic paperwork data without documents or payment status
       const paperworkData = {
         billOfSale,
@@ -531,7 +549,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
       if (response && response.success) {
         // Mark form as saved
         setFormSaved(true);
-        
+
         // Update case data
         if (response.data) {
           // Check response type to properly access transaction data
@@ -543,7 +561,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
             // For updatePaperwork response
             updatedTransaction = response.data;
           }
-          
+
           onUpdate({
             ...vehicleData,
             transaction: updatedTransaction as TransactionData
@@ -580,8 +598,8 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
             Complete Bill of Sale and payment information
           </p>
         </div>
-        
-        <div className="flex items-center gap-2">          
+
+        <div className="flex items-center gap-2">
           <Badge
             className={
               paymentStatus === "completed"
@@ -593,7 +611,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
           >
             {paymentStatus === "completed" ? "Payment Sent" : paymentStatus === "processing" ? "Processing" : "Pending"}
           </Badge>
-          
+
           <Badge variant="outline" className="flex items-center gap-1 hidden">
             <Clock className="h-3 w-3" />
             {timer.elapsedFormatted}
@@ -658,7 +676,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="salePrice">Vehicle Price *</Label>
               <Input
@@ -671,8 +689,8 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
                 className="bg-gray-100 cursor-not-allowed"
               />
             </div>
-            
-            <div className="space-y-2">
+
+            <div className="space-y-2 hidden">
               <Label htmlFor="paymentMethod">Payment Method</Label>
               <Select
                 value={billOfSale.paymentMethod}
@@ -689,7 +707,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="odometerReading">Odometer Reading (Miles) *</Label>
               <Input
@@ -699,10 +717,10 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
                 placeholder="Current mileage"
               />
             </div>
-            
+
             <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="odometerAccurate" 
+              <Checkbox
+                id="odometerAccurate"
                 checked={billOfSale.odometerAccurate}
                 onCheckedChange={(checked) => handleBillOfSaleChange("odometerAccurate", Boolean(checked))}
               />
@@ -710,7 +728,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
                 I certify that the odometer reading reflects the actual mileage
               </Label>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="titleStatus">Title Status *</Label>
               <Select
@@ -724,14 +742,12 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
                   <SelectItem value="clean">Clean Title</SelectItem>
                   <SelectItem value="salvage">Salvage Title</SelectItem>
                   <SelectItem value="rebuilt">Rebuilt Title</SelectItem>
-                  <SelectItem value="lemon">Lemon Law Buyback</SelectItem>
-                  <SelectItem value="flood">Flood Damaged</SelectItem>
-                  <SelectItem value="junk">Junk Title</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            
-            <div className="space-y-2">
+
+            <div className="space-y-2 hidden">
               <Label htmlFor="knownDefects">Known Defects or Issues</Label>
               <Textarea
                 id="knownDefects"
@@ -741,10 +757,10 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
                 rows={3}
               />
             </div>
-            
+
             <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="asIsAcknowledgment" 
+              <Checkbox
+                id="asIsAcknowledgment"
                 checked={billOfSale.asIsAcknowledgment}
                 onCheckedChange={(checked) => handleBillOfSaleChange("asIsAcknowledgment", Boolean(checked))}
               />
@@ -776,7 +792,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Wire">Wire</SelectItem>
-                  <SelectItem value="ACH">ACH</SelectItem>
                   <SelectItem value="Check">Check</SelectItem>
                 </SelectContent>
               </Select>
@@ -802,7 +817,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
                 placeholder="Enter bank name"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="loanNumber">Loan Number</Label>
               <Input
@@ -812,7 +827,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
                 placeholder="Enter loan number"
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="payoffAmount">Payoff Amount</Label>
               <Input
@@ -829,42 +844,12 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
       </div>
 
 
+      {(formSaved || hasExistingData) && (
+        <>
 
-                {/* Save Button Section - moved above Required Documents */}
-                {!hasExistingData && (
-          <Card className="border-blue-200 bg-blue-50 w-full">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5" />
-                Save Paperwork
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button
-                onClick={handleSaveData}
-                disabled={saving || formSaved}
-                className="w-full"
-                variant="default"
-                size="lg"
-              >
-                {saving ? "Saving..." : formSaved ? "Saved" : "Save Paperwork"}
-              </Button>
-              {formSaved && (
-                <div className="text-green-600 text-sm mt-2 flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  Paperwork data saved successfully.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
 
-        {(formSaved || hasExistingData) && ( 
-      <>
-
-      
-        {/* Payoff Confirmation */}
-        <Card className="border-orange-200 bg-orange-50">
+          {/* Payoff Confirmation */}
+          <Card className="border-orange-200 bg-orange-50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5" />
@@ -889,51 +874,58 @@ export function Paperwork({ vehicleData, onUpdate, onComplete,isAdmin = false,is
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="payoffNotes">Payoff Notes</Label>
                 <Textarea
                   id="payoffNotes"
                   value={payoffNotes}
                   onChange={(e) => setPayoffNotes(e.target.value)}
-                  placeholder="Enter any notes about the payoff process..."
                   rows={3}
                 />
               </div>
-              
-
-              
-              {vehicleData.transaction?.payoffStatus && (
-                <div className="text-sm text-gray-600">
-                  <p><strong>Current Status:</strong> {vehicleData.transaction.payoffStatus}</p>
-                  {vehicleData.transaction.payoffConfirmedAt && (
-                    <p><strong>Confirmed:</strong> {new Date(vehicleData.transaction.payoffConfirmedAt).toLocaleString()}</p>
-                  )}
-                  {vehicleData.transaction.payoffCompletedAt && (
-                    <p><strong>Completed:</strong> {new Date(vehicleData.transaction.payoffCompletedAt).toLocaleString()}</p>
-                  )}
-                  {vehicleData.transaction.payoffNotes && (
-                    <p><strong>Notes:</strong> {vehicleData.transaction.payoffNotes}</p>
-                  )}
-                </div>
-              )}
             </CardContent>
           </Card>
 
 
 
-      <div className="flex justify-between">
-        <div></div>
+          {/* Show message when button is disabled */}
+          {(payoffStatus === 'pending' || payoffStatus === 'confirmed') && (
+            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                <h3 className="font-semibold text-yellow-800">Transaction Not Complete</h3>
+              </div>
+              <p className="text-sm text-yellow-700 mt-1">
+                {payoffStatus === 'pending' 
+                  ? "The payoff is still pending. Please wait for bank contact and confirmation before proceeding to completion."
+                  : "The payoff has been confirmed with the bank but is still pending finalization. Please wait for the payoff to be completed before proceeding to completion."
+                }
+              </p>
+            </div>
+          )}
+          <div className="flex justify-end gap-4">
 
-        <Button 
-          onClick={handleComplete} 
-          size="lg" 
-          className="px-8"
-        >
-          Continue to Completion
-        </Button>
-      </div>
-      </>
+            <Button
+              onClick={handleSaveData}
+              disabled={saving}
+              variant="outline"
+              className="border-gray-300 lg px-8"
+              size="lg"
+            >
+              {saving ? "Saving..." : "Save"}
+            </Button>
+            <Button
+              onClick={handleComplete}
+              size="lg"
+              className="px-8"
+              disabled={payoffStatus === 'pending' || payoffStatus === 'confirmed'}
+            >
+              Continue to Completion
+            </Button>
+          </div>
+
+        </>
       )}
     </div>
   )
