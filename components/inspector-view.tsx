@@ -355,6 +355,10 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
   
   // === TIMER HOOKS ===
   // Stage timer with case ID and stage name (inspections use token-based approach)
+  const extractedCaseId = (vehicleData as any)?.timerData?.caseId || (vehicleData as any)?.caseId || (vehicleData as any)?.case?._id || (vehicleData as any)?._id;
+  console.log('Extracted caseId for timer:', extractedCaseId);
+  console.log('VehicleData structure:', vehicleData);
+  
   const {
     startTime: inspectionStartTime,
     elapsed: inspectionElapsed,
@@ -364,7 +368,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     savedTimeFormatted,
     newTimeFormatted,
     isLoading: timerLoading
-  } = useStageTimer((vehicleData as any)?.caseId || (vehicleData as any)?.case?._id || (vehicleData as any)?._id, 'inspection'); // No caseId for token-based inspections
+  } = useStageTimer(extractedCaseId, 'inspection');
 
   // Section timers: { [sectionId]: { startTime, endTime, elapsed } }
   const [sectionTimers, setSectionTimers] = useState<Record<string, {
@@ -375,10 +379,14 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
 
   // Start inspection timer on mount (only if not already started from saved data)
   useEffect(() => {
-    if (!timerLoading) {
+    console.log('Timer initialization effect - timerLoading:', timerLoading, 'inspectionStartTime:', inspectionStartTime);
+    if (!timerLoading && !inspectionStartTime) {
+      console.log('Starting inspection timer...');
       startInspectionTimer();
+    } else {
+      console.log('Skipping timer start - timerLoading:', timerLoading, 'inspectionStartTime:', inspectionStartTime);
     }
-  }, [timerLoading, startInspectionTimer]);
+  }, [timerLoading, startInspectionTimer, inspectionStartTime]);
 
   // Start section timer when expanded, stop when marked complete
   useEffect(() => {
@@ -880,6 +888,10 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     setIsSavingPending(true);
     
     try {
+      // Stop the timer and save the current time before closing (not a completion)
+      const timerResult = await stopInspectionTimer(false);
+      console.log('Timer stopped for save and close:', timerResult);
+      
       // Format inspection data for pending save
       const formattedData = {
         sections: currentInspectionSections.map((section) => ({
@@ -896,7 +908,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
             answer: inspectionData[section.id]?.questions?.[question.id]?.answer,
             notes: inspectionData[section.id]?.questions?.[question.id]?.notes,
             photos: inspectionData[section.id]?.questions?.[question.id]?.photos || [],
-            subQuestions: question.subQuestions?.map((subQ: InspectionQuestion) => ({
+            subQuestions: (question as any).subQuestions?.map((subQ: InspectionQuestion) => ({
               id: subQ.id,
               question: subQ.question,
               type: subQ.type as 'radio' | 'checkbox' | 'text' | 'rating' | 'photo' | 'yesno' | 'number',
@@ -990,10 +1002,10 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     let inspectionStart: Date = inspectionStartTime || new Date();
     let caseId = (vehicleData as any)?.caseId || (vehicleData as any)?.case?._id || (vehicleData as any)?.case?._id || (vehicleData as any)?._id;
     try {
-      // Stop overall timer (now handles saving automatically)
-      const stopResult = await stopInspectionTimer();
+      // Stop overall timer (now handles saving automatically) - this is a completion
+      const stopResult = await stopInspectionTimer(true);
       console.log('Inspection timing data:', stopResult);
-      inspectionEndTime = stopResult.endTime;
+      inspectionEndTime = stopResult.endTime || new Date();
       inspectionStart = stopResult.startTime || inspectionStartTime || new Date();
 
 
@@ -1026,7 +1038,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
             answer: inspectionData[section.id]?.questions?.[question.id]?.answer,
             notes: inspectionData[section.id]?.questions?.[question.id]?.notes,
             photos: inspectionData[section.id]?.questions?.[question.id]?.photos || [],
-            subQuestions: question.subQuestions?.map((subQ: InspectionQuestion) => ({
+            subQuestions: (question as any).subQuestions?.map((subQ: InspectionQuestion) => ({
               id: subQ.id,
               question: subQ.question,
               type: subQ.type as 'radio' | 'checkbox' | 'text' | 'rating' | 'photo' | 'yesno' | 'number',

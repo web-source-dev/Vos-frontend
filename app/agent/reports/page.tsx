@@ -2,12 +2,12 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { EstimatorLayout } from '@/components/estimator/estimator-layout'
+import { AgentLayout } from '@/components/agent/agent-layout'
 import { useAuth } from '@/lib/auth'
 import { ReportsDashboard } from '@/components/admin/reports-dashboard'
 
 export default function EstimatorReportsPage() {
-  const { isEstimator, isAuthenticated, loading } = useAuth()
+  const { isAgent, isAuthenticated, loading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -17,11 +17,11 @@ export default function EstimatorReportsPage() {
     }
     
     // Ensure only estimators can access this page
-    if (!loading && !isEstimator) {
+    if (!loading && !isAgent) {
       router.push('/')
       return
     }
-  }, [isEstimator, loading, router, isAuthenticated])
+  }, [isAgent, loading, router, isAuthenticated])
 
   // Show loading or reports for authenticated estimators
   if (loading) {
@@ -35,15 +35,15 @@ export default function EstimatorReportsPage() {
     )
   }
 
-  if (!isAuthenticated || !isEstimator) {
+  if (!isAuthenticated || !isAgent) {
     return null // Will redirect to appropriate page
   }
 
   return (
-    <EstimatorLayout>
+    <AgentLayout>
       <div className="p-6">
         <ReportsDashboard />
       </div>
-    </EstimatorLayout>
+    </AgentLayout>
   )
 } 
