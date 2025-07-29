@@ -31,6 +31,7 @@ interface VehicleData {
 interface QuoteData {
   offerAmount?: number
   accessToken?: string
+  offerDecision?: OfferDecisionData
 }
 
 interface OfferDecisionData {
@@ -46,6 +47,12 @@ interface TransactionData {
     saleDate?: string
   }
   paymentStatus?: string
+  // Payoff confirmation fields
+  payoffStatus?: 'pending' | 'confirmed' | 'completed' | 'not_required'
+  payoffConfirmedAt?: string
+  payoffCompletedAt?: string
+  payoffConfirmedBy?: string
+  payoffNotes?: string
 }
 
 interface CompletionData {
@@ -95,6 +102,7 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
   const [titleConfirmation, setTitleConfirmation] = useState(false)
   const { toast } = useToast()
   const [isCompleting, setIsCompleting] = useState(false)
+  const [isCaseClosed, setIsCaseClosed] = useState(false)
   const router = useRouter()
   // Stage timer for completion stage with case ID and stage name
   const caseId = vehicleData._id;
@@ -137,8 +145,14 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
     ? `${vehicleData.vehicle.year || ''} ${vehicleData.vehicle.make || ''} ${vehicleData.vehicle.model || ''}`.trim()
     : 'Unknown Vehicle'
 
-  // Check if offer was declined
-  const isOfferDeclined = vehicleData.offerDecision?.decision === 'declined'
+  console.log('vehicleData', vehicleData)
+  // Check if offer was declined - check both quote.offerDecision and case.offerDecision
+  const isOfferDeclined = vehicleData.quote?.offerDecision?.decision === 'declined' || 
+                         vehicleData.offerDecision?.decision === 'declined'
+
+  // Check if payoff confirmation is required (not 'not_required')
+  const isPayoffRequired = vehicleData.transaction?.payoffStatus && 
+                          vehicleData.transaction.payoffStatus !== 'not_required'
 
   const handleLeaveBehindsChange = (item: string, checked: boolean) => {
     const newLeaveBehinds = {
@@ -212,8 +226,9 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
       const timingData = await timer.stop()
       console.log('Stage timing data:', timingData)
 
-      // Send thank you email to customer
-      const emailResponse = await api.sendCustomerEmail(caseId, 'thank-you');
+      // Send appropriate email based on offer status
+      const emailType = isOfferDeclined ? 'declined-followup' : 'thank-you';
+      const emailResponse = await api.sendCustomerEmail(caseId, emailType);
       
       if (!emailResponse.success) {
         throw new Error(emailResponse.error || 'Failed to send thank you email');
@@ -241,8 +256,10 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
         })
 
         toast({
-          title: "Thank You Sent",
-          description: "Thank you message and case file sent to customer.",
+          title: isOfferDeclined ? "Follow-up Sent" : "Thank You Sent",
+          description: isOfferDeclined 
+            ? "Professional follow-up message sent to customer." 
+            : "Thank you message and case file sent to customer.",
         })
 
         onComplete()
@@ -257,15 +274,17 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
       })
 
       toast({
-        title: "Thank You Sent",
-        description: "Thank you message and case file sent to customer.",
+        title: isOfferDeclined ? "Follow-up Sent" : "Thank You Sent",
+        description: isOfferDeclined 
+          ? "Professional follow-up message sent to customer." 
+          : "Thank you message and case file sent to customer.",
       })
 
       onComplete()
     } catch (error) {
       const errorData = api.handleError(error);
       toast({
-        title: "Error Sending Thank You",
+        title: isOfferDeclined ? "Error Sending Follow-up" : "Error Sending Thank You",
         description: errorData.error,
         variant: "destructive",
       })
@@ -316,7 +335,8 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
     }
   }
 
-  const allLeaveBehindsComplete = Object.values(leaveBehinds).every(Boolean) && titleConfirmation
+  const allLeaveBehindsComplete = Object.values(leaveBehinds).every(Boolean) && 
+                                 (isPayoffRequired ? titleConfirmation : true)
 
   const handleComplete = async () => {
     try {
@@ -331,6 +351,17 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
       // Stop timer and get timing data (now handles saving automatically)
       const timingData = await timer.stop()
       console.log('Stage timing data:', timingData)
+
+      // For declined offers, set the case status to 'quote-declined' first
+      if (isOfferDeclined) {
+        await api.updateCaseStatus(caseId, 'quote-declined');
+        setIsCaseClosed(true);
+        
+        // Update local state to reflect the closed status
+        onUpdate({
+          status: 'quote-declined'
+        });
+      }
 
       // Save final completion data
       await saveCompletionData({
@@ -362,10 +393,10 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
       // Update stage statuses to mark stage 7 as complete
       const currentStageStatuses = vehicleData.stageStatuses || {};
       const stageData = {
-        currentStage: vehicleData.currentStage || 8, // Preserve current stage or default to 8
+        currentStage: vehicleData.currentStage || 6, // Preserve current stage or default to 8
         stageStatuses: {
           ...currentStageStatuses,
-          7: 'complete' // Mark stage 7 (Completion) as complete
+          6: 'complete' // Mark stage 7 (Completion) as complete
         }
       };
       
@@ -380,8 +411,10 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
       }
 
       toast({
-        title: "Case Completed",
-        description: "Case file has been generated and process is complete.",
+        title: isOfferDeclined ? "Case Closed" : "Case Completed",
+        description: isOfferDeclined 
+          ? "Declined offer case has been closed successfully." 
+          : "Case file has been generated and process is complete.",
       })
 
       onComplete()
@@ -409,7 +442,7 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
             <XCircle className="h-6 w-6 md:h-8 md:w-8 text-red-600" />
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-red-800">Offer Declined - Case Closed</h1>
-          <p className="text-muted-foreground mt-2">Customer has declined the offer</p>
+          <p className="text-muted-foreground mt-2">Customer has declined the offer and the case has been closed</p>
         </div>
       ) : (
         <div className="text-center">
@@ -518,125 +551,201 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
         </CardContent>
       </Card>
 
-      {/* Leave-Behind Checklist */}
-      <Card>
-        <CardHeader className="pb-3 md:pb-4">
-          <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-            <Car className="h-4 w-4 md:h-5 md:w-5" />
-            Leave-Behind Checklist
-            {isSaving && (
-              <div className="flex items-center gap-2 text-xs md:text-sm text-blue-600">
-                <Save className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
-                Saving...
+      {/* Leave-Behind Checklist - Only show for completed transactions */}
+      {!isOfferDeclined && (
+        <Card>
+          <CardHeader className="pb-3 md:pb-4">
+            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+              <Car className="h-4 w-4 md:h-5 md:w-5" />
+              Leave-Behind Checklist
+              {isSaving && (
+                <div className="flex items-center gap-2 text-xs md:text-sm text-blue-600">
+                  <Save className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
+                  Saving...
+                </div>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 md:space-y-4">
+            <p className="text-xs md:text-sm text-muted-foreground mb-3 md:mb-4">Ensure all items are completed before customer leaves:</p>
+
+            <div className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="vehicleLeft"
+                  checked={leaveBehinds.vehicleLeft}
+                  onChange={(e) => handleLeaveBehindsChange("vehicleLeft", e.target.checked)}
+                  className="rounded"
+                />
+                <label htmlFor="vehicleLeft" className="flex items-center gap-2 text-xs md:text-sm">
+                  <Car className="h-3 w-3 md:h-4 md:w-4" />
+                  Vehicle left at designated location
+                </label>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="keysHandedOver"
+                  checked={leaveBehinds.keysHandedOver}
+                  onChange={(e) => handleLeaveBehindsChange("keysHandedOver", e.target.checked)}
+                  className="rounded"
+                />
+                <label htmlFor="keysHandedOver" className="flex items-center gap-2 text-xs md:text-sm">
+                  <Key className="h-3 w-3 md:h-4 md:w-4" />
+                  All keys handed over (including spare keys)
+                </label>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  id="documentsReceived"
+                  checked={leaveBehinds.documentsReceived}
+                  onChange={(e) => handleLeaveBehindsChange("documentsReceived", e.target.checked)}
+                  className="rounded"
+                />
+                <label htmlFor="documentsReceived" className="flex items-center gap-2 text-xs md:text-sm">
+                  <FileText className="h-3 w-3 md:h-4 md:w-4" />
+                  All required documents received and verified
+                </label>
+              </div>
+
+              {isPayoffRequired && (
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    id="titleConfirmation"
+                    checked={titleConfirmation}
+                    onChange={(e) => {
+                      setTitleConfirmation(e.target.checked)
+                      saveCompletionData({
+                        titleConfirmation: e.target.checked
+                      })
+                    }}
+                    className="rounded"
+                  />
+                  <label htmlFor="titleConfirmation" className="flex items-center gap-2 text-xs md:text-sm">
+                    <FileText className="h-3 w-3 md:h-4 md:w-4" />
+                    Has the bank issued the title to VOS?
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {allLeaveBehindsComplete && (
+              <div className="p-2 md:p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-xs md:text-sm text-green-800 font-medium">
+                  ✓ All checklist items completed! Customer is ready to leave.
+                </p>
               </div>
             )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 md:space-y-4">
-          <p className="text-xs md:text-sm text-muted-foreground mb-3 md:mb-4">Ensure all items are completed before customer leaves:</p>
+          </CardContent>
+        </Card>
+      )}
 
-          <div className="space-y-3">
-            <div className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                id="vehicleLeft"
-                checked={leaveBehinds.vehicleLeft}
-                onChange={(e) => handleLeaveBehindsChange("vehicleLeft", e.target.checked)}
-                className="rounded"
-              />
-              <label htmlFor="vehicleLeft" className="flex items-center gap-2 text-xs md:text-sm">
-                <Car className="h-3 w-3 md:h-4 md:w-4" />
-                Vehicle left at designated location
-              </label>
+      {/* Declined Offer Summary - Only show for declined offers */}
+      {isOfferDeclined && (
+        <Card className="border-red-200 bg-red-50">
+          <CardHeader className="pb-3 md:pb-4">
+            <CardTitle className="flex items-center gap-2 text-base md:text-lg text-red-800">
+              <XCircle className="h-4 w-4 md:h-5 md:w-5" />
+              Declined Offer Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 md:space-y-4">
+            <div className="p-3 md:p-4 bg-white border border-red-200 rounded-lg">
+              <h4 className="font-semibold text-red-800 mb-2 text-sm md:text-base">Case Closure Details</h4>
+              <div className="space-y-2 text-xs md:text-sm">
+                <div className="flex justify-between">
+                  <span className="text-red-700">Status:</span>
+                  <Badge className="bg-red-100 text-red-800">Case Closed</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-red-700">Decision Date:</span>
+                  <span className="text-red-800">
+                    {vehicleData.offerDecision?.declinedAt 
+                      ? new Date(vehicleData.offerDecision.declinedAt).toLocaleDateString()
+                      : new Date().toLocaleDateString()
+                    }
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-red-700">Final Stage:</span>
+                  <span className="text-red-800">Offer Decision</span>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                id="keysHandedOver"
-                checked={leaveBehinds.keysHandedOver}
-                onChange={(e) => handleLeaveBehindsChange("keysHandedOver", e.target.checked)}
-                className="rounded"
-              />
-              <label htmlFor="keysHandedOver" className="flex items-center gap-2 text-xs md:text-sm">
-                <Key className="h-3 w-3 md:h-4 md:w-4" />
-                All keys handed over (including spare keys)
-              </label>
-            </div>
+            {vehicleData.offerDecision?.reason && (
+              <div className="p-3 md:p-4 bg-white border border-red-200 rounded-lg">
+                <h4 className="font-semibold text-red-800 mb-2 text-sm md:text-base">Customer's Reason for Declining</h4>
+                <p className="text-sm text-red-700 italic">"{vehicleData.offerDecision.reason}"</p>
+              </div>
+            )}
 
-            <div className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                id="documentsReceived"
-                checked={leaveBehinds.documentsReceived}
-                onChange={(e) => handleLeaveBehindsChange("documentsReceived", e.target.checked)}
-                className="rounded"
-              />
-              <label htmlFor="documentsReceived" className="flex items-center gap-2 text-xs md:text-sm">
-                <FileText className="h-3 w-3 md:h-4 md:w-4" />
-                All required documents received and verified
-              </label>
+            <div className="p-3 md:p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <h4 className="font-semibold text-yellow-800 mb-2 text-sm md:text-base">Next Steps</h4>
+              <ul className="text-xs md:text-sm text-yellow-700 space-y-1">
+                <li>• Case has been automatically closed</li>
+                <li>• Customer retains ownership of their vehicle</li>
+                <li>• No further action required from VOS</li>
+                <li>• Consider following up with customer in the future</li>
+              </ul>
             </div>
-
-            <div className="flex items-center space-x-3">
-              <input
-                type="checkbox"
-                id="titleConfirmation"
-                checked={titleConfirmation}
-                onChange={(e) => {
-                  setTitleConfirmation(e.target.checked)
-                  saveCompletionData({
-                    titleConfirmation: e.target.checked
-                  })
-                }}
-                className="rounded"
-              />
-              <label htmlFor="titleConfirmation" className="flex items-center gap-2 text-xs md:text-sm">
-                <FileText className="h-3 w-3 md:h-4 md:w-4" />
-                Has the bank issued the title to VOS?
-              </label>
-            </div>
-          </div>
-
-          {allLeaveBehindsComplete && (
-            <div className="p-2 md:p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-xs md:text-sm text-green-800 font-medium">
-                ✓ All checklist items completed! Customer is ready to leave.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Customer Follow-up */}
       <Card>
         <CardHeader className="pb-3 md:pb-4">
           <CardTitle className="flex items-center gap-2 text-base md:text-lg">
             <Heart className="h-4 w-4 md:h-5 md:w-5" />
-            Customer Follow-up
+            {isOfferDeclined ? "Customer Follow-up (Declined)" : "Customer Follow-up"}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 md:space-y-4">
-          <div className="p-3 md:p-4 bg-blue-50 rounded-lg">
-            <h4 className="font-semibold text-blue-800 mb-2 text-sm md:text-base">Thank You & Review Request</h4>
-            <p className="text-xs md:text-sm text-blue-700 mb-3">
-              Send a personalized thank you message and request a review to help improve our service.
-            </p>
+          {isOfferDeclined ? (
+            <div className="p-3 md:p-4 bg-orange-50 rounded-lg">
+              <h4 className="font-semibold text-orange-800 mb-2 text-sm md:text-base">Follow-up for Declined Offer</h4>
+              <p className="text-xs md:text-sm text-orange-700 mb-3">
+                Send a professional follow-up message to maintain good customer relations and potentially re-engage in the future.
+              </p>
 
-            <Button onClick={handleSendThankYou} disabled={thankYouSent} className="w-full text-xs md:text-sm">
-              <Mail className="h-3 w-3 md:h-4 md:w-4 mr-2" />
-              {thankYouSent ? "Thank You Sent ✓" : "Send Thank You + Review Request"}
-            </Button>
-          </div>
+              <Button onClick={handleSendThankYou} disabled={thankYouSent} className="w-full text-xs md:text-sm bg-orange-600 hover:bg-orange-700">
+                <Mail className="h-3 w-3 md:h-4 md:w-4 mr-2" />
+                {thankYouSent ? "Follow-up Sent ✓" : "Send Professional Follow-up"}
+              </Button>
+            </div>
+          ) : (
+            <div className="p-3 md:p-4 bg-blue-50 rounded-lg">
+              <h4 className="font-semibold text-blue-800 mb-2 text-sm md:text-base">Thank You & Review Request</h4>
+              <p className="text-xs md:text-sm text-blue-700 mb-3">
+                Send a personalized thank you message and request a review to help improve our service.
+              </p>
+
+              <Button onClick={handleSendThankYou} disabled={thankYouSent} className="w-full text-xs md:text-sm">
+                <Mail className="h-3 w-3 md:h-4 md:w-4 mr-2" />
+                {thankYouSent ? "Thank You Sent ✓" : "Send Thank You + Review Request"}
+              </Button>
+            </div>
+          )}
 
           {thankYouSent && (
             <div className="p-2 md:p-3 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-3 w-3 md:h-4 md:w-4 text-green-600" />
-                <p className="text-xs md:text-sm text-green-800 font-medium">Thank you message sent successfully!</p>
+                <p className="text-xs md:text-sm text-green-800 font-medium">
+                  {isOfferDeclined ? "Follow-up message sent successfully!" : "Thank you message sent successfully!"}
+                </p>
               </div>
               <p className="text-xs text-green-700 mt-1">
-                Customer will receive an email with review links and contact information.
+                {isOfferDeclined 
+                  ? "Customer will receive a professional follow-up email maintaining good relations."
+                  : "Customer will receive an email with review links and contact information."
+                }
               </p>
             </div>
           )}
@@ -666,16 +775,39 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
       </Card>
 
       {/* Completion Status */}
+      {isCaseClosed ? (
+        <div className="flex justify-center">
+          <div className="p-4 md:p-6 bg-green-50 border border-green-200 rounded-lg text-center">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <CheckCircle className="h-5 w-5 md:h-6 md:w-6 text-green-600" />
+              <h3 className="text-lg md:text-xl font-semibold text-green-800">Case Closed</h3>
+            </div>
+            <p className="text-sm md:text-base text-green-700">
+              The declined offer case has been successfully closed with status: <strong>quote-declined</strong>
+            </p>
+          </div>
+        </div>
+      ) : (
         <div className="flex justify-end">
           <Button 
             onClick={handleComplete} 
             disabled={isCompleting} 
             size="lg" 
-            className="px-6 md:px-8 text-sm md:text-base"
+            className={`px-6 md:px-8 text-sm md:text-base ${
+              isOfferDeclined 
+                ? "bg-red-600 hover:bg-red-700" 
+                : "bg-green-600 hover:bg-green-700"
+            }`}
           >
-            {isCompleting ? "Completing..." : "Complete Case"}
+            {isCompleting 
+              ? "Completing..." 
+              : isOfferDeclined 
+                ? "Close Case" 
+                : "Complete Case"
+            }
           </Button>
         </div>
+      )}
     </div>
   )
 }

@@ -248,6 +248,8 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
           model: "",
           currentMileage: "",
           vin: "",
+          color: "",
+          bodyStyle: "",
           titleStatus: "clean",
           loanStatus: "paid-off",
           loanAmount: "",
@@ -356,6 +358,8 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
           model: vehicleData.vehicle?.model || "",
           currentMileage: vehicleData.vehicle?.currentMileage || "",
           vin: vehicleData.vehicle?.vin || "",
+          color: vehicleData.vehicle?.color || "",
+          bodyStyle: vehicleData.vehicle?.bodyStyle || "",
           titleStatus: vehicleData.vehicle?.titleStatus || "clean",
           loanStatus: vehicleData.vehicle?.loanStatus || "paid-off",
           loanAmount: vehicleData.vehicle?.loanAmount ? vehicleData.vehicle.loanAmount.toString() : "",
@@ -815,7 +819,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
 
               if (response.success) {
           // Send stage time data to backend
-          if (timingData.startTime && caseId) {
+          if (timingData.startTime && timingData.endTime && caseId) {
             try {
               await api.updateStageTime(
                 caseId,
@@ -1374,6 +1378,28 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
                   />
                 </div>
               )}
+              
+              {/* Color and Body Style Fields */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="vehicleColor">Color</Label>
+                  <Input
+                    id="vehicleColor"
+                    value={formData.vehicle.color || ''}
+                    onChange={(e) => handleInputChange("vehicle", "color", e.target.value)}
+                    placeholder="e.g., Red, Blue, Silver"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="vehicleBodyStyle">Body Style</Label>
+                  <Input
+                    id="vehicleBodyStyle"
+                    value={formData.vehicle.bodyStyle || ''}
+                    onChange={(e) => handleInputChange("vehicle", "bodyStyle", e.target.value)}
+                    placeholder="e.g., Sedan, SUV, Truck"
+                  />
+                </div>
+              </div>
               
               {/* Electric Vehicle Checkbox */}
               <div className="flex items-center justify-between mt-4 p-3 border rounded-lg bg-gray-50">

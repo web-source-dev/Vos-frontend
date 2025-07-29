@@ -213,6 +213,7 @@ export function useStageTimer(caseId?: string, stageName?: string) {
     elapsedFormatted: formatDuration(elapsed),
     savedTimeFormatted: formatDuration(savedTime),
     newTimeFormatted: formatDuration(elapsed - savedTime),
+    isOverTime: Math.floor(elapsed / 1000) > 1200, // 20 minutes = 1200 seconds
   };
 }
 

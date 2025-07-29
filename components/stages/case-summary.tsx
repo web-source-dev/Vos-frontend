@@ -23,7 +23,11 @@ import {
   CreditCard,
   FileCheck,
   TrendingUp,
-  Settings
+  Settings,
+  XCircle,
+  MessageSquare,
+  Activity,
+  Circle
 } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
 
@@ -155,6 +159,7 @@ interface QuoteData {
   emailSent?: boolean
   createdAt?: string
   updatedAt?: string
+  offerDecision?: OfferDecisionData
   estimator?: {
     firstName: string
     lastName: string
@@ -252,7 +257,7 @@ interface CaseData {
   transaction?: TransactionData
   completion?: CompletionData
   currentStage?: number
-  status?: 'new' | 'active' | 'scheduled' | 'quote-ready' | 'negotiating' | 'completed' | 'cancelled'
+  status?: 'new' | 'active' | 'scheduled' | 'quote-ready' | 'negotiating' | 'completed' | 'cancelled' | 'quote-declined'
   stageStatuses?: {
     [key: number]: 'active' | 'complete' | 'pending'
   }
@@ -328,6 +333,12 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
     if (accessibleStages.length > 0) {
       return accessibleStages.includes(stageId)
     }
+    
+    // For declined offers, stage 5 (paperwork) is not accessible since it's hidden
+    if (isOfferDeclined() && stageId === 5) {
+      return false
+    }
+    
     return stageId <= (vehicleData.currentStage || 1)
   }
 
@@ -370,6 +381,89 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
       default: return `Stage ${stage}`
     }
   }
+
+  // Helper function to get case status display
+  const getCaseStatusDisplay = () => {
+    const isDeclinedOffer = vehicleData.offerDecision?.decision === 'declined' || 
+                           vehicleData.quote?.offerDecision?.decision === 'declined' ||
+                           vehicleData.status === 'quote-declined'
+    
+    if (isDeclinedOffer) {
+      return {
+        status: 'Offer Declined',
+        color: 'text-red-600',
+        bgColor: 'bg-red-100',
+        icon: 'XCircle'
+      }
+    }
+    
+    switch (vehicleData.status) {
+      case 'completed':
+        return {
+          status: 'Completed',
+          color: 'text-green-600',
+          bgColor: 'bg-green-100',
+          icon: 'CheckCircle'
+        }
+      case 'cancelled':
+        return {
+          status: 'Cancelled',
+          color: 'text-gray-600',
+          bgColor: 'bg-gray-100',
+          icon: 'XCircle'
+        }
+      case 'negotiating':
+        return {
+          status: 'Negotiating',
+          color: 'text-yellow-600',
+          bgColor: 'bg-yellow-100',
+          icon: 'MessageSquare'
+        }
+      case 'quote-ready':
+        return {
+          status: 'Quote Ready',
+          color: 'text-blue-600',
+          bgColor: 'bg-blue-100',
+          icon: 'FileText'
+        }
+      case 'scheduled':
+        return {
+          status: 'Scheduled',
+          color: 'text-purple-600',
+          bgColor: 'bg-purple-100',
+          icon: 'Calendar'
+        }
+      case 'active':
+        return {
+          status: 'Active',
+          color: 'text-blue-600',
+          bgColor: 'bg-blue-100',
+          icon: 'Activity'
+        }
+      default:
+        return {
+          status: 'New',
+          color: 'text-gray-600',
+          bgColor: 'bg-gray-100',
+          icon: 'Circle'
+        }
+    }
+  }
+
+  // Helper function to check if offer is declined
+  const isOfferDeclined = () => {
+    return vehicleData.offerDecision?.decision === 'declined' || 
+           vehicleData.quote?.offerDecision?.decision === 'declined' ||
+           vehicleData.status === 'quote-declined'
+  }
+
+  // Filter stages based on offer status - hide paperwork stage if offer is declined
+  const getFilteredStages = () => {
+    if (isOfferDeclined()) {
+      return stages.filter(stage => stage.id !== 5) // Remove paperwork stage (id: 5)
+    }
+    return stages
+  }
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header */}
@@ -406,12 +500,21 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
         <Card>
           <CardContent className="p-3 md:p-4">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 rounded-full flex items-center justify-center">
-                <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
+              <div className={`w-8 h-8 md:w-10 md:h-10 ${getCaseStatusDisplay().bgColor} rounded-full flex items-center justify-center`}>
+                {getCaseStatusDisplay().icon === 'XCircle' && <XCircle className="h-4 w-4 md:h-5 md:w-5 text-red-600" />}
+                {getCaseStatusDisplay().icon === 'CheckCircle' && <CheckCircle className="h-4 w-4 md:h-5 md:w-5 text-green-600" />}
+                {getCaseStatusDisplay().icon === 'MessageSquare' && <MessageSquare className="h-4 w-4 md:h-5 md:w-5 text-yellow-600" />}
+                {getCaseStatusDisplay().icon === 'FileText' && <FileText className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />}
+                {getCaseStatusDisplay().icon === 'Calendar' && <Calendar className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />}
+                {getCaseStatusDisplay().icon === 'Activity' && <Activity className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />}
+                {getCaseStatusDisplay().icon === 'Circle' && <Circle className="h-4 w-4 md:h-5 md:w-5 text-gray-600" />}
               </div>
               <div>
-                <p className="text-sm md:text-lg font-bold">Progress</p>
-                <p className="text-sm text-gray-500"> {getStageName(vehicleData.currentStage || 1)}</p>
+                <p className="text-sm md:text-lg font-bold">Case Status</p>
+                <p className={`text-sm font-medium ${getCaseStatusDisplay().color}`}>
+                  {getCaseStatusDisplay().status}
+                </p>
+                <p className="text-xs text-gray-500">Stage: {getStageName(vehicleData.currentStage || 1)}</p>
               </div>
             </div>
           </CardContent>
@@ -670,7 +773,7 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
         </CardHeader>
         <CardContent>
           <div className="space-y-3 md:space-y-4">
-            {stages.map((stage) => {
+            {getFilteredStages().map((stage) => {
               const isAccessible = isStageAccessible(stage.id)
               const isExpanded = expandedSection === `stage-${stage.id}`
               
@@ -688,7 +791,18 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
                           <stage.icon className="h-4 w-4 md:h-5 md:w-5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className="font-semibold text-sm md:text-base">{stage.name}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-sm md:text-base">{stage.name}</h4>
+                            {/* Show declined indicator for stage 4 (Quote & Decision) when offer is declined */}
+                            {stage.id === 4 && (vehicleData.offerDecision?.decision === 'declined' || 
+                                               vehicleData.quote?.offerDecision?.decision === 'declined' ||
+                                               vehicleData.status === 'quote-declined') && (
+                              <Badge variant="destructive" className="text-xs">
+                                <XCircle className="h-3 w-3 mr-1" />
+                                Declined
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">{stage.description}</p>
                         </div>
                       </div>
@@ -916,6 +1030,27 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
                                   <p><strong>Customer Notes:</strong> {vehicleData.offerDecision.customerNotes}</p>
                                 </div>
                               )}
+
+                              {/* Enhanced display for declined offers */}
+                              {vehicleData.offerDecision.decision === 'declined' && (
+                                <div className="p-3 bg-red-50 rounded border border-red-200">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <XCircle className="h-4 w-4 text-red-600" />
+                                    <p className="font-semibold text-red-800">Offer Declined</p>
+                                  </div>
+                                  {vehicleData.offerDecision.reason && (
+                                    <div className="mb-2">
+                                      <p className="text-sm font-medium text-red-700 mb-1">Reason for Declining:</p>
+                                      <p className="text-sm text-red-600 italic">"{vehicleData.offerDecision.reason}"</p>
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-red-600">
+                                    <p>• Case automatically moved to completion stage</p>
+                                    <p>• Customer retains ownership of vehicle</p>
+                                    <p>• No further action required from VOS</p>
+                                  </div>
+                                </div>
+                              )}
                              
                             </>
                           )}
@@ -1006,6 +1141,14 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
                       )}
 
                       {stage.id === 6 && vehicleData.completion && (
+                       
+                        <>
+                         {isOfferDeclined() ? (
+                          <div className="p-3 bg-red-50 rounded border border-red-200">
+                            <p className="font-semibold text-red-800">Offer Declined</p>
+                            <p className="text-sm text-red-600 italic">"{vehicleData.quote?.offerDecision?.reason}"</p>
+                          </div>
+                        ) : (
                         <div className="space-y-3 text-xs md:text-sm">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                             <div>
@@ -1040,6 +1183,8 @@ export function CaseSummary({ vehicleData, onStageChange, accessibleStages = [] 
                             </div>
                           )}
                         </div>
+                        )}
+                        </>
                       )}
                     </div>
                   )}

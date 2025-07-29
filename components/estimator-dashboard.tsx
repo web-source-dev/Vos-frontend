@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Search, LayoutGrid, List, Plus, Car, User, Clock, CheckCircle, Users, Trash2, Mail, Send, Copy, Check, ArrowUp, ArrowDown, Menu, Calculator } from "lucide-react"
+import { Search, LayoutGrid, List, Plus, Car, User, Clock, CheckCircle, Users, Trash2, Mail, Send, Copy, Check, ArrowUp, ArrowDown, Menu, Calculator, XCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import api from "@/lib/api"
@@ -67,13 +67,15 @@ const stages = [
 // New status mapping based on current stage
 const getStatusFromStage = (currentStage: number, status: string) => {
   if (status === "completed") return "Completed"
+  if (status === "quote-declined") return "Offer Declined / Closed"
+  if (status === "cancelled") return "Offer Declined / Closed"
   
   switch (currentStage) {
     case 1:
     case 2:
-      return "Pending Inspection Scheduling"
+      return "Pending Inspection"
     case 3:
-      return "Pending Inspection Completion"
+      return "Pending Inspection"
     case 4:
       return "Pending Quote"
     case 5:
@@ -85,19 +87,19 @@ const getStatusFromStage = (currentStage: number, status: string) => {
     case 8:
       return "Completed"
     default:
-      return "Pending Inspection Scheduling"
+      return "Pending Inspection"
   }
 }
 
 const getStatusBadgeColor = (status: string) => {
   const statusConfig = {
-    "Pending Inspection Scheduling": "bg-yellow-100 text-yellow-800",
-    "Pending Inspection Completion": "bg-orange-100 text-orange-800",
+    "Pending Inspection": "bg-yellow-100 text-yellow-800",
     "Pending Quote": "bg-blue-100 text-blue-800",
     "Pending Offer Decision": "bg-purple-100 text-purple-800",
     "Pending Paperwork": "bg-indigo-100 text-indigo-800",
     "Pending Completion": "bg-pink-100 text-pink-800",
     "Completed": "bg-green-100 text-green-800",
+    "Offer Declined / Closed": "bg-red-100 text-red-800",
   }
   return statusConfig[status as keyof typeof statusConfig] || "bg-gray-100 text-gray-800"
 }
@@ -106,12 +108,13 @@ const getStatusBadgeColor = (status: string) => {
 const mapStatusParamToDisplay = (param: string) => {
   const normalized = param.trim().toLowerCase();
   if (normalized === 'completed') return 'Completed';
-  if (normalized === 'scheduled') return 'Pending Inspection Scheduling';
-  if (normalized === 'inspection') return 'Pending Inspection Completion';
+  if (normalized === 'scheduled') return 'Pending Inspection';
+  if (normalized === 'inspection') return 'Pending Inspection';
   if (normalized === 'quote-ready') return 'Pending Quote';
   if (normalized === 'decision') return 'Pending Offer Decision';
   if (normalized === 'paperwork') return 'Pending Paperwork';
-  if (normalized === 'completed') return 'Pending Completion';
+  if (normalized === 'quote-declined') return 'Offer Declined / Closed';
+  if (normalized === 'cancelled') return 'Offer Declined / Closed';
   return param;
 };
 
@@ -139,7 +142,7 @@ export function EstimatorDashboard() {
       try {
         const response = await api.getEstimatorCases();
         if (response.success) {
-          const casesData = response.data.map((caseItem: any) => ({
+          const casesData = (response.data || []).map((caseItem: any) => ({
             _id: caseItem._id || caseItem.id,
             status: caseItem.status,
             currentStage: caseItem.currentStage,
@@ -203,7 +206,7 @@ export function EstimatorDashboard() {
   }, [cases]);
   
   // Add state for quick filter
-  const [quickFilter, setQuickFilter] = useState<null | 'inProcess' | 'completedToday' | 'allCompleted' | 'allCases'>(null);
+  const [quickFilter, setQuickFilter] = useState<null | 'inProcess' | 'completedToday' | 'allCompleted' | 'allCases' | 'cancelled'>(null);
 
   const filteredCustomers = useMemo(() => {
     const filtered = cases.filter((caseData) => {
@@ -218,13 +221,15 @@ export function EstimatorDashboard() {
         vehicle?.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         vehicle?.vin?.toLowerCase().includes(searchTerm.toLowerCase())
 
-      const matchesStatus = statusFilter === "all" || caseStatus === statusFilterDisplay;
+      const matchesStatus = statusFilter === "all" || 
+        caseStatus === statusFilterDisplay ||
+        (statusFilterDisplay === "Offer Declined / Closed" && (caseStatus === "Offer Declined / Closed"));
       const matchesStage = stageFilter === "all" || caseData.currentStage.toString() === stageFilter;
 
       // Quick filter logic
       let matchesQuick = true;
       if (quickFilter === 'inProcess') {
-        matchesQuick = caseStatus !== 'Completed';
+        matchesQuick = caseStatus !== 'Completed' && caseStatus !== 'Offer Declined / Closed';
       } else if (quickFilter === 'completedToday') {
         const today = new Date().toDateString();
         matchesQuick = caseStatus === 'Completed' && new Date(caseData.updatedAt || caseData.createdAt).toDateString() === today;
@@ -232,6 +237,8 @@ export function EstimatorDashboard() {
         matchesQuick = caseStatus === 'Completed';
       } else if (quickFilter === 'allCases') {
         matchesQuick = true;
+      } else if (quickFilter === 'cancelled') {
+        matchesQuick = caseStatus === 'Offer Declined / Closed';
       }
 
       return matchesSearch && matchesStatus && matchesStage && matchesQuick;
@@ -307,6 +314,11 @@ export function EstimatorDashboard() {
   const completedToday = filteredCustomers.filter((c) => 
     getStatusFromStage(c.currentStage, c.status) === "Completed" && 
     new Date(c.updatedAt || c.createdAt).toDateString() === today
+  ).length;
+
+  // Total cancelled cases (includes both declined offers and closed cases)
+  const totalCancelled = filteredCustomers.filter(c => 
+    getStatusFromStage(c.currentStage, c.status) === "Offer Declined / Closed"
   ).length;
 
   const getStatusBadge = (currentStage: number, status: string) => {
@@ -510,6 +522,12 @@ export function EstimatorDashboard() {
     setStageFilter('all');
   }
 
+  const handleCancelledClick = () => {
+    setQuickFilter('cancelled');
+    setStatusFilter('all');
+    setStageFilter('all');
+  }
+
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Header with stats and actions */}
@@ -601,13 +619,13 @@ export function EstimatorDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Cases</SelectItem>
-                  <SelectItem value="Pending Inspection Scheduling">Pending Inspection Scheduling</SelectItem>
-                  <SelectItem value="Pending Inspection Completion">Pending Inspection Completion</SelectItem>
+                  <SelectItem value="Pending Inspection">Pending Inspection</SelectItem>
                   <SelectItem value="Pending Quote">Pending Quote</SelectItem>
                   <SelectItem value="Pending Offer Decision">Pending Offer Decision</SelectItem>
                   <SelectItem value="Pending Paperwork">Pending Paperwork</SelectItem>
                   <SelectItem value="Pending Completion">Pending Completion</SelectItem>
                   <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="Offer Declined / Closed">Offer Declined / Closed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -636,7 +654,7 @@ export function EstimatorDashboard() {
 
       <div className="p-4 sm:p-6">
         {/* Summary Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
           <Card
             className={quickFilter === 'allCases' ? 'ring-2 ring-blue-400' : ''}
             onClick={handleTotalCasesClick}
@@ -708,6 +726,24 @@ export function EstimatorDashboard() {
                 <div>
                   <p className="text-lg sm:text-2xl font-bold">{completedToday}</p>
                   <p className="text-xs sm:text-sm text-muted-foreground">Completed Today</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={quickFilter === 'cancelled' ? 'ring-2 ring-blue-400' : ''}
+            onClick={handleCancelledClick}
+            style={{ cursor: 'pointer' }}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                  <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="text-lg sm:text-2xl font-bold">{totalCancelled}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Closed Cases</p>
                 </div>
               </div>
             </CardContent>

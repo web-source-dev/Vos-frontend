@@ -229,22 +229,6 @@ export async function savePendingInspection(
   return handleResponse<Inspection>(response);
 }
 
-export async function assignEstimator(
-  caseId: string,
-  estimatorData: { firstName: string; lastName: string; email: string; phone?: string }
-): Promise<APIResponse<Quote>> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/estimator`, {
-      ...(await defaultOptions()),
-      method: 'POST',
-      body: JSON.stringify({ estimator: estimatorData }),
-    });
-    return await handleResponse<Quote>(response);
-  } catch (error) {
-    return handleError(error);
-  }
-}
-
 export async function assignEstimatorDuringInspection(
   caseId: string,
   estimatorData: { firstName: string; lastName: string; email: string; phone?: string }
@@ -579,7 +563,7 @@ export async function generateQuoteSummary(caseId: string, quoteData?: Record<st
   }
 }
 
-export async function sendCustomerEmail(caseId: string, emailType: 'quote' | 'decision' | 'thank-you'): Promise<APIResponse<void>> {
+export async function sendCustomerEmail(caseId: string, emailType: 'quote' | 'decision' | 'thank-you' | 'declined-followup'): Promise<APIResponse<void>> {
   const options = await defaultOptions();
   const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/send-email`, {
     ...options,
@@ -965,7 +949,6 @@ const api = {
   getInspectorInspections,
   submitInspection,
   savePendingInspection,
-  assignEstimator,
   assignEstimatorDuringInspection,
   getQuoteByToken,
   submitQuote,

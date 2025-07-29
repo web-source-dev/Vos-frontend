@@ -1,7 +1,7 @@
 "use client"
 
 import { ReactNode, useState } from "react"
-import { ArrowLeftIcon, User, Car, CheckCircle, Clock, Lock, FileCheck, Menu } from "lucide-react"
+import { ArrowLeftIcon, User, Car, CheckCircle, Clock, Lock, FileCheck, Menu, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -81,15 +81,22 @@ export function VosLayout({
     }
   }
 
+  // Helper function to check if offer is declined
+  const isOfferDeclined = () => {
+    return (vehicleData as any)?.offerDecision?.decision === 'declined' || 
+           (vehicleData as any)?.quote?.offerDecision?.decision === 'declined' ||
+           (vehicleData as any)?.status === 'quote-declined'
+  }
+
   const isStageAccessible = (stageId: number) => {
     // Summary stage (0) is always accessible
     if (stageId === 0) {
       return true;
     }
     
-    // Check if offer is declined - if so, only allow access to completion stage (6)
-    if ((vehicleData as any)?.offerDecision?.decision === 'declined') {
-      return stageId === 6;
+    // Check if offer is declined - if so, lock paperwork stage (5) but allow all other stages
+    if (isOfferDeclined()) {
+      return stageId !== 5; // Lock only paperwork stage, allow all others
     }
     
     // Allow access to stages up to the max stage reached
@@ -184,9 +191,11 @@ export function VosLayout({
                 className={`w-full text-left p-3 md:p-4 rounded-xl transition-all duration-200 group ${
                   isCurrent
                     ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 text-blue-900 shadow-md'
-                    : isAccessible
-                      ? 'hover:bg-gray-50 border-2 border-transparent hover:border-gray-200 text-gray-900 hover:shadow-sm'
-                      : 'opacity-60 cursor-not-allowed text-gray-500 border-2 border-gray-100 bg-gray-50'
+                    : stage.id === 5 && isOfferDeclined()
+                      ? 'opacity-60 cursor-not-allowed text-red-600 border-2 border-red-200 bg-red-50'
+                      : isAccessible
+                        ? 'hover:bg-gray-50 border-2 border-transparent hover:border-gray-200 text-gray-900 hover:shadow-sm'
+                        : 'opacity-60 cursor-not-allowed text-gray-500 border-2 border-gray-100 bg-gray-50'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -194,10 +203,14 @@ export function VosLayout({
                     <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold shadow-sm transition-all duration-200 ${
                       isCurrent
                         ? 'bg-gradient-to-r from-blue-600 to-indigo-600 shadow-lg'
-                        : getStatusColor(status)
+                        : stage.id === 5 && isOfferDeclined()
+                          ? 'bg-red-500'
+                          : getStatusColor(status)
                     }`}>
                       {stage.id === 0 ? (
                         <FileCheck className="w-4 h-4 md:w-5 md:h-5" />
+                      ) : stage.id === 5 && isOfferDeclined() ? (
+                        <XCircle className="w-4 h-4 md:w-5 md:h-5" />
                       ) : (
                         getStatusIcon(status) || stage.id
                       )}
@@ -208,9 +221,18 @@ export function VosLayout({
                     </div>
                   </div>
                   {!isAccessible && (
-                    <div className="flex items-center gap-1 text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
-                      <Lock className="w-3 h-3" />
-                      <span className="hidden sm:inline">Locked</span>
+                    <div className="flex items-center gap-1 text-xs px-2 py-1 rounded-full">
+                      {stage.id === 5 && isOfferDeclined() ? (
+                        <div className="flex items-center gap-1 text-red-600 bg-red-100">
+                          <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                          <span className="hidden sm:inline">Offer Declined</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 text-gray-400 bg-gray-100">
+                          <Lock className="w-3 h-3" />
+                          <span className="hidden sm:inline">Locked</span>
+                        </div>
+                      )}
                     </div>
                   )}
                   {isCurrent && (

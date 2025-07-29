@@ -97,7 +97,8 @@ export function AdminOverview() {
   // Helper to get dashboard path by role
   const getDashboardPath = () => {
     if (isAdmin) return "/admin/customers";
-    if (isAgent || isEstimator) return "/customers";
+    if (isAgent) return "/agent/customers";
+    if (isEstimator) return "/estimator/customers";
     return "/customers";
   };
 
@@ -106,7 +107,14 @@ export function AdminOverview() {
     setSelectedStatus(status);
     setSelectedStage(null);
     const path = getDashboardPath();
-    router.push(`${path}?status=${encodeURIComponent(status)}`);
+    
+    // Handle combined status for declined offers and closed cases
+    if (status === "quote-declined" || status === "cancelled") {
+      // When clicking on either declined or cancelled, show both
+      router.push(`${path}?status=quote-declined`);
+    } else {
+      router.push(`${path}?status=${encodeURIComponent(status)}`);
+    }
   };
 
   // Handler for stage click
@@ -129,13 +137,6 @@ export function AdminOverview() {
     }
     const stageNum = getStageNumber(stage);
     router.push(`${path}?stage=${stageNum}`);
-  };
-
-  // Handler for clear filter
-  const handleClearFilter = () => {
-    setSelectedStatus(null);
-    setSelectedStage(null);
-    router.push(getDashboardPath());
   };
 
   const fetchDashboardStats = useCallback(async () => {
@@ -186,7 +187,12 @@ export function AdminOverview() {
 
         // Cases by status
         const casesByStatus = filteredCases.reduce((acc: Record<string, number>, c: CaseData) => {
-          acc[c.status] = (acc[c.status] || 0) + 1
+          // Combine declined offers and cancelled cases
+          if (c.status === "quote-declined" || c.status === "cancelled") {
+            acc["quote-declined"] = (acc["quote-declined"] || 0) + 1
+          } else {
+            acc[c.status] = (acc[c.status] || 0) + 1
+          }
           return acc
         }, {})
 
@@ -261,13 +267,32 @@ export function AdminOverview() {
   }, [fetchDashboardStats])
 
   const getStatusColor = (status: string) => {
+
+    if (status === "quote-declined") return "bg-red-100 text-red-800"
+    if (status === "cancelled") return "bg-red-100 text-red-800"
+    if (status === "completed") return "bg-green-100 text-green-800"
+
     const colors = {
       new: "bg-yellow-100 text-yellow-800",
       active: "bg-blue-100 text-blue-800",
       completed: "bg-green-100 text-green-800",
-      cancelled: "bg-red-100 text-red-800"
+      cancelled: "bg-red-100 text-red-800",
     }
     return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800"
+  }
+
+  const getStatusName = (status: string) => {
+    if (status === "quote-declined") return "Offer Declined / Closed"
+    if (status === "cancelled") return "Offer Declined / Closed"
+    if (status === "completed") return "Completed"
+    if (status === "new") return "Pending Customer Intake"
+    if (status === "active") return "Pending Inspection Scheduling"
+    if (status === "scheduled") return "Pending Inspection Completion"
+    if (status === "quote-ready") return "Pending Quote"
+    if (status === "negotiating") return "Pending Offer Decision"
+    if (status === "paperwork") return "Pending Paperwork"
+    if (status === 'completed') return "Completed"
+    return status.charAt(0).toUpperCase() + status.slice(1)
   }
 
   const handleLinkClick = (caseId: string) => {
@@ -387,7 +412,7 @@ export function AdminOverview() {
                 >
                   <div className="flex items-center gap-2">
                     <Badge className={getStatusColor(status)}>
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                      {getStatusName(status)}
                     </Badge>
                   </div>
                   <span className="font-semibold">{count}</span>
@@ -448,7 +473,7 @@ export function AdminOverview() {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge className={getStatusColor(activity.status)}>
-                    {activity.status}
+                    {getStatusName(activity.status)}
                   </Badge>
                   <span className="font-semibold text-green-600">
                     ${activity.amount.toLocaleString()}

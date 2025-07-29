@@ -728,40 +728,6 @@ export function QuotePreparation({
   const handleVehicleInfoChange = (field: string, value: string) => {
     setVehicleInfo(prev => ({ ...prev, [field]: value }))
   }
-
-  const handleSaveSellerVehicleInfo = async () => {
-    try {
-      const caseId = vehicleData.id || vehicleData._id
-      if (!caseId) throw new Error("Case ID not found")
-
-      // Save to paperwork component using existing API
-      const paperworkData = {
-        billOfSale: {
-          ...sellerInfo,
-          ...vehicleInfo
-        }
-      }
-
-      const response = await api.savePaperworkByCaseId(caseId, paperworkData)
-      if (response.success) {
-        toast({
-          title: "Information Saved",
-          description: "Seller and vehicle information has been saved successfully.",
-        })
-      } else {
-        throw new Error(response.error || "Failed to save information")
-      }
-    } catch (error) {
-      console.error('Error saving seller/vehicle info:', error)
-      const errorData = api.handleError(error)
-      toast({
-        title: "Error",
-        description: errorData.error,
-        variant: "destructive",
-      })
-    }
-  }
-
   // New consolidated save function that handles all three save operations
   const handleConsolidatedSave = async () => {
     if (!quoteData.offerAmount || !quoteData.expiryDate) {
@@ -1505,12 +1471,18 @@ export function QuotePreparation({
             </div>
             <div>
               <Label htmlFor="vehicleLicenseState">License State</Label>
-              <Input
-                id="vehicleLicenseState"
-                value={vehicleInfo.vehicleLicenseState}
-                onChange={(e) => handleVehicleInfoChange('vehicleLicenseState', e.target.value)}
-                placeholder="Enter license state"
-              />
+              <Select value={vehicleInfo.vehicleLicenseState} onValueChange={(value) => handleVehicleInfoChange('vehicleLicenseState', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select state" />
+                </SelectTrigger>
+                <SelectContent>
+                  {states.map((state) => (
+                    <SelectItem key={state} value={state}>
+                      {state}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label htmlFor="vehicleTitleNumber">Title Number</Label>

@@ -50,7 +50,31 @@ interface ReportStats {
   stageProgression: Array<{ stage: number; stageName: string; count: number; avgTime: number }>
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D']
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82CA9D']
+
+// Helper function to get status display names
+const getStatusDisplayName = (status: string) => {
+  switch (status) {
+    case 'new':
+      return 'Pending Customer Intake';
+    case 'active':
+      return 'Pending Inspection Scheduling';
+    case 'scheduled':
+      return 'Pending Inspection Completion';
+    case 'quote-ready':
+      return 'Pending Quote';
+    case 'negotiating':
+      return 'Pending Offer Decision';
+    case 'completed':
+      return 'Completed';
+    case 'quote-declined':
+      return 'Offer Declined / Closed';
+    case 'cancelled':
+      return 'Offer Declined / Closed';
+    default:
+      return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+};
 
 export function ReportsDashboard() {
   const [stats, setStats] = useState<ReportStats>({
@@ -228,7 +252,7 @@ export function ReportsDashboard() {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Cases</CardTitle>
@@ -250,7 +274,7 @@ export function ReportsDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">${stats.totalRevenue.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              From completed purchases
+              From completed purchases only
             </p>
           </CardContent>
         </Card>
@@ -263,7 +287,7 @@ export function ReportsDashboard() {
           <CardContent>
             <div className="text-2xl font-bold">${stats.avgCaseValue.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Average per vehicle
+              Average per completed vehicle
             </p>
           </CardContent>
         </Card>
@@ -280,6 +304,21 @@ export function ReportsDashboard() {
             </p>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Declined / Closed</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              {stats.casesByStatus['quote-declined'] || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Offers declined or cases closed
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Charts Section */}
@@ -288,18 +327,27 @@ export function ReportsDashboard() {
           {/* Revenue Trend */}
           <Card>
             <CardHeader>
-              <CardTitle>Purchase Value Trend</CardTitle>
+              <CardTitle>Completed Purchase Value Trend</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={stats.revenueByMonth}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Purchase Value']} />
-                  <Area type="monotone" dataKey="revenue" stroke="#8884d8" fill="#8884d8" fillOpacity={0.3} />
-                </AreaChart>
-              </ResponsiveContainer>
+              {stats.revenueByMonth.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={stats.revenueByMonth}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Completed Purchase Value']} />
+                    <Area type="monotone" dataKey="revenue" stroke="#8884d8" fill="#8884d8" fillOpacity={0.3} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  <div className="text-center">
+                    <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No completed purchase data found</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -309,48 +357,66 @@ export function ReportsDashboard() {
               <CardTitle>Cases by Status</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <RechartsPieChart>
-                  <Pie
-                    data={Object.entries(stats.casesByStatus).map(([status, count]) => ({ name: status, value: count }))}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {Object.entries(stats.casesByStatus).map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </RechartsPieChart>
-              </ResponsiveContainer>
+              {Object.keys(stats.casesByStatus).length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <RechartsPieChart>
+                    <Pie
+                      data={Object.entries(stats.casesByStatus).map(([status, count]) => ({ name: status, value: count }))}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {Object.entries(stats.casesByStatus).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  <div className="text-center">
+                    <Activity className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No case data found</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           {/* Daily Activity */}
           <Card>
             <CardHeader>
-              <CardTitle>Daily Activity (Last 30 Days)</CardTitle>
+              <CardTitle>Daily Completed Activity (Last 30 Days)</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <ComposedChart data={stats.casesByDay}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip formatter={(value, name) => [
-                    name === 'revenue' ? `$${value.toLocaleString()}` : value,
-                    name === 'revenue' ? 'Purchase Value' : 'Vehicles'
-                  ]} />
-                  <Bar yAxisId="left" dataKey="cases" fill="#82ca9d" />
-                  <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#ff7300" />
-                </ComposedChart>
-              </ResponsiveContainer>
+              {stats.casesByDay.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <ComposedChart data={stats.casesByDay}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <Tooltip formatter={(value, name) => [
+                      name === 'revenue' ? `$${value.toLocaleString()}` : value,
+                      name === 'revenue' ? 'Completed Purchase Value' : 'Completed Vehicles'
+                    ]} />
+                    <Bar yAxisId="left" dataKey="cases" fill="#82ca9d" />
+                    <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#ff7300" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  <div className="text-center">
+                    <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No daily activity data found</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -360,19 +426,28 @@ export function ReportsDashboard() {
               <CardTitle>Stage Progression</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stats.stageProgression}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="stageName" />
-                  <YAxis />
-                  <Tooltip formatter={(value, name) => [
-                    name === 'avgTime' ? `${(value as number).toFixed(1)} days` : value,
-                    name === 'avgTime' ? 'Avg Time' : 'Cases'
-                  ]} />
-                  <Bar dataKey="count" fill="#8884d8" />
-                  <Line type="monotone" dataKey="avgTime" stroke="#ff7300" />
-                </BarChart>
-              </ResponsiveContainer>
+              {stats.stageProgression.length > 0 && stats.stageProgression.some(stage => stage.count > 0) ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={stats.stageProgression}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="stageName" />
+                    <YAxis />
+                    <Tooltip formatter={(value, name) => [
+                      name === 'avgTime' ? `${(value as number).toFixed(1)} days` : value,
+                      name === 'avgTime' ? 'Avg Time' : 'Cases'
+                    ]} />
+                    <Bar dataKey="count" fill="#8884d8" />
+                    <Line type="monotone" dataKey="avgTime" stroke="#ff7300" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  <div className="text-center">
+                    <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No stage progression data found</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -383,41 +458,59 @@ export function ReportsDashboard() {
           {/* Daily Revenue */}
           <Card>
             <CardHeader>
-              <CardTitle>Daily Purchase Value (Last 30 Days)</CardTitle>
+              <CardTitle>Daily Completed Purchase Value (Last 30 Days)</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <ComposedChart data={stats.casesByDay}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip formatter={(value, name) => [
-                    name === 'revenue' ? `$${value.toLocaleString()}` : value,
-                    name === 'revenue' ? 'Purchase Value' : 'Vehicles'
-                  ]} />
-                  <Bar yAxisId="left" dataKey="cases" fill="#8884d8" />
-                  <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#ff7300" />
-                </ComposedChart>
-              </ResponsiveContainer>
+              {stats.casesByDay.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <ComposedChart data={stats.casesByDay}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <Tooltip formatter={(value, name) => [
+                      name === 'revenue' ? `$${value.toLocaleString()}` : value,
+                      name === 'revenue' ? 'Completed Purchase Value' : 'Completed Vehicles'
+                    ]} />
+                    <Bar yAxisId="left" dataKey="cases" fill="#8884d8" />
+                    <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#ff7300" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  <div className="text-center">
+                    <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No daily purchase data found</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           {/* Monthly Revenue */}
           <Card>
             <CardHeader>
-              <CardTitle>Monthly Purchase Value</CardTitle>
+              <CardTitle>Monthly Completed Purchase Value</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stats.revenueByMonth}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Purchase Value']} />
-                  <Bar dataKey="revenue" fill="#8884d8" />
-                </BarChart>
-              </ResponsiveContainer>
+              {stats.revenueByMonth.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={stats.revenueByMonth}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Completed Purchase Value']} />
+                    <Bar dataKey="revenue" fill="#8884d8" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  <div className="text-center">
+                    <DollarSign className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No monthly purchase data found</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -431,18 +524,27 @@ export function ReportsDashboard() {
               <CardTitle>Top Performing Agents</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stats.agentPerformance} layout="horizontal">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="agentName" type="category" width={80} />
-                  <Tooltip formatter={(value, name) => [
-                    name === 'revenue' ? `$${value.toLocaleString()}` : value,
-                    name === 'revenue' ? 'Purchase Value' : 'Vehicles'
-                  ]} />
-                  <Bar dataKey="revenue" fill="#8884d8" />
-                </BarChart>
-              </ResponsiveContainer>
+              {stats.agentPerformance.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={stats.agentPerformance} layout="horizontal">
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis dataKey="agentName" type="category" width={80} />
+                    <Tooltip formatter={(value, name) => [
+                      name === 'revenue' ? `$${value.toLocaleString()}` : value,
+                      name === 'revenue' ? 'Completed Purchase Value' : 'Completed Vehicles'
+                    ]} />
+                    <Bar dataKey="revenue" fill="#8884d8" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  <div className="text-center">
+                    <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No agent performance data found</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -478,25 +580,34 @@ export function ReportsDashboard() {
               <CardTitle>Offer Decision Breakdown</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <RechartsPieChart>
-                  <Pie
-                    data={stats.decisionBreakdown}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ decision, percentage }) => `${decision} ${percentage.toFixed(1)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="count"
-                  >
-                    {stats.decisionBreakdown.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </RechartsPieChart>
-              </ResponsiveContainer>
+              {stats.decisionBreakdown.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <RechartsPieChart>
+                    <Pie
+                      data={stats.decisionBreakdown}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ decision, percentage }) => `${decision} ${percentage.toFixed(1)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="count"
+                    >
+                      {stats.decisionBreakdown.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  <div className="text-center">
+                    <CheckCircle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No decision data found</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -506,80 +617,153 @@ export function ReportsDashboard() {
               <CardTitle>Top Vehicles by Volume</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stats.topVehicles} layout="horizontal">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="model" type="category" width={100} />
-                  <Tooltip formatter={(value, name) => [
-                    name === 'avgValue' ? `$${value.toLocaleString()}` : value,
-                    name === 'avgValue' ? 'Avg Purchase Value' : 'Count'
-                  ]} />
-                  <Bar dataKey="count" fill="#8884d8" />
-                </BarChart>
-              </ResponsiveContainer>
+              {stats.topVehicles.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={stats.topVehicles} layout="horizontal">
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis dataKey="model" type="category" width={100} />
+                    <Tooltip formatter={(value, name) => [
+                      name === 'avgValue' ? `$${value.toLocaleString()}` : value,
+                      name === 'avgValue' ? 'Avg Purchase Value' : 'Count'
+                    ]} />
+                    <Bar dataKey="count" fill="#8884d8" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                  <div className="text-center">
+                    <Activity className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>No vehicle data found</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
       )}
 
       {/* Detailed Tables */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Status Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Status Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {Object.keys(stats.casesByStatus).length > 0 ? (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {Object.entries(stats.casesByStatus).map(([status, count]) => (
+                  <div key={status} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        status === 'completed' ? 'bg-green-100' :
+                        status === 'quote-declined' ? 'bg-red-100' :
+                        'bg-blue-100'
+                      }`}>
+                        <Activity className={`h-4 w-4 ${
+                          status === 'completed' ? 'text-green-600' :
+                          status === 'quote-declined' ? 'text-red-600' :
+                          'text-blue-600'
+                        }`} />
+                      </div>
+                      <div>
+                        <p className="font-medium">{getStatusDisplayName(status)}</p>
+                        <p className="text-sm text-muted-foreground">{count} cases</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-600">
+                        {((count / stats.totalCases) * 100).toFixed(1)}%
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-48 text-muted-foreground">
+                <div className="text-center">
+                  <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No status data found</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Recent Activity */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+            <CardTitle>Recent Completed Activity</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4 max-h-96 overflow-y-auto">
-              {stats.casesByDay.slice(-10).reverse().map((day, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <Calendar className="h-4 w-4 text-blue-600" />
+            {stats.casesByDay.length > 0 ? (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {stats.casesByDay.slice(-10).reverse().map((day, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <Calendar className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{day.date}</p>
+                        <p className="text-sm text-muted-foreground">{day.cases} completed cases</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{day.date}</p>
-                      <p className="text-sm text-muted-foreground">{day.cases} cases</p>
+                    <div className="text-right">
+                      <p className="font-semibold text-green-600">${day.revenue.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">Completed Purchase Value</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-green-600">${day.revenue.toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground">Purchase Value</p>
-                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-48 text-muted-foreground">
+                <div className="text-center">
+                  <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No recent activity found</p>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Top Agents */}
         <Card>
           <CardHeader>
-            <CardTitle>Top Performing Agents</CardTitle>
+            <CardTitle>Top Performing Agents (Completed Cases)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4 max-h-96 overflow-y-auto">
-              {stats.agentPerformance.map((agent, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <Users className="h-4 w-4 text-green-600" />
+            {stats.agentPerformance.length > 0 ? (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {stats.agentPerformance.map((agent, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                        <Users className="h-4 w-4 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{agent.agentName}</p>
+                        <p className="text-sm text-muted-foreground">{agent.cases} completed cases</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{agent.agentName}</p>
-                      <p className="text-sm text-muted-foreground">{agent.cases} cases</p>
+                    <div className="text-right">
+                      <p className="font-semibold text-green-600">${agent.revenue.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {agent.avgRating > 0 ? `${agent.avgRating.toFixed(1)}★` : 'No ratings'}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-green-600">${agent.revenue.toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {agent.avgRating > 0 ? `${agent.avgRating.toFixed(1)}★` : 'No ratings'}
-                    </p>
-                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-48 text-muted-foreground">
+                <div className="text-center">
+                  <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No agent data found</p>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -367,7 +367,8 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     elapsedFormatted: inspectionElapsedFormatted,
     savedTimeFormatted,
     newTimeFormatted,
-    isLoading: timerLoading
+    isLoading: timerLoading,
+    isOverTime: inspectionIsOverTime
   } = useStageTimer(extractedCaseId, 'inspection');
 
   // Section timers: { [sectionId]: { startTime, endTime, elapsed } }
@@ -1352,7 +1353,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1 min-w-0">
             <Label className="text-sm sm:text-base font-semibold text-gray-900 flex items-center gap-2">
-              <span className="truncate">{question.question}</span>
+              <span>{question.question}</span>
               {question.required && <span className="text-red-500 text-lg flex-shrink-0">*</span>}
             </Label>
             
@@ -1689,7 +1690,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
                             height={100}
                           />
                           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                            <p className="text-white text-xs truncate font-medium">
+                            <p className="text-white text-xs font-medium">
                               {angle.label}
                             </p>
                           </div>
@@ -1941,7 +1942,11 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 max-w-9xl mx-auto">
       {/* TIMER DISPLAY - fixed at top right */}
-      <div className="max-w-9xl mx-auto fixed z-40 top-3 right-3 flex items-center space-x-2 text-xs sm:text-sm text-blue-600 font-semibold bg-blue-50 px-2 sm:px-3 py-1 rounded-lg border border-blue-200 shadow-md">
+      <div className={`max-w-9xl mx-auto fixed z-40 top-3 right-3 flex items-center space-x-2 text-xs sm:text-sm font-semibold px-2 sm:px-3 py-1 rounded-lg border shadow-md ${
+        inspectionIsOverTime 
+          ? 'text-red-600 bg-red-50 border-red-200' 
+          : 'text-blue-600 bg-blue-50 border-blue-200'
+      }`}>
         <Clock className="h-4 w-4" />
         <span>Elapsed: {inspectionElapsedFormatted}</span>
       </div>
@@ -1960,10 +1965,10 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
             </div>
             <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-2 sm:gap-4">
               <div className="flex-1 text-left sm:text-right">
-                <p className="text-base sm:text-sm font-medium text-gray-900 truncate">
+                <p className="text-base sm:text-sm font-medium text-gray-900">
                   {vehicleData.customer?.firstName} {vehicleData.customer?.lastName}
                 </p>
-                <p className="text-xs text-gray-500 truncate">
+                <p className="text-xs text-gray-500">
                   {(vehicleData.vehicle as any)?.year} {(vehicleData.vehicle as any)?.make} {(vehicleData.vehicle as any)?.model}
                 </p>
               </div>
@@ -2281,7 +2286,7 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
                       {React.createElement(section.icon, { className: "h-5 w-5 sm:h-6 sm:w-6" })}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{section.name}</h3>
+                      <h3 className="text-lg sm:text-xl font-bold text-gray-900">{section.name}</h3>
                       <p className="text-gray-600 text-xs sm:text-sm line-clamp-2">{section.description}</p>
                     </div>
                   </div>

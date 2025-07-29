@@ -1003,51 +1003,6 @@ export default function CustomerIntakePage() {
                   </TooltipProvider>
                 </div>
               </SelectItem>
-              <SelectItem value="lemon">
-                <div className="flex items-center justify-between w-full">
-                  <span>Lemon</span>
-                  <TooltipProvider>
-                    <Tooltip delayDuration={300}>
-                      <TooltipTrigger asChild>
-                        <HelpCircle className="h-3 w-3 text-muted-foreground ml-2 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom right" className="max-w-xs">
-                        <p className="text-sm">The vehicle has a history of repeated, unfixable problems and is classified as a lemon under state law.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </SelectItem>
-              <SelectItem value="flood">
-                <div className="flex items-center justify-between w-full">
-                  <span>Flood</span>
-                  <TooltipProvider>
-                    <Tooltip delayDuration={300}>
-                      <TooltipTrigger asChild>
-                        <HelpCircle className="h-3 w-3 text-muted-foreground ml-2 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom right" className="max-w-xs">
-                        <p className="text-sm">The vehicle has been damaged by flood waters and is marked as such on the title.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </SelectItem>
-              <SelectItem value="junk">
-                <div className="flex items-center justify-between w-full">
-                  <span>Junk</span>
-                  <TooltipProvider>
-                    <Tooltip delayDuration={300}>
-                      <TooltipTrigger asChild>
-                        <HelpCircle className="h-3 w-3 text-muted-foreground ml-2 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-xs">
-                        <p className="text-sm">The vehicle is not roadworthy and is only suitable for parts or scrap.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </SelectItem>
               <SelectItem value="not-sure">
                 <div className="flex items-center justify-between w-full">
                   <span>Not Sure</span>

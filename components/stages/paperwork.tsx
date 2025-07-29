@@ -567,6 +567,26 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
             transaction: updatedTransaction as TransactionData
           });
         }
+        const currentStageStatuses = vehicleData.stageStatuses || {};
+        const stageData = {
+          currentStage: 5,
+          stageStatuses: {
+            ...currentStageStatuses,
+            5: 'active'
+          }
+        };
+  
+        // Update stage statuses in the database
+        const stageCaseId = vehicleData.id || vehicleData._id;
+        if (stageCaseId) {
+          try {
+            await api.updateCaseStageByCaseId(stageCaseId, stageData);
+            console.log('Successfully updated stage statuses');
+          } catch (error) {
+            console.error('Failed to update stage statuses:', error);
+          }
+        }
+  
         // Show success message
         toast({
           title: 'Success!',

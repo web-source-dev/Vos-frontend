@@ -4,6 +4,31 @@ import { CarIcon, CarFrontIcon, SettingsIcon, Activity, CircleDotIcon, ZapIcon, 
 
 // Comprehensive inspection sections with detailed questions
 export const inspectionSections = [
+  {
+    id: "obd2",
+    name: "OBD2 Scan",
+    icon: Activity,
+    description: "Diagnostic scan for vehicle computer codes and system status",
+    questions: [
+      {
+        id: "obd2_scan_completed",
+        question: "I have connected the OBD2 reader and scanned the vehicle for diagnostic codes.",
+        type: "checkbox",
+        required: true,
+        options: [
+          { value: "completed", label: "OBD2 scan completed"}
+        ]
+      },
+      {
+        id: "obd2_bypass",
+        question: "No OBD2 reader available for this inspection",
+        type: "checkbox",
+        options: [
+          { value: "bypass", label: "Bypass OBD2 scan requirement"}
+        ]
+      }
+    ]
+  },
     {
       id: "exterior",
       name: "Exterior Condition",
@@ -334,31 +359,6 @@ export const inspectionSections = [
           question: "Take photos of engine compartment - Include overall engine bay, close-ups of any leaks or damage, fluid levels, and any visible components that need attention.",
           type: "photo",
           required: true
-        }
-      ]
-    },
-    {
-      id: "obd2",
-      name: "OBD2 Scan",
-      icon: Activity,
-      description: "Diagnostic scan for vehicle computer codes and system status",
-      questions: [
-        {
-          id: "obd2_scan_completed",
-          question: "I have connected the OBD2 reader and scanned the vehicle for diagnostic codes.",
-          type: "checkbox",
-          required: true,
-          options: [
-            { value: "completed", label: "OBD2 scan completed", points: 0 }
-          ]
-        },
-        {
-          id: "obd2_bypass",
-          question: "No OBD2 reader available for this inspection",
-          type: "checkbox",
-          options: [
-            { value: "bypass", label: "Bypass OBD2 scan requirement", points: 0 }
-          ]
         }
       ]
     },

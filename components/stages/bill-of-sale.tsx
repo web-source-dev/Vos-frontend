@@ -227,7 +227,8 @@ export function BillOfSale({ vehicleData, onUpdate, onComplete, isEstimator = fa
         currentStage: vehicleData.currentStage || 5, // Preserve current stage or default to 5
         stageStatuses: {
           ...currentStageStatuses,
-          4: 'complete' // Mark three-step process stage as complete
+          4: 'complete', // Mark three-step process stage as complete
+          5: 'active' // Mark paperwork stage as active
         }
       };
       

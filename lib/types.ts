@@ -196,7 +196,7 @@ export interface Case {
   stageStatuses: {
     [key: number]: 'active' | 'complete' | 'pending';
   };
-  status: 'new' | 'active' | 'scheduled' | 'quote-ready' | 'negotiating' | 'completed' | 'cancelled';
+  status: 'new' | 'active' | 'scheduled' | 'quote-ready' | 'negotiating' | 'completed' | 'cancelled' | 'quote-declined';
   priority?: 'low' | 'medium' | 'high';
   estimatedValue?: number;
   thankYouSent?: boolean;
@@ -241,6 +241,8 @@ export interface VehicleData extends Omit<Vehicle, 'id' | 'customer'> {
   model: string;
   currentMileage: string;
   vin?: string;
+  color?: string;
+  bodyStyle?: string;
   titleStatus?: 'clean' | 'salvage' | 'rebuilt' | 'not-sure';
   loanStatus?: 'paid-off' | 'still-has-loan' | 'not-sure';
   loanAmount?: number;

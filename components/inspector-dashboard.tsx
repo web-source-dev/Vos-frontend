@@ -26,6 +26,7 @@ interface InspectionData {
   dueByDate?: string
   dueByTime?: string
   accessToken: string
+  caseId?: string
   customer?: {
     firstName: string
     lastName: string
@@ -37,6 +38,10 @@ interface InspectionData {
     model: string
     vin?: string
     currentMileage?: string
+  }
+  timeTracking?: {
+    totalTime?: number
+    inspectionTime?: number
   }
 }
 
@@ -76,7 +81,38 @@ export function InspectorDashboard() {
         const response = await api.getInspectorInspections();
         
         if (response.success) {
-          setInspections(response.data as unknown as InspectionData[] || []);
+          const inspectionsData = response.data as unknown as InspectionData[] || [];
+          console.log('inspectionsData', inspectionsData)
+          
+          // Fetch time tracking data for each inspection
+          const inspectionsWithTimeTracking = await Promise.all(
+            inspectionsData.map(async (inspection) => {
+              console.log('inspection', inspection)
+              if (inspection.caseId) {
+                try {
+                  const timeTrackingResponse = await api.getTimeTrackingByCaseId(inspection.caseId);
+                  console.log('timeTrackingResponse', timeTrackingResponse)
+                  if (timeTrackingResponse.success && timeTrackingResponse.data) {
+                    const timeData = timeTrackingResponse.data;
+                    console.log('timeData', )
+                    return {
+                      ...inspection,
+                      timeTracking: {
+                        totalTime: timeData.totalTime || 0,
+                        inspectionTime: timeData.stageTimes?.inspection?.totalTime || 0
+                      }
+
+                    };
+                  }
+                } catch (error) {
+                  console.error('Error fetching time tracking for inspection:', inspection._id, error);
+                }
+              }
+              return inspection;
+            })
+          );
+          
+          setInspections(inspectionsWithTimeTracking);
         } else {
           toast({
             title: "Error",
@@ -97,7 +133,7 @@ export function InspectorDashboard() {
     };
 
     fetchInspections();
-  }, [loading, isAuthenticated, isInspector, toast]);
+  }, [loading, isAuthenticated, isInspector]);
 
   const handleInspectVehicle = (inspection: InspectionData) => {
     setSelectedInspection(inspection)
@@ -140,6 +176,22 @@ export function InspectorDashboard() {
     const ampm = hour >= 12 ? 'PM' : 'AM'
     const displayHour = hour % 12 || 12
     return `${displayHour}:${minutes} ${ampm}`
+  }
+
+  const formatDuration = (milliseconds: number) => {
+    if (!milliseconds || milliseconds === 0) return '0:00'
+    
+    const totalSeconds = Math.floor(milliseconds / 1000)
+    const minutes = Math.floor(totalSeconds / 60)
+    const seconds = totalSeconds % 60
+    
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  }
+
+  const isOverTime = (milliseconds: number) => {
+    if (!milliseconds || milliseconds === 0) return false
+    const totalSeconds = Math.floor(milliseconds / 1000)
+    return totalSeconds > 1200 // 20 minutes = 1200 seconds
   }
 
   // Show loading state while checking authentication
@@ -257,7 +309,7 @@ export function InspectorDashboard() {
                     onClick={() => handleInspectVehicle(inspection)}
                     size="sm"
                   >
-                    Open Inspection
+                    {inspection.status === 'in-progress' ? 'Resume Inspection' : 'Open Inspection'}
                   </Button>
                 </CardFooter>
               </Card>
@@ -273,10 +325,13 @@ export function InspectorDashboard() {
           <div className="p-4 sm:p-6 max-h-[60vh] sm:max-h-[70vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-gray-900">
-                Begin Vehicle Inspection
+                {selectedInspection?.status === 'in-progress' ? 'Resume Vehicle Inspection' : 'Begin Vehicle Inspection'}
               </DialogTitle>
               <DialogDescription className="text-gray-600">
-                Review important information before starting the inspection
+                {selectedInspection?.status === 'in-progress' 
+                  ? 'Review information and resume your inspection' 
+                  : 'Review important information before starting the inspection'
+                }
               </DialogDescription>
             </DialogHeader>
           
@@ -284,21 +339,66 @@ export function InspectorDashboard() {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center gap-3 mb-3">
                 <Clock className="h-5 w-5 text-blue-600" />
-                <h3 className="font-semibold text-blue-800">Inspection Time Guidelines</h3>
+                <h3 className="font-semibold text-blue-800">
+                  {selectedInspection?.status === 'in-progress' ? 'Inspection Progress' : 'Inspection Time Guidelines'}
+                </h3>
               </div>
               
-              {/* Prominent Timer Display */}
-              <div className="bg-white border-2 border-blue-300 rounded-lg p-4 mb-4 text-center">
-                <div className="text-3xl font-bold text-blue-600 mb-2">20:00</div>
-                <div className="text-sm text-blue-700 font-medium">Expected Completion Time</div>
-              </div>
-              
-              <p className="text-blue-700 text-sm leading-relaxed">
-                Each vehicle inspection is expected to be finished within 20 minutes. The timer starts the moment you select Begin Inspection, and the total time to completion is logged so we can track and improve inspection efficiency.
-              </p>
-              <p className="text-blue-600 text-xs mt-2">
-                💡 A live timer will be displayed in the top-right corner during your inspection to help you stay on track.
-              </p>
+              {selectedInspection?.status === 'in-progress' ? (
+                <>
+                  {/* Time Spent Display for In-Progress */}
+                  <div className={`bg-white border-2 rounded-lg p-4 mb-4 text-center ${
+                    isOverTime(selectedInspection.timeTracking?.inspectionTime || 0)
+                      ? 'border-red-300'
+                      : 'border-blue-300'
+                  }`}>
+                    <div className={`text-3xl font-bold mb-2 ${
+                      isOverTime(selectedInspection.timeTracking?.inspectionTime || 0)
+                        ? 'text-red-600'
+                        : 'text-blue-600'
+                    }`}>
+                      {formatDuration(selectedInspection.timeTracking?.inspectionTime || 0)}
+                    </div>
+                    <div className={`text-sm font-medium ${
+                      isOverTime(selectedInspection.timeTracking?.inspectionTime || 0)
+                        ? 'text-red-700'
+                        : 'text-blue-700'
+                    }`}>
+                      Time Spent on Inspection
+                      {isOverTime(selectedInspection.timeTracking?.inspectionTime || 0) && (
+                        <span className="block text-xs mt-1">⚠️ Over 20 minute guideline</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <p className={`text-sm leading-relaxed ${
+                    isOverTime(selectedInspection.timeTracking?.inspectionTime || 0)
+                      ? 'text-red-700'
+                      : 'text-blue-700'
+                  }`}>
+                    You have already spent {formatDuration(selectedInspection.timeTracking?.inspectionTime || 0)} on this inspection. 
+                    The timer will continue from where you left off when you resume.
+                  </p>
+                  <p className="text-blue-600 text-xs mt-2">
+                    💡 Your progress has been saved. You can continue from where you left off.
+                  </p>
+                </>
+              ) : (
+                <>
+                  {/* Expected Time Display for New Inspections */}
+                  <div className="bg-white border-2 border-blue-300 rounded-lg p-4 mb-4 text-center">
+                    <div className="text-3xl font-bold text-blue-600 mb-2">20:00</div>
+                    <div className="text-sm text-blue-700 font-medium">Expected Completion Time</div>
+                  </div>
+                  
+                  <p className="text-blue-700 text-sm leading-relaxed">
+                    Each vehicle inspection is expected to be finished within 20 minutes. The timer starts the moment you select Begin Inspection, and the total time to completion is logged so we can track and improve inspection efficiency.
+                  </p>
+                  <p className="text-blue-600 text-xs mt-2">
+                    💡 A live timer will be displayed in the top-right corner during your inspection to help you stay on track.
+                  </p>
+                </>
+              )}
             </div>
 
             {/* Vehicle Information */}
@@ -391,7 +491,7 @@ export function InspectorDashboard() {
               onClick={handleBeginInspection}
               className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
             >
-              Begin Inspection
+              {selectedInspection?.status === 'in-progress' ? 'Resume Inspection' : 'Begin Inspection'}
             </Button>
           </DialogFooter>
         </DialogContent>
