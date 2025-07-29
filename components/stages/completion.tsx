@@ -338,6 +338,37 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
   const allLeaveBehindsComplete = Object.values(leaveBehinds).every(Boolean) && 
                                  (isPayoffRequired ? titleConfirmation : true)
 
+  const handleCompleteDeclined = async () => {
+    try {
+      setIsCompleting(true)
+      const caseId = vehicleData.id || vehicleData._id
+
+      if (!caseId) {
+        throw new Error("Case ID not found")
+      }
+
+      const response = await api.updateCaseStatus(caseId, 'quote-declined');
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to close case')
+      }
+
+      toast({
+        title: "Case Closed",
+        description: "Case has been closed successfully.",
+      })
+    } catch (error) {
+      const errorData = api.handleError(error);
+      toast({
+        title: "Error Closing Case",
+        description: errorData.error,
+        variant: "destructive",
+      })
+    } finally {
+      setIsCompleting(false)
+    }
+  }
+
   const handleComplete = async () => {
     try {
       setIsCompleting(true)
@@ -790,7 +821,13 @@ export function Completion({ vehicleData, onUpdate, onComplete, isEstimator = fa
       ) : (
         <div className="flex justify-end">
           <Button 
-            onClick={handleComplete} 
+            onClick={() => {
+              if (isOfferDeclined) {
+                handleCompleteDeclined()
+              } else {
+                handleComplete()
+              }
+            }} 
             disabled={isCompleting} 
             size="lg" 
             className={`px-6 md:px-8 text-sm md:text-base ${
