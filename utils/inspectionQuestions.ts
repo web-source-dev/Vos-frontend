@@ -240,8 +240,15 @@ export const inspectionSections = [
         {
           id: "interior_cleanliness",
           question: "Rate interior cleanliness:",
-          type: "rating",
-          required: true
+          type: "radio",
+          required: true,
+          options: [
+            { value: "excellent", label: "Excellent - Spotless, like new", points: 5 },
+            { value: "good", label: "Good - Clean with minor dust/debris", points: 4 },
+            { value: "fair", label: "Fair - Some dirt/stains present", points: 3 },
+            { value: "poor", label: "Poor - Significant dirt/stains", points: 2 },
+            { value: "very_poor", label: "Very Poor - Filthy, major cleaning needed", points: 1 }
+          ]
         },
         {
           id: "odometer_reading",
@@ -907,10 +914,16 @@ export const inspectionSections = [
         },
         {
           id: "interior_cleanliness",
-          question: "Rate interior cleanliness:  ",
-          type: "rating",
+          question: "Rate interior cleanliness:",
+          type: "radio",
           required: true,
-          maxRating: 5
+          options: [
+            { value: "excellent", label: "Excellent - Spotless, like new", points: 5 },
+            { value: "good", label: "Good - Clean with minor dust/debris", points: 4 },
+            { value: "fair", label: "Fair - Some dirt/stains present", points: 3 },
+            { value: "poor", label: "Poor - Significant dirt/stains", points: 2 },
+            { value: "very_poor", label: "Very Poor - Filthy, major cleaning needed", points: 1 }
+          ]
         },
         {
           id: "unusual_odors",

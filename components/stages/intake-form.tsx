@@ -1276,7 +1276,7 @@ export function IntakeForm({ vehicleData, onUpdate, onComplete }: IntakeFormProp
             {/* VIN moved to the top for auto-population */}
             <div className="space-y-2">
               <Label htmlFor="vehicleVin">
-                VIN *
+                VIN
                 <span className="text-sm text-muted-foreground ml-2">(Enter VIN to auto-populate vehicle details)</span>
               </Label>
               <div className="relative">
