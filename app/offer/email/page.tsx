@@ -118,7 +118,7 @@ function EmailCollectionPageContent() {
     <div className="min-h-screen flex">
 
       {/* Left Section - Email Collection */}
-      <div className="w-1/2 bg-gradient-to-br from-green-400 to-green-500 flex flex-col justify-center items-center p-12 text-black">
+      <div className="w-1/2 bg-[#a6fe54] flex flex-col justify-center items-center p-12 text-black">
         <div className="absolute top-6 left-6 z-20">
           <Button 
             variant="default" 
@@ -130,8 +130,8 @@ function EmailCollectionPageContent() {
           </Button>
         </div>
         <div className="max-w-md w-full">
-          <h1 className="text-4xl font-bold mb-6">Want to see your offer right away?</h1>
-          <p className="text-lg mb-8 leading-relaxed">
+          <h1 className="text-4xl font-bold mb-6 text-center">Want to see your offer right away?</h1>
+          <p className="text-lg mb-8 leading-relaxed text-center">
             {email && vehicleData.contact?.email ? 
               'We found your email address. Confirm or update it below to view your instant offer.' :
               'Enter your email to view your instant offer.'
@@ -153,7 +153,7 @@ function EmailCollectionPageContent() {
                 }
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-4 rounded-full bg-white text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="w-full px-4 py-2 rounded-full bg-white text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#a6fe54]"
                 onKeyPress={(e) => {
                   if (e.key === 'Enter') {
                     handleSubmitEmail()
@@ -161,7 +161,7 @@ function EmailCollectionPageContent() {
                 }}
               />
               {email && vehicleData.contact?.email && (
-                <p className="text-green-400 text-xs mt-2">
+                <p className="text-[#a6fe54] text-xs mt-2">
                   ✓ Email auto-filled from your previous submission
                 </p>
               )}
@@ -170,10 +170,10 @@ function EmailCollectionPageContent() {
             <Button
               onClick={handleSubmitEmail}
               disabled={loading || !email.trim()}
-              className={`w-full py-4 rounded-full font-semibold transition-all ${
+              className={`w-full py-2 rounded-full font-semibold transition-all ${
                 loading || !email.trim()
                   ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                  : 'bg-green-400 text-black hover:bg-green-300 shadow-lg hover:shadow-xl'
+                  : 'bg-[#a6fe54] text-black hover:bg-[#a6fe54] shadow-lg hover:shadow-xl'
               }`}
             >
               {loading ? 'Generating Offer...' : 'Get My Instant Offer'}
@@ -189,12 +189,12 @@ function EmailCollectionPageContent() {
       {/* Right Section - Vehicle Summary */}
       <div className="w-1/2 bg-black text-white flex flex-col justify-center items-center p-12">
         <div className="max-w-md w-full">
-          <h2 className="text-4xl font-bold mb-8 text-green-400">YOUR VEHICLE SUMMARY</h2>
+          <h2 className="text-4xl font-bold mb-8 text-[#a6fe54]">YOUR VEHICLE SUMMARY</h2>
           
           {vehicleData.vinOrPlate && (
             <Card className="bg-gray-900 border-gray-700 mb-8">
               <CardHeader>
-                <CardTitle className="text-green-400">Vehicle Details</CardTitle>
+                <CardTitle className="text-[#a6fe54]">Vehicle Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between">

@@ -71,31 +71,31 @@ export default function UnlockOffer() {
   return (
     <div className="min-h-screen flex">
       {/* Left Section - Green Background */}
-      <div className="w-1/2 bg-gradient-to-br from-green-400 to-green-500 flex flex-col justify-center items-center p-12 text-black">
+      <div className="w-1/2 bg-[#a6fe54] flex flex-col justify-center items-center p-12 text-black">
         <div className="max-w-md">
-          <h1 className="text-4xl font-bold mb-6">UNLOCK YOUR OFFER</h1>
-          <p className="text-lg mb-8 leading-relaxed">
+          <h1 className="text-4xl font-bold mb-6 text-center">UNLOCK YOUR OFFER</h1>
+          <p className="text-lg mb-8 leading-relaxed text-center">
             Tell us a bit about your vehicle and we'll calculate a custom offer just for you.
           </p>
           
           {/* Tab Buttons */}
-          <div className="flex mb-8 bg-white/20 rounded-full p-1">
+          <div className="flex gap-2 mb-2 bg-transparent rounded-full p-1">
             <button
               onClick={() => setActiveTab('vin')}
-              className={`px-6 py-3 rounded-full transition-all ${
+              className={`px-6 py-1 rounded-full transition-all ${
                 activeTab === 'vin' 
-                  ? 'bg-white text-black shadow-md' 
-                  : 'text-black hover:bg-white/10'
+                  ? 'bg-white text-black shadow-md border-2 border-black' 
+                  : 'text-black hover:bg-white/10 border-2 border-black'
               }`}
             >
               VIN
             </button>
             <button
               onClick={() => setActiveTab('license')}
-              className={`px-6 py-3 rounded-full transition-all ${
+              className={`px-6 py-1 rounded-full transition-all ${
                 activeTab === 'license' 
-                  ? 'bg-white text-black shadow-md' 
-                  : 'text-black hover:bg-white/10'
+                  ? 'bg-white text-black shadow-md border-2 border-black' 
+                  : 'text-black hover:bg-white/10 border-2 border-black'
               }`}
             >
               License Plate
@@ -110,7 +110,7 @@ export default function UnlockOffer() {
                 placeholder="VIN"
                 value={vinNumber}
                 onChange={(e) => setVinNumber(e.target.value.toUpperCase())}
-                className="w-full px-4 py-4 rounded-full bg-white text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="w-full px-4 py-2 rounded-full bg-white text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#a6fe54]"
                 maxLength={17}
               />
             ) : (
@@ -119,14 +119,14 @@ export default function UnlockOffer() {
                 placeholder="License Plate"
                 value={licensePlate}
                 onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
-                className="w-full px-4 py-4 rounded-full bg-white text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="w-full px-4 py-2 rounded-full bg-white text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#a6fe54]"
               />
             )}
             
             <select
               value={selectedState}
               onChange={(e) => setSelectedState(e.target.value)}
-              className="w-full px-4 py-4 rounded-full bg-white text-black focus:outline-none focus:ring-2 focus:ring-green-400 appearance-none cursor-pointer"
+              className="w-full px-4 py-2 rounded-full bg-white text-black focus:outline-none focus:ring-2 focus:ring-[#a6fe54] appearance-none cursor-pointer"
             >
               <option value="">State (Optional)</option>
               {states.map((state) => (
@@ -139,10 +139,10 @@ export default function UnlockOffer() {
             <button
               onClick={handleNext}
               disabled={isNextDisabled()}
-              className={`w-full py-4 rounded-full font-semibold transition-all ${
+              className={`w-full py-2 rounded-full font-semibold transition-all ${
                 isNextDisabled()
                   ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                  : 'bg-green-400 text-black hover:bg-green-300 shadow-lg hover:shadow-xl'
+                  : 'bg-[#a6fe54] text-black hover:bg-[#a6fe54] shadow-lg hover:shadow-xl'
               }`}
             >
               {isLoading ? 'Creating Record...' : 'Next'}
@@ -154,7 +154,7 @@ export default function UnlockOffer() {
       {/* Right Section - Black Background */}
       <div className="w-1/2 bg-black text-white flex flex-col justify-center items-center p-12">
         <div className="max-w-md">
-          <h2 className="text-4xl font-bold mb-8 text-green-400">HOW IT WORKS</h2>
+          <h2 className="text-4xl font-bold mb-8 text-[#a6fe54]">HOW IT WORKS</h2>
           <p className="text-lg mb-12 text-gray-300 leading-relaxed">
             Selling your car should be simple—here's how Vin On Spot makes it easy:
           </p>
@@ -162,11 +162,11 @@ export default function UnlockOffer() {
           <div className="space-y-8">
             {/* Step 1 */}
             <div className="flex items-start space-x-4">
-              <div className="w-8 h-8 bg-green-400 text-black rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
+              <div className="w-8 h-8 bg-[#a6fe54] text-black rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
                 1
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-green-400 mb-2">Tell Us About Your Car</h3>
+                <h3 className="text-xl font-semibold text-[#a6fe54] mb-2">Tell Us About Your Car</h3>
                 <p className="text-gray-300 leading-relaxed">
                   Share a few key details about your vehicle, and we'll calculate a real offer just for you.
                 </p>
@@ -175,11 +175,11 @@ export default function UnlockOffer() {
 
             {/* Step 2 */}
             <div className="flex items-start space-x-4">
-              <div className="w-8 h-8 bg-green-400 text-black rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
+              <div className="w-8 h-8 bg-[#a6fe54] text-black rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
                 2
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-green-400 mb-2">Pick a Pickup Time</h3>
+                <h3 className="text-xl font-semibold text-[#a6fe54] mb-2">Pick a Pickup Time</h3>
                 <p className="text-gray-300 leading-relaxed">
                   Choose the day and time that works best—we can come to you as soon as tomorrow.
                 </p>
@@ -188,11 +188,11 @@ export default function UnlockOffer() {
 
             {/* Step 3 */}
             <div className="flex items-start space-x-4">
-              <div className="w-8 h-8 bg-green-400 text-black rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
+              <div className="w-8 h-8 bg-[#a6fe54] text-black rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
                 3
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-green-400 mb-2">Get Paid Instantly</h3>
+                <h3 className="text-xl font-semibold text-[#a6fe54] mb-2">Get Paid Instantly</h3>
                 <p className="text-gray-300 leading-relaxed">
                   Once we do a quick check of the car, we'll hand you a check on the spot. No waiting, no hassle.
                 </p>
