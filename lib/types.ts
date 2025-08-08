@@ -259,7 +259,7 @@ export interface VehicleData extends Omit<Vehicle, 'id' | 'customer'> {
 export type UserRole = 'admin' | 'agent' | 'estimator' | 'inspector' | 'customer';
 
 export interface User {
-  id?: string;
+  id?: string; 
   _id?: string;
   email: string;
   firstName: string;
