@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,23 @@ import {
 } from 'lucide-react'
 
 export default function CompletionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-400 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading completion details...</p>
+          </div>
+        </div>
+      }
+    >
+      <CompletionPageContent />
+    </Suspense>
+  )
+}
+
+function CompletionPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   

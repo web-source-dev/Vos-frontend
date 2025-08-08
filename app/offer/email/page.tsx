@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,23 @@ import { toast } from 'sonner'
 import { ArrowLeft } from 'lucide-react'
 
 export default function EmailCollectionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-black">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-400 mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
+          </div>
+        </div>
+      }
+    >
+      <EmailCollectionPageContent />
+    </Suspense>
+  )
+}
+
+function EmailCollectionPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   

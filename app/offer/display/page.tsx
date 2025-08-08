@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { getVehicleSubmission, checkUserExists } from '@/lib/customer'
@@ -26,6 +26,23 @@ import AuthPopup from '@/components/customer/AuthPopup'
 import MobilePopup from '@/components/customer/MobilePopup'
 
 export default function OfferDisplayPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-black">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-400 mx-auto mb-4"></div>
+            <p className="text-white">Loading your offer...</p>
+          </div>
+        </div>
+      }
+    >
+      <OfferDisplayPageContent />
+    </Suspense>
+  )
+}
+
+function OfferDisplayPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, isAuthenticated, loading: authLoading } = useAuth()
