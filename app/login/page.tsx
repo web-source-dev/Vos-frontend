@@ -29,16 +29,21 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user, isCustomer } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/');
+    if (isAuthenticated && user) {
+      // Redirect customers to customer dashboard, others to main dashboard
+      if ((user.role as string) === 'customer') {
+        router.push('/customer-dashboard');
+      } else {
+        router.push('/');
+      }
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, user, router]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -58,7 +63,15 @@ export default function LoginPage() {
           title: "Login successful",
           description: "You have been successfully logged in.",
         });
-        router.push("/");
+        
+        // Wait a moment for user context to update, then redirect based on role
+        setTimeout(() => {
+          if ((user?.role as string) === 'customer') {
+            router.push("/customer-dashboard");
+          } else {
+            router.push("/");
+          }
+        }, 100);
       } else {
         toast({
           title: "Login failed",

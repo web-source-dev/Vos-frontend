@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
 
 export default function VosSystem() {
-  const { isAdmin, isAgent, isEstimator, isInspector, isAuthenticated, loading } = useAuth()
+  const { isAdmin, isAgent, isEstimator, isInspector, isAuthenticated, loading, isCustomer } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -30,7 +30,11 @@ export default function VosSystem() {
         router.push('/estimator')
         return
       }
-      
+
+      if (isCustomer) {
+        router.push('/customer-dashboard')
+        return
+      }
       // Redirect inspectors to their specialized dashboard
       if (isInspector) {
         router.push('/inspector/dashboard')

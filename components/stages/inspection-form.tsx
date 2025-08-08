@@ -19,6 +19,8 @@ interface Inspector {
 interface Photo {
   path: string
   originalName: string
+  cloudinaryUrl?: string
+  publicId?: string
 }
 
 interface QuestionOption {
@@ -530,7 +532,7 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                                               {question.photos.map((photo: Photo, photoIndex: number) => (
                                                 <div key={photoIndex} className="relative aspect-video bg-gray-100 rounded overflow-hidden border border-gray-200">
                                                   <Image
-                                                    src={`${process.env.NEXT_PUBLIC_API_URL}${photo.path}`}
+                                                    src={photo.cloudinaryUrl || `${process.env.NEXT_PUBLIC_API_URL}${photo.path}`}
                                                     alt={`Photo ${photoIndex + 1}`}
                                                     className="w-full h-full object-cover"
                                                     width={100}
@@ -587,7 +589,7 @@ export function InspectionForm({ vehicleData, onComplete }: InspectionFormProps)
                                                       {subQ.photos.map((photo: Photo, photoIndex: number) => (
                                                         <div key={photoIndex} className="relative aspect-video bg-gray-100 rounded overflow-hidden border border-gray-200">
                                                           <Image
-                                                            src={`${process.env.NEXT_PUBLIC_API_URL}${photo.path}`}
+                                                            src={photo.cloudinaryUrl || `${process.env.NEXT_PUBLIC_API_URL}${photo.path}`}
                                                             alt={`Sub-question photo ${photoIndex + 1}`}
                                                             className="w-full h-full object-cover"
                                                             width={100}

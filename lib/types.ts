@@ -256,7 +256,7 @@ export interface VehicleData extends Omit<Vehicle, 'id' | 'customer'> {
 }
 
 // User and Auth types
-export type UserRole = 'admin' | 'agent' | 'estimator' | 'inspector';
+export type UserRole = 'admin' | 'agent' | 'estimator' | 'inspector' | 'customer';
 
 export interface User {
   id?: string;

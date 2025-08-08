@@ -15,6 +15,7 @@ interface AuthContextType {
   isAgent: boolean;
   isEstimator: boolean;
   isInspector: boolean;
+  isCustomer: boolean;
 }
 
 interface SignupData {
@@ -187,6 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAgent = user?.role === 'agent';
   const isEstimator = user?.role === 'estimator';
   const isInspector = user?.role === 'inspector';
+  const isCustomer = user?.role === 'customer';
 
   return (
     <AuthContext.Provider
@@ -200,7 +202,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin,
         isAgent,
         isEstimator,
-        isInspector
+        isInspector,
+        isCustomer
       }}
     >
       {children}

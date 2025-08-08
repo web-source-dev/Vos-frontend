@@ -38,7 +38,7 @@ const formSchema = z.object({
   lastName: z
     .string()
     .min(2, "Last name must be at least 2 characters"),
-  role: z.enum(['admin', 'agent', 'estimator', 'inspector'], {
+  role: z.enum(['admin', 'agent', 'estimator', 'inspector', 'customer'], {
     required_error: "Please select a role",
   }),
   location: z.string().optional(),
@@ -48,7 +48,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
-  const { signup } = useAuth();
+  const { signup, user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -81,7 +81,15 @@ export default function SignupPage() {
           title: "Account created",
           description: "Your account has been successfully created.",
         });
-        router.push("/");
+        
+        // Redirect based on role after a short delay to allow user context to update
+        setTimeout(() => {
+          if (data.role === 'customer') {
+            router.push("/customer-dashboard");
+          } else {
+            router.push("/");
+          }
+        }, 100);
       } else {
         toast({
           title: "Registration failed",
@@ -204,6 +212,7 @@ export default function SignupPage() {
                         <SelectItem value="agent">Agent</SelectItem>
                         <SelectItem value="estimator">Estimator</SelectItem>
                         <SelectItem value="inspector">Inspector</SelectItem>
+                        <SelectItem value="customer">Customer</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

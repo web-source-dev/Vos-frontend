@@ -148,6 +148,8 @@ interface QuestionOption {
 interface PhotoData {
   path: string
   originalName: string
+  cloudinaryUrl?: string
+  publicId?: string
   uploadedAt: Date
 }
 
@@ -707,45 +709,67 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     }))
   }
 
-  const handlePhotoUpload = async (sectionId: string, questionId: string, file: File) => {
+  const handlePhotoUpload = async (sectionId: string, questionId: string, file: File, subQuestionId?: string) => {
     try {
       toast({
         title: "Uploading Photo",
         description: `Uploading ${file.name}...`,
       });
 
-      const uploadResponse = await api.uploadDocument(file);
-      
-      if (!uploadResponse?.data?.path) {
-        throw new Error('Upload failed - No file path returned');
+      // Get inspection token from vehicleData
+      const inspectionToken = vehicleData.inspection?.accessToken;
+      if (!inspectionToken) {
+        throw new Error('Inspection token not found');
       }
 
-      const filePath = uploadResponse.data.path;
+      const uploadResponse = await api.uploadInspectionPhoto(file, inspectionToken, sectionId, questionId, subQuestionId);
+      
+      if (!uploadResponse?.success || !uploadResponse?.data?.photoUrl) {
+        throw new Error(uploadResponse?.error || 'Upload failed - No photo URL returned');
+      }
 
-      setInspectionData((prev) => ({
-        ...prev,
-        [sectionId]: {
-          ...prev[sectionId],
-          questions: {
-            ...prev[sectionId]?.questions,
-            [questionId]: {
-              ...prev[sectionId]?.questions?.[questionId],
-              photos: [
-                ...(prev[sectionId]?.questions?.[questionId]?.photos || []),
-                {
-                  path: filePath,
-                  originalName: file.name,
-                  uploadedAt: new Date()
-                }
-              ]
-            }
-          }
+      const photoData = uploadResponse.data.photo;
+
+      setInspectionData((prev) => {
+        const newData = { ...prev };
+        
+        // Ensure section exists
+        if (!newData[sectionId]) {
+          newData[sectionId] = {};
         }
-      }));
+        if (!newData[sectionId].questions) {
+          newData[sectionId].questions = {};
+        }
+        if (!newData[sectionId].questions[questionId]) {
+          newData[sectionId].questions[questionId] = {};
+        }
+
+        if (subQuestionId) {
+          // Add to sub-question
+          if (!newData[sectionId].questions[questionId].subQuestions) {
+            newData[sectionId].questions[questionId].subQuestions = {};
+          }
+          if (!newData[sectionId].questions[questionId].subQuestions[subQuestionId]) {
+            newData[sectionId].questions[questionId].subQuestions[subQuestionId] = {};
+          }
+          if (!newData[sectionId].questions[questionId].subQuestions[subQuestionId].photos) {
+            newData[sectionId].questions[questionId].subQuestions[subQuestionId].photos = [];
+          }
+          newData[sectionId].questions[questionId].subQuestions[subQuestionId].photos.push(photoData);
+        } else {
+          // Add to main question
+          if (!newData[sectionId].questions[questionId].photos) {
+            newData[sectionId].questions[questionId].photos = [];
+          }
+          newData[sectionId].questions[questionId].photos.push(photoData);
+        }
+
+        return newData;
+      });
 
       toast({
         title: "Photo Uploaded",
-        description: `Photo ${file.name} added successfully`,
+        description: `Photo ${file.name} uploaded to Cloudinary successfully`,
       });
     } catch (error) {
       console.error('Error uploading photo:', error);
@@ -757,43 +781,50 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
     }
   };
 
-  const handlePhotoRemove = (sectionId: string, questionId: string, photoIndex: number) => {
+  const handlePhotoRemove = async (sectionId: string, questionId: string, photoIndex: number, subQuestionId?: string) => {
     try {
+      // Get inspection token from vehicleData
+      const inspectionToken = vehicleData.inspection?.accessToken;
+      if (!inspectionToken) {
+        throw new Error('Inspection token not found');
+      }
+
+      const deleteResponse = await api.deleteInspectionPhoto(inspectionToken, sectionId, questionId, photoIndex, subQuestionId);
+      
+      if (!deleteResponse?.success) {
+        throw new Error(deleteResponse?.error || 'Failed to delete photo from server');
+      }
+
       setInspectionData((prev) => {
-        // Get the existing photos array
-        const existingPhotos = prev[sectionId]?.questions?.[questionId]?.photos || [];
+        const newData = { ...prev };
         
-        // Create a new array without the photo at the specified index
-        const updatedPhotos = [
-          ...existingPhotos.slice(0, photoIndex),
-          ...existingPhotos.slice(photoIndex + 1)
-        ];
-        
-        // Return the updated state
-        return {
-          ...prev,
-          [sectionId]: {
-            ...prev[sectionId],
-            questions: {
-              ...prev[sectionId]?.questions,
-              [questionId]: {
-                ...prev[sectionId]?.questions?.[questionId],
-                photos: updatedPhotos
-              }
-            }
+        let photos;
+        if (subQuestionId) {
+          // Remove from sub-question
+          photos = newData[sectionId]?.questions?.[questionId]?.subQuestions?.[subQuestionId]?.photos || [];
+          if (photos.length > photoIndex) {
+            photos.splice(photoIndex, 1);
           }
-        };
+        } else {
+          // Remove from main question
+          photos = newData[sectionId]?.questions?.[questionId]?.photos || [];
+          if (photos.length > photoIndex) {
+            photos.splice(photoIndex, 1);
+          }
+        }
+        
+        return newData;
       });
       
       toast({
         title: "Photo Removed",
-        description: "Photo has been removed successfully"
+        description: "Photo has been removed from Cloudinary successfully"
       });
     } catch (error) {
       console.error('Error removing photo:', error);
       toast({
         title: "Remove Failed",
-        description: "Failed to remove photo. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to remove photo. Please try again.",
         variant: "destructive",
       });
     }
@@ -1680,10 +1711,10 @@ export function InspectorView({ vehicleData, onSubmit, onBack }: InspectorViewPr
                       {hasPhoto ? (
                         <div 
                           className="relative aspect-video bg-gray-100 rounded-lg overflow-hidden border-2 border-blue-400 group cursor-pointer"
-                          onClick={() => setModalImage(`${process.env.NEXT_PUBLIC_API_URL}${currentPhotos[anglePhotoIndex].path}`)}
+                          onClick={() => setModalImage(currentPhotos[anglePhotoIndex].cloudinaryUrl || `${process.env.NEXT_PUBLIC_API_URL}${currentPhotos[anglePhotoIndex].path}`)}
                         >
                           <Image
-                            src={`${process.env.NEXT_PUBLIC_API_URL}${currentPhotos[anglePhotoIndex].path}`}
+                            src={currentPhotos[anglePhotoIndex].cloudinaryUrl || `${process.env.NEXT_PUBLIC_API_URL}${currentPhotos[anglePhotoIndex].path}`}
                             alt={angle.label}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                             width={100}
