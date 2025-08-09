@@ -1,331 +1,190 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { getCustomerSubmissions } from "@/lib/customer";
-import { Car, Calendar, DollarSign, FileText, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { Car, DollarSign, Calendar, AlertCircle, FileText, Clock, CheckCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface VehicleSubmission {
   _id: string;
-  vinOrPlate: {
-    vin: string;
-    make: string;
-    model: string;
-    year: number;
-    licensePlate: string;
-    estimatedPrice: number;
-  };
-  basics?: {
-    mileage: number;
-    zipCode: string;
-    color: string;
-  };
-  condition?: {
-    overallCondition: string;
-    accidentHistory: string;
-  };
-  contact?: {
-    email: string;
-    mobile: string;
-  };
-  offer?: {
-    amount: number;
-    expiresAt: string;
-    generated: boolean;
-  };
-  appointment?: {
-    type: string;
-    address: string;
-  };
+  vinOrPlate: { vin: string; make: string; model: string; year: number; licensePlate: string; estimatedPrice: number };
+  basics?: { mileage?: number; zipCode?: string; color?: string };
+  condition?: { overallCondition?: string; accidentHistory?: string };
+  contact?: { email?: string; mobile?: string };
+  offer?: { amount?: number; expiresAt?: string; generated?: boolean };
+  appointment?: { type?: string; address?: string };
   appointmentDateTime?: string;
-  payoutMethod?: {
-    type: string;
-  };
   createdAt: string;
-  updatedAt: string;
 }
 
-export default function CustomerDashboard() {
+export default function VehiclesPage() {
+  const { user, isAuthenticated } = useAuth();
   const [submissions, setSubmissions] = useState<VehicleSubmission[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login');
-      return;
-    }
+    if (!isAuthenticated) return;
+    if (user?.email) fetchData();
+  }, [isAuthenticated, user]);
 
-    if (user?.email) {
-      fetchCustomerSubmissions();
-    }
-  }, [isAuthenticated, user, router]);
-
-  const fetchCustomerSubmissions = async () => {
-    if (!user?.email) return;
-
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await getCustomerSubmissions(user.email);
-      
-      if (response.success && response.data) {
-        setSubmissions(response.data);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to fetch your vehicle submissions",
-          variant: "destructive",
-        });
+      const res = await getCustomerSubmissions(user!.email);
+      if (res.success && res.data) {
+        const sorted = [...(res.data as VehicleSubmission[])].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setSubmissions(sorted);
       }
-    } catch (error) {
-      console.error('Error fetching submissions:', error);
-      toast({
-        title: "Error",
-        description: "Something went wrong while fetching your data",
-        variant: "destructive",
-      });
+      else toast({ title: "Error", description: res.error || "Failed to load vehicles", variant: "destructive" });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to load vehicles", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  const getSubmissionStatus = (submission: VehicleSubmission) => {
-    if (submission.appointmentDateTime) {
-      return { status: "Appointment Scheduled", color: "bg-green-500", icon: CheckCircle };
-    }
-    if (submission.offer?.generated) {
-      return { status: "Offer Generated", color: "bg-blue-500", icon: DollarSign };
-    }
-    if (submission.contact?.email) {
-      return { status: "Contact Provided", color: "bg-yellow-500", icon: Clock };
-    }
-    if (submission.condition) {
-      return { status: "Condition Assessed", color: "bg-orange-500", icon: FileText };
-    }
-    if (submission.basics) {
-      return { status: "Basic Info Added", color: "bg-purple-500", icon: Car };
-    }
-    return { status: "Initial Submission", color: "bg-gray-500", icon: AlertCircle };
+  const getStatus = (s: VehicleSubmission) => {
+    if (s.appointmentDateTime) return { label: "Appointment Scheduled", color: "bg-emerald-500", icon: CheckCircle };
+    if (s.offer?.generated) return { label: "Offer Generated", color: "bg-blue-500", icon: DollarSign };
+    if (s.contact?.email) return { label: "Contact Provided", color: "bg-amber-500", icon: Clock };
+    if (s.condition) return { label: "Condition Assessed", color: "bg-orange-500", icon: FileText };
+    if (s.basics) return { label: "Basic Info Added", color: "bg-violet-500", icon: Car };
+    return { label: "Initial Submission", color: "bg-gray-500", icon: AlertCircle };
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const formatCurrency = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+  const formatDate = (d: string | number | Date) => new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading your dashboard...</p>
+      <div className="p-4 md:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="h-7 w-40 mb-2"><Skeleton className="h-7 w-40" /></div>
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-9 w-36" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1,2,3,4].map((i) => (
+            <Card key={i}>
+              <CardHeader className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-5 w-48" />
+                  <Skeleton className="h-6 w-36" />
+                </div>
+                <Skeleton className="h-4 w-64" />
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-24" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Customer Dashboard</h1>
-          <p className="mt-2 text-gray-600">
-            Welcome back, {user?.firstName || user?.email}! Here are your vehicle submissions.
-          </p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Submissions</CardTitle>
-              <Car className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{submissions.length}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Offers</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {submissions.filter(s => s.offer?.generated).length}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Scheduled Appointments</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {submissions.filter(s => s.appointmentDateTime).length}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Vehicle Submissions */}
-        <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-gray-900">Your Vehicle Submissions</h2>
-          
+    <div className="p-4 md:p-6">
+      <Card>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="text-2xl">Your Vehicles</CardTitle>
+            <CardDescription>All vehicles you submitted for evaluation</CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => router.push('/offer')}>New Vehicle</Button>
+          </div>
+        </CardHeader>
+        <CardContent>
           {submissions.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-12">
-                <Car className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No submissions yet</h3>
-                <p className="text-gray-600 mb-4">
-                  You haven't submitted any vehicles for evaluation yet.
-                </p>
-                <Button onClick={() => router.push('/customer')}>
-                  Submit Your First Vehicle
-                </Button>
-              </CardContent>
-            </Card>
+            <div className="text-center py-10">
+              <Car className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600 mb-4">No submissions yet.</p>
+              <Button onClick={() => router.push('/offer')}>Submit a Vehicle</Button>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {submissions.map((submission) => {
-                const statusInfo = getSubmissionStatus(submission);
-                const StatusIcon = statusInfo.icon;
-                
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {submissions.map((s) => {
+                const st = getStatus(s);
+                const Icon = st.icon;
                 return (
-                  <Card key={submission._id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-lg">
-                            {submission.vinOrPlate.year} {submission.vinOrPlate.make} {submission.vinOrPlate.model}
-                          </CardTitle>
-                          <CardDescription>
-                            {submission.vinOrPlate.vin ? `VIN: ${submission.vinOrPlate.vin}` : 
-                             submission.vinOrPlate.licensePlate ? `License: ${submission.vinOrPlate.licensePlate}` : 
-                             'Vehicle Details'}
-                          </CardDescription>
-                        </div>
-                        <Badge className={`${statusInfo.color} text-white`}>
-                          <StatusIcon className="h-3 w-3 mr-1" />
-                          {statusInfo.status}
-                        </Badge>
+                  <Card key={s._id} className="hover:shadow-sm transition-shadow">
+                    <CardHeader className="flex-row items-start justify-between space-y-0 gap-3">
+                      <div>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          {s.vinOrPlate.year} {s.vinOrPlate.make} {s.vinOrPlate.model}
+                        </CardTitle>
+                        <CardDescription>
+                          {s.vinOrPlate.vin ? `VIN: ${s.vinOrPlate.vin}` : s.vinOrPlate.licensePlate ? `License: ${s.vinOrPlate.licensePlate}` : "Vehicle Details"}
+                        </CardDescription>
                       </div>
                     </CardHeader>
-                    
-                    <CardContent className="space-y-4">
-                      {/* Vehicle Details */}
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        {submission.basics?.mileage && (
-                          <div>
-                            <span className="text-gray-500">Mileage:</span>
-                            <p className="font-medium">{submission.basics.mileage.toLocaleString()} miles</p>
-                          </div>
-                        )}
-                        {submission.basics?.color && (
-                          <div>
-                            <span className="text-gray-500">Color:</span>
-                            <p className="font-medium">{submission.basics.color}</p>
-                          </div>
-                        )}
-                        {submission.condition?.overallCondition && (
-                          <div>
-                            <span className="text-gray-500">Condition:</span>
-                            <p className="font-medium">{submission.condition.overallCondition}</p>
-                          </div>
-                        )}
-                        {submission.vinOrPlate.estimatedPrice > 0 && (
-                          <div>
-                            <span className="text-gray-500">Estimated Value:</span>
-                            <p className="font-medium">{formatCurrency(submission.vinOrPlate.estimatedPrice)}</p>
-                          </div>
-                        )}
+                    <CardContent className="text-sm grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-gray-500">Submitted</span>
+                        <div className="font-medium">{formatDate(s.createdAt)}</div>
                       </div>
-
-                      {/* Offer Information */}
-                      {submission.offer?.generated && (
-                        <div className="bg-green-50 p-4 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="font-medium text-green-900">Offer Generated</h4>
-                              <p className="text-2xl font-bold text-green-700">
-                                {formatCurrency(submission.offer.amount)}
-                              </p>
-                              {submission.offer.expiresAt && (
-                                <p className="text-sm text-green-600">
-                                  Expires: {formatDate(submission.offer.expiresAt)}
-                                </p>
-                              )}
-                            </div>
-                            <DollarSign className="h-8 w-8 text-green-600" />
-                          </div>
+                      {s.basics?.mileage && (
+                        <div>
+                          <span className="text-gray-500">Mileage</span>
+                          <div className="font-medium">{s.basics.mileage.toLocaleString()} mi</div>
                         </div>
                       )}
-
-                      {/* Appointment Information */}
-                      {submission.appointmentDateTime && (
-                        <div className="bg-blue-50 p-4 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="font-medium text-blue-900">Appointment Scheduled</h4>
-                              <p className="text-blue-700">
-                                {formatDate(submission.appointmentDateTime)}
-                              </p>
-                              {submission.appointment?.type && (
-                                <p className="text-sm text-blue-600">
-                                  Type: {submission.appointment.type}
-                                </p>
-                              )}
-                            </div>
-                            <Calendar className="h-8 w-8 text-blue-600" />
-                          </div>
+                      {s.basics?.color && (
+                        <div>
+                          <span className="text-gray-500">Color</span>
+                          <div className="font-medium">{s.basics.color}</div>
                         </div>
                       )}
-
-                      <Separator />
-
-                      {/* Footer */}
-                      <div className="flex justify-between items-center text-sm text-gray-500">
-                        <span>Submitted: {formatDate(submission.createdAt)}</span>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => router.push(`/customer/submission/${submission._id}`)}
-                        >
-                          View Details
-                        </Button>
-                      </div>
+                      {s.basics?.zipCode && (
+                        <div>
+                          <span className="text-gray-500">ZIP</span>
+                          <div className="font-medium">{s.basics.zipCode}</div>
+                        </div>
+                      )}
+                      {s.vinOrPlate.estimatedPrice > 0 && (
+                        <div>
+                          <span className="text-gray-500">Est. Value</span>
+                          <div className="font-medium">{formatCurrency(s.vinOrPlate.estimatedPrice)}</div>
+                        </div>
+                      )}
+                      {s.offer?.generated && (
+                        <div className="col-span-2">
+                          <span className="text-gray-500">Offer</span>
+                          <div className="font-medium">{formatCurrency(s.offer.amount || 0)}</div>
+                        </div>
+                      )}
+                      {s.appointmentDateTime && (
+                        <div className="col-span-2">
+                          <span className="text-gray-500">Appointment</span>
+                          <div className="font-medium">{formatDate(s.appointmentDateTime)}</div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
               })}
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
+
+

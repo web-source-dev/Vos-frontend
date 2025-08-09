@@ -9,6 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { getAllCustomerSubmissions } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { 
   Car, 
   Calendar, 
@@ -72,6 +80,8 @@ export default function CustomerSubmissionsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedSubmission, setSelectedSubmission] = useState<VehicleSubmission | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -179,6 +189,11 @@ export default function CustomerSubmissionsPage() {
   };
 
   const stats = getStats();
+
+  const openDetails = (submission: VehicleSubmission) => {
+    setSelectedSubmission(submission);
+    setDetailsOpen(true);
+  };
 
   if (loading) {
     return (
@@ -449,7 +464,7 @@ export default function CustomerSubmissionsPage() {
                       {/* Footer */}
                       <div className="flex justify-between items-center text-sm text-gray-500">
                         <span>Submitted: {formatDate(submission.createdAt)}</span>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => openDetails(submission)}>
                           <Eye className="h-3 w-3 mr-1" />
                           View Details
                         </Button>
@@ -461,6 +476,150 @@ export default function CustomerSubmissionsPage() {
             </div>
           )}
         </div>
+
+        {/* Details Dialog */}
+        <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedSubmission
+                  ? `${selectedSubmission.vinOrPlate.year} ${selectedSubmission.vinOrPlate.make} ${selectedSubmission.vinOrPlate.model}`
+                  : "Submission Details"}
+              </DialogTitle>
+              <DialogDescription>
+                {selectedSubmission?.vinOrPlate.vin
+                  ? `VIN: ${selectedSubmission.vinOrPlate.vin}`
+                  : selectedSubmission?.vinOrPlate.licensePlate
+                  ? `License: ${selectedSubmission.vinOrPlate.licensePlate}`
+                  : "Vehicle Details"}
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedSubmission && (
+              <div className="space-y-6">
+                {/* Status */}
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const info = getSubmissionStatus(selectedSubmission);
+                    const Icon = info.icon;
+                    return (
+                      <span className={`inline-flex items-center px-2 py-1 rounded text-white text-xs ${info.color}`}>
+                        <Icon className="h-3 w-3 mr-1" />
+                        {info.status}
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                {/* Vehicle Basics */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500">Estimated Value:</span>
+                    <p className="font-medium">{formatCurrency(selectedSubmission.vinOrPlate.estimatedPrice || 0)}</p>
+                  </div>
+                  {selectedSubmission.basics?.mileage !== undefined && (
+                    <div>
+                      <span className="text-gray-500">Mileage:</span>
+                      <p className="font-medium">{selectedSubmission.basics.mileage.toLocaleString()} miles</p>
+                    </div>
+                  )}
+                  {selectedSubmission.basics?.color && (
+                    <div>
+                      <span className="text-gray-500">Color:</span>
+                      <p className="font-medium">{selectedSubmission.basics.color}</p>
+                    </div>
+                  )}
+                  {selectedSubmission.basics?.zipCode && (
+                    <div>
+                      <span className="text-gray-500">ZIP Code:</span>
+                      <p className="font-medium">{selectedSubmission.basics.zipCode}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Condition */}
+                {selectedSubmission.condition && (
+                  <div className="space-y-1 text-sm">
+                    <h4 className="font-medium text-gray-900">Condition</h4>
+                    {selectedSubmission.condition.overallCondition && (
+                      <p><span className="text-gray-500">Overall:</span> {selectedSubmission.condition.overallCondition}</p>
+                    )}
+                    {selectedSubmission.condition.accidentHistory && (
+                      <p><span className="text-gray-500">Accident History:</span> {selectedSubmission.condition.accidentHistory}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Contact */}
+                {selectedSubmission.contact && (
+                  <div className="space-y-1 text-sm">
+                    <h4 className="font-medium text-gray-900">Contact</h4>
+                    {selectedSubmission.contact.email && (
+                      <p><span className="text-gray-500">Email:</span> {selectedSubmission.contact.email}</p>
+                    )}
+                    {selectedSubmission.contact.mobile && (
+                      <p><span className="text-gray-500">Phone:</span> {selectedSubmission.contact.mobile}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Offer */}
+                {selectedSubmission.offer && (
+                  <div className="space-y-1 text-sm">
+                    <h4 className="font-medium text-gray-900">Offer</h4>
+                    <p><span className="text-gray-500">Generated:</span> {selectedSubmission.offer.generated ? "Yes" : "No"}</p>
+                    {selectedSubmission.offer.amount !== undefined && (
+                      <p><span className="text-gray-500">Amount:</span> {formatCurrency(selectedSubmission.offer.amount)}</p>
+                    )}
+                    {selectedSubmission.offer.expiresAt && (
+                      <p><span className="text-gray-500">Expires:</span> {formatDate(selectedSubmission.offer.expiresAt)}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Appointment */}
+                {(selectedSubmission.appointmentDateTime || selectedSubmission.appointment) && (
+                  <div className="space-y-1 text-sm">
+                    <h4 className="font-medium text-gray-900">Appointment</h4>
+                    {selectedSubmission.appointmentDateTime && (
+                      <p><span className="text-gray-500">When:</span> {formatDate(selectedSubmission.appointmentDateTime)}</p>
+                    )}
+                    {selectedSubmission.appointment?.type && (
+                      <p><span className="text-gray-500">Type:</span> {selectedSubmission.appointment.type}</p>
+                    )}
+                    {selectedSubmission.appointment?.address && (
+                      <p><span className="text-gray-500">Address:</span> {selectedSubmission.appointment.address}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Payout */}
+                {selectedSubmission.payoutMethod?.type && (
+                  <div className="space-y-1 text-sm">
+                    <h4 className="font-medium text-gray-900">Payout</h4>
+                    <p><span className="text-gray-500">Method:</span> {selectedSubmission.payoutMethod.type}</p>
+                  </div>
+                )}
+
+                {/* Timestamps */}
+                <div className="grid grid-cols-2 gap-4 text-xs text-gray-500">
+                  <div>
+                    <span className="block">Created</span>
+                    <span className="font-medium">{formatDate(selectedSubmission.createdAt)}</span>
+                  </div>
+                  <div>
+                    <span className="block">Updated</span>
+                    <span className="font-medium">{formatDate(selectedSubmission.updatedAt)}</span>
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button onClick={() => setDetailsOpen(false)} variant="outline">Close</Button>
+                </DialogFooter>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );

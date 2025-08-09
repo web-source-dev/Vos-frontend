@@ -122,6 +122,26 @@ export async function logoutUser(): Promise<APIResponse<void>> {
   return handleResponse<void>(response);
 }
 
+export async function updateMyProfile(data: { firstName?: string; lastName?: string; email?: string; location?: string }): Promise<APIResponse<User>> {
+  const options = await defaultOptions();
+  const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+    ...options,
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  return handleResponse<User>(response);
+}
+
+export async function changeMyPassword(data: { currentPassword: string; newPassword: string }): Promise<APIResponse<void>> {
+  const options = await defaultOptions();
+  const response = await fetch(`${API_BASE_URL}/api/auth/password`, {
+    ...options,
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  return handleResponse<void>(response);
+}
+
 export async function getCases(): Promise<APIResponse<Case[]>> {
   console.log('Fetching cases...');
   const options = await defaultOptions();
