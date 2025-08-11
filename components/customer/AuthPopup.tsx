@@ -232,7 +232,7 @@ export default function AuthPopup({ isOpen, onClose, onSuccess, prefillEmail, us
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-green-400 hover:bg-green-300 text-black font-semibold py-2"
+              className="w-full bg-[#a6fe54] hover:bg-[#a6fe54]/80 text-black font-semibold py-2"
             >
               {loading 
                 ? (isLogin ? 'Signing In...' : 'Creating Account...') 

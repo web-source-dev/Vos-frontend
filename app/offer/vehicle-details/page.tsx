@@ -1157,7 +1157,7 @@ function VehicleDetailsPageContent() {
               <Button
                 onClick={handleGetMyOffer}
                 disabled={loading}
-                className="w-full bg-green-400 hover:bg-green-300 text-black font-semibold py-4 text-lg rounded-full"
+                className="w-full bg-[#a6fe54] hover:bg-[#a6fe54]/80 text-black font-semibold py-4 text-lg rounded-full"
               >
                 {loading ? 'Saving...' : 'Get My Offer'}
               </Button>

@@ -119,7 +119,7 @@ function SchedulePickupPageContent() {
             setAddress(result.data.appointment.address)
             console.log('Auto-populated address:', result.data.appointment.address)
           } else if (result.data.basics?.zipCode) {
-            setAddress(`Zip Code: ${result.data.basics.zipCode}`)
+            setAddress(`${result.data.basics.zipCode}`)
             console.log('Set address from zipCode:', result.data.basics.zipCode)
           }
           
@@ -147,7 +147,7 @@ function SchedulePickupPageContent() {
         } else {
           // Pre-fill address if available but no appointment exists
           if (result.data.basics?.zipCode) {
-            setAddress(`Zip Code: ${result.data.basics.zipCode}`)
+            setAddress(`${result.data.basics.zipCode}`)
           }
           setIsAutoPopulated(false)
           console.log('No existing appointment found, starting fresh')
@@ -226,15 +226,97 @@ function SchedulePickupPageContent() {
     '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'
   ]
 
+  // Date picker state
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [currentMonth, setCurrentMonth] = useState(new Date())
+
   // Get minimum date (tomorrow)
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
-  const minDate = tomorrow.toISOString().split('T')[0]
+  const minDate = tomorrow
 
   // Get maximum date (30 days from now)
   const maxDate = new Date()
   maxDate.setDate(maxDate.getDate() + 30)
-  const maxDateString = maxDate.toISOString().split('T')[0]
+
+  // Generate calendar days
+  const generateCalendarDays = () => {
+    const year = currentMonth.getFullYear()
+    const month = currentMonth.getMonth()
+    
+    const firstDay = new Date(year, month, 1)
+    const lastDay = new Date(year, month + 1, 0)
+    const startDate = new Date(firstDay)
+    startDate.setDate(startDate.getDate() - firstDay.getDay())
+    
+    const days = []
+    const currentDate = new Date(startDate)
+    
+    while (currentDate <= lastDay || days.length < 42) {
+      days.push(new Date(currentDate))
+      currentDate.setDate(currentDate.getDate() + 1)
+    }
+    
+    return days
+  }
+
+  const calendarDays = generateCalendarDays()
+
+  const isDateSelectable = (date: Date) => {
+    return date >= minDate && date <= maxDate
+  }
+
+  const isDateSelected = (date: Date) => {
+    if (!selectedDate) return false
+    const selected = new Date(selectedDate)
+    return date.toDateString() === selected.toDateString()
+  }
+
+  const handleDateSelect = (date: Date) => {
+    if (isDateSelectable(date)) {
+      // Fix timezone issue by using local date formatting
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const dateString = `${year}-${month}-${day}`
+      setSelectedDate(dateString)
+      setShowDatePicker(false)
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return ''
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })
+  }
+
+  const nextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
+  }
+
+  const prevMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))
+  }
+
+  // Close date picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element
+      if (showDatePicker && !target.closest('.date-picker-container')) {
+        setShowDatePicker(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showDatePicker])
 
   if (loading) {
     return (
@@ -248,13 +330,7 @@ function SchedulePickupPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-x-hidden">
-      {/* Animated background elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-500/5 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-400/3 rounded-full blur-3xl animate-pulse delay-500"></div>
-      </div>
+    <div className="min-h-screen bg-black text-white overflow-x-hidden">
 
       <div className="relative z-10">
         {/* Header */}
@@ -273,19 +349,11 @@ function SchedulePickupPageContent() {
         <div className="max-w-6xl mx-auto px-6 pt-24 pb-16">
           {/* Hero Section */}
           <div className="text-center mb-16">
-            {/* Scheduling badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-400/20 to-blue-400/20 backdrop-blur-sm border border-emerald-400/30 rounded-full mb-8 animate-fade-in">
-              <Calendar className="w-4 h-4 text-emerald-400" />
-              <span className="text-sm font-semibold bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
-                SCHEDULE APPOINTMENT
-              </span>
-              <Sparkles className="w-4 h-4 text-blue-400" />
-            </div>
-
+     
             {/* Main heading */}
             <div className="relative mb-12">
               <h1 className="text-4xl md:text-6xl font-black mb-6 leading-tight">
-                <span className="bg-gradient-to-r from-emerald-400 via-emerald-300 to-blue-400 bg-clip-text text-transparent">
+                <span className="text-[#a6fe54]">
                   Schedule Your Appointment
                 </span>
               </h1>
@@ -295,20 +363,20 @@ function SchedulePickupPageContent() {
               </p>
               
               {/* Vehicle Info Display */}
-              <div className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-emerald-400/10 to-blue-400/10 backdrop-blur-sm border border-emerald-400/20 rounded-2xl mb-8">
-                <Car className="w-6 h-6 text-emerald-400" />
-                <span className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
+              <div className="inline-flex items-center gap-3 px-8 py-4 bg-[#a6fe54]/10 border border-[#a6fe54]/30 rounded-2xl mb-8">
+                <Car className="w-6 h-6 text-[#a6fe54]" />
+                <span className="text-xl font-bold text-[#a6fe54]">
                   {vehicleData.vinOrPlate?.year} {vehicleData.vinOrPlate?.make} {vehicleData.vinOrPlate?.model}
                 </span>
               </div>
 
               {/* Auto-populated notification */}
               {isAutoPopulated && (
-                <div className="max-w-2xl mx-auto mt-8 bg-gradient-to-r from-emerald-400/10 to-emerald-400/5 backdrop-blur-sm border border-emerald-400/30 rounded-2xl p-6">
+                <div className="max-w-2xl mx-auto mt-8 bg-[#a6fe54]/10 border border-[#a6fe54]/30 rounded-2xl p-6">
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="w-6 h-6 text-emerald-400" />
+                    <CheckCircle className="w-6 h-6 text-[#a6fe54]" />
                     <div className="text-left">
-                      <p className="text-emerald-400 font-bold text-lg">
+                      <p className="text-[#a6fe54] font-bold text-lg">
                         ✓ Previous appointment found
                       </p>
                       <p className="text-slate-300 font-medium">
@@ -342,50 +410,50 @@ function SchedulePickupPageContent() {
                   setIsAutoPopulated(false)
                 }}
               >
-                <div className={`bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border-2 rounded-3xl p-8 transition-all duration-300 h-full ${
-                  appointmentType === 'In-store appointment' 
-                    ? 'border-emerald-400/50 shadow-2xl shadow-emerald-400/20' 
-                    : 'border-white/20 hover:border-emerald-400/30'
-                }`}>
-                  <div className="text-center">
-                    <div className={`w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                      appointmentType === 'In-store appointment'
-                        ? 'bg-gradient-to-br from-emerald-400/30 to-emerald-500/30 scale-110'
-                        : 'bg-gradient-to-br from-emerald-400/20 to-blue-400/20 group-hover:scale-110'
-                    }`}>
-                      <Building className="w-10 h-10 text-emerald-400" />
-                    </div>
-                    
-                    <h3 className="text-2xl font-bold text-white mb-3 flex items-center justify-center gap-3">
-                      In-Store Visit
-                      {appointmentType === 'In-store appointment' && (
-                        <div className="flex items-center gap-1 px-2 py-1 bg-emerald-400/20 rounded-full">
-                          <CheckCircle className="w-4 h-4 text-emerald-400" />
-                          <span className="text-xs text-emerald-400 font-medium">Selected</span>
-                        </div>
-                      )}
-                    </h3>
-                    
-                    <p className="text-slate-300 text-lg mb-6">Visit our location to complete the sale and receive payment</p>
-                    
-                    <div className="flex justify-center gap-3">
-                      <div className="flex items-center gap-2 px-3 py-1 bg-emerald-400/20 rounded-full">
-                        <Users className="w-4 h-4 text-emerald-400" />
-                        <span className="text-emerald-400 font-semibold text-sm">Personal Service</span>
-                      </div>
-                      <div className="flex items-center gap-2 px-3 py-1 bg-blue-400/20 rounded-full">
-                        <Shield className="w-4 h-4 text-blue-400" />
-                        <span className="text-blue-400 font-semibold text-sm">Secure</span>
-                      </div>
-                    </div>
-                    
-                    {appointmentType === 'In-store appointment' && isAutoPopulated && (
-                      <div className="mt-4 p-3 bg-emerald-400/10 rounded-xl">
-                        <div className="text-xs text-emerald-400 font-medium">Previously Selected</div>
+                              <div className={`bg-black border-2 rounded-3xl p-8 transition-all duration-300 h-full ${
+                appointmentType === 'In-store appointment' 
+                  ? 'border-[#a6fe54]/50 shadow-2xl shadow-[#a6fe54]/20' 
+                  : 'border-white/20 hover:border-[#a6fe54]/30'
+              }`}>
+                <div className="text-center">
+                  <div className={`w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+                    appointmentType === 'In-store appointment'
+                      ? 'bg-[#a6fe54]/30 scale-110'
+                      : 'bg-[#a6fe54]/20 group-hover:scale-110'
+                  }`}>
+                    <Building className="w-10 h-10 text-[#a6fe54]" />
+                  </div>
+                  
+                  <h3 className="text-2xl font-bold text-white mb-3 flex items-center justify-center gap-3">
+                    In-Store Visit
+                    {appointmentType === 'In-store appointment' && (
+                      <div className="flex items-center gap-1 px-2 py-1 bg-[#a6fe54]/20 rounded-full">
+                        <CheckCircle className="w-4 h-4 text-[#a6fe54]" />
+                        <span className="text-xs text-[#a6fe54] font-medium">Selected</span>
                       </div>
                     )}
+                  </h3>
+                  
+                  <p className="text-slate-300 text-lg mb-6">Visit our location to complete the sale and receive payment</p>
+                  
+                  <div className="flex justify-center gap-3">
+                    <div className="flex items-center gap-2 px-3 py-1 bg-[#a6fe54]/20 rounded-full">
+                      <Users className="w-4 h-4 text-[#a6fe54]" />
+                      <span className="text-[#a6fe54] font-semibold text-sm">Personal Service</span>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-1 bg-[#a6fe54]/20 rounded-full">
+                      <Shield className="w-4 h-4 text-[#a6fe54]" />
+                      <span className="text-[#a6fe54] font-semibold text-sm">Secure</span>
+                    </div>
                   </div>
+                  
+                  {appointmentType === 'In-store appointment' && isAutoPopulated && (
+                    <div className="mt-4 p-3 bg-[#a6fe54]/10 rounded-xl">
+                      <div className="text-xs text-[#a6fe54] font-medium">Previously Selected</div>
+                    </div>
+                  )}
                 </div>
+              </div>
               </div>
 
               {/* At-home pickup */}
@@ -398,50 +466,50 @@ function SchedulePickupPageContent() {
                   setIsAutoPopulated(false)
                 }}
               >
-                <div className={`bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border-2 rounded-3xl p-8 transition-all duration-300 h-full ${
-                  appointmentType === 'At-home pickup' 
-                    ? 'border-blue-400/50 shadow-2xl shadow-blue-400/20' 
-                    : 'border-white/20 hover:border-blue-400/30'
-                }`}>
-                  <div className="text-center">
-                    <div className={`w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                      appointmentType === 'At-home pickup'
-                        ? 'bg-gradient-to-br from-blue-400/30 to-blue-500/30 scale-110'
-                        : 'bg-gradient-to-br from-blue-400/20 to-purple-400/20 group-hover:scale-110'
-                    }`}>
-                      <Home className="w-10 h-10 text-blue-400" />
-                    </div>
-                    
-                    <h3 className="text-2xl font-bold text-white mb-3 flex items-center justify-center gap-3">
-                      At-Home Pickup
-                      {appointmentType === 'At-home pickup' && (
-                        <div className="flex items-center gap-1 px-2 py-1 bg-blue-400/20 rounded-full">
-                          <CheckCircle className="w-4 h-4 text-blue-400" />
-                          <span className="text-xs text-blue-400 font-medium">Selected</span>
-                        </div>
-                      )}
-                    </h3>
-                    
-                    <p className="text-slate-300 text-lg mb-6">We'll come to your location to pick up the vehicle</p>
-                    
-                    <div className="flex justify-center gap-3">
-                      <div className="flex items-center gap-2 px-3 py-1 bg-blue-400/20 rounded-full">
-                        <Star className="w-4 h-4 text-blue-400" />
-                        <span className="text-blue-400 font-semibold text-sm">Convenient</span>
-                      </div>
-                      <div className="flex items-center gap-2 px-3 py-1 bg-purple-400/20 rounded-full">
-                        <Award className="w-4 h-4 text-purple-400" />
-                        <span className="text-purple-400 font-semibold text-sm">Popular</span>
-                      </div>
-                    </div>
-                    
-                    {appointmentType === 'At-home pickup' && isAutoPopulated && (
-                      <div className="mt-4 p-3 bg-blue-400/10 rounded-xl">
-                        <div className="text-xs text-blue-400 font-medium">Previously Selected</div>
+                              <div className={`bg-black border-2 rounded-3xl p-8 transition-all duration-300 h-full ${
+                appointmentType === 'At-home pickup' 
+                  ? 'border-[#a6fe54]/50 shadow-2xl shadow-[#a6fe54]/20' 
+                  : 'border-white/20 hover:border-[#a6fe54]/30'
+              }`}>
+                <div className="text-center">
+                  <div className={`w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+                    appointmentType === 'At-home pickup'
+                      ? 'bg-[#a6fe54]/30 scale-110'
+                      : 'bg-[#a6fe54]/20 group-hover:scale-110'
+                  }`}>
+                    <Home className="w-10 h-10 text-[#a6fe54]" />
+                  </div>
+                  
+                  <h3 className="text-2xl font-bold text-white mb-3 flex items-center justify-center gap-3">
+                    At-Home Pickup
+                    {appointmentType === 'At-home pickup' && (
+                      <div className="flex items-center gap-1 px-2 py-1 bg-[#a6fe54]/20 rounded-full">
+                        <CheckCircle className="w-4 h-4 text-[#a6fe54]" />
+                        <span className="text-xs text-[#a6fe54] font-medium">Selected</span>
                       </div>
                     )}
+                  </h3>
+                  
+                  <p className="text-slate-300 text-lg mb-6">We'll come to your location to pick up the vehicle</p>
+                  
+                  <div className="flex justify-center gap-3">
+                    <div className="flex items-center gap-2 px-3 py-1 bg-[#a6fe54]/20 rounded-full">
+                      <Star className="w-4 h-4 text-[#a6fe54]" />
+                      <span className="text-[#a6fe54] font-semibold text-sm">Convenient</span>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-1 bg-[#a6fe54]/20 rounded-full">
+                      <Award className="w-4 h-4 text-[#a6fe54]" />
+                      <span className="text-[#a6fe54] font-semibold text-sm">Popular</span>
+                    </div>
                   </div>
+                  
+                  {appointmentType === 'At-home pickup' && isAutoPopulated && (
+                    <div className="mt-4 p-3 bg-[#a6fe54]/10 rounded-xl">
+                      <div className="text-xs text-[#a6fe54] font-medium">Previously Selected</div>
+                    </div>
+                  )}
                 </div>
+              </div>
               </div>
             </div>
           </div>
@@ -449,10 +517,10 @@ function SchedulePickupPageContent() {
           {/* Date and Time Selection */}
           <div className="grid lg:grid-cols-2 gap-8 mb-12">
             {/* Date Selection */}
-            <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-3xl p-8">
+            <div className="bg-black border border-[#a6fe54]/30 rounded-3xl p-8">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-emerald-400/20 to-blue-400/20 rounded-2xl flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-emerald-400" />
+                <div className="w-12 h-12 bg-[#a6fe54]/20 rounded-2xl flex items-center justify-center">
+                  <Calendar className="w-6 h-6 text-[#a6fe54]" />
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-white">Select Date</h3>
@@ -460,19 +528,79 @@ function SchedulePickupPageContent() {
                 </div>
               </div>
 
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                min={minDate}
-                max={maxDateString}
-                className="w-full p-4 text-lg rounded-xl bg-white/5 border border-white/20 text-white placeholder-slate-400 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20"
-              />
-              <p className="text-sm text-slate-400 mt-3">
-                Available: Tomorrow to {maxDate.toLocaleDateString()}
-              </p>
+              {/* Custom Date Picker */}
+              <div className="relative date-picker-container">
+                <button
+                  onClick={() => setShowDatePicker(!showDatePicker)}
+                  className="w-full p-4 text-lg rounded-xl bg-white/5 border border-white/20 text-white hover:border-[#a6fe54]/30 focus:border-[#a6fe54]/50 focus:ring-2 focus:ring-[#a6fe54]/20 transition-all duration-300 text-left"
+                >
+                  {selectedDate ? formatDate(selectedDate) : 'Select a date...'}
+                </button>
+
+                {showDatePicker && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-black border border-[#a6fe54]/30 rounded-xl p-4 z-50 shadow-2xl">
+                    {/* Calendar Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <button
+                        onClick={prevMonth}
+                        className="p-2 hover:bg-[#a6fe54]/20 rounded-lg transition-colors"
+                      >
+                        <svg className="w-5 h-5 text-[#a6fe54]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <h3 className="text-lg font-bold text-white">
+                        {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      </h3>
+                      <button
+                        onClick={nextMonth}
+                        className="p-2 hover:bg-[#a6fe54]/20 rounded-lg transition-colors"
+                      >
+                        <svg className="w-5 h-5 text-[#a6fe54]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Day Headers */}
+                    <div className="grid grid-cols-7 gap-1 mb-2">
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                        <div key={day} className="text-center text-sm font-medium text-slate-400 py-2">
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Calendar Days */}
+                    <div className="grid grid-cols-7 gap-1">
+                      {calendarDays.map((date, index) => {
+                        const isCurrentMonth = date.getMonth() === currentMonth.getMonth()
+                        const isSelectable = isDateSelectable(date)
+                        const isSelected = isDateSelected(date)
+                        
+                        return (
+                          <button
+                            key={index}
+                            onClick={() => handleDateSelect(date)}
+                            disabled={!isSelectable}
+                            className={`
+                              p-2 rounded-lg text-sm font-medium transition-all duration-200
+                              ${isCurrentMonth ? 'text-white' : 'text-slate-600'}
+                              ${isSelectable ? 'hover:bg-[#a6fe54]/20 cursor-pointer' : 'cursor-not-allowed'}
+                              ${isSelected ? 'bg-[#a6fe54] text-black' : ''}
+                              ${!isSelectable ? 'opacity-50' : ''}
+                            `}
+                          >
+                            {date.getDate()}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
               {selectedDate && isAutoPopulated && (
-                <div className="mt-3 flex items-center gap-2 text-sm text-emerald-400 font-medium">
+                <div className="mt-3 flex items-center gap-2 text-sm text-[#a6fe54] font-medium">
                   <CheckCircle className="w-4 h-4" />
                   Auto-filled from previous appointment
                 </div>
@@ -480,10 +608,10 @@ function SchedulePickupPageContent() {
             </div>
 
             {/* Time Selection */}
-            <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-3xl p-8">
+            <div className="bg-black border border-[#a6fe54]/30 rounded-3xl p-8">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-2xl flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-blue-400" />
+                <div className="w-12 h-12 bg-[#a6fe54]/20 rounded-2xl flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-[#a6fe54]" />
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-white">Select Time</h3>
@@ -498,8 +626,8 @@ function SchedulePickupPageContent() {
                     onClick={() => setSelectedTime(time)}
                     className={`p-3 rounded-xl font-semibold transition-all duration-300 ${
                       selectedTime === time
-                        ? 'bg-gradient-to-r from-emerald-400 to-blue-400 text-black scale-105 shadow-lg'
-                        : 'bg-white/10 hover:bg-white/20 border border-white/20 hover:border-emerald-400/30 text-white'
+                        ? 'bg-[#a6fe54] text-black scale-105 shadow-lg'
+                        : 'bg-white/10 hover:bg-white/20 border border-white/20 hover:border-[#a6fe54]/30 text-white'
                     }`}
                   >
                     {time}
@@ -510,7 +638,7 @@ function SchedulePickupPageContent() {
                 All times are in your local timezone
               </p>
               {selectedTime && isAutoPopulated && (
-                <div className="mt-3 flex items-center gap-2 text-sm text-blue-400 font-medium">
+                <div className="mt-3 flex items-center gap-2 text-sm text-[#a6fe54] font-medium">
                   <CheckCircle className="w-4 h-4" />
                   Auto-filled from previous appointment
                 </div>
@@ -520,10 +648,10 @@ function SchedulePickupPageContent() {
 
           {/* Address (for at-home pickup) */}
           {appointmentType === 'At-home pickup' && (
-            <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-3xl p-8 mb-12">
+            <div className="bg-black border border-[#a6fe54]/30 rounded-3xl p-8 mb-12">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-2xl flex items-center justify-center">
-                  <MapPin className="w-6 h-6 text-blue-400" />
+                <div className="w-12 h-12 bg-[#a6fe54]/20 rounded-2xl flex items-center justify-center">
+                  <MapPin className="w-6 h-6 text-[#a6fe54]" />
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-white">Pickup Address</h3>
@@ -540,13 +668,13 @@ function SchedulePickupPageContent() {
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="Enter your complete address including street, city, state, and zip code"
-                  className="w-full p-4 text-lg rounded-xl bg-white/5 border border-white/20 text-white placeholder-slate-400 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20"
+                  className="w-full p-4 text-lg rounded-xl bg-white/5 border border-white/20 text-white placeholder-slate-400 focus:border-[#a6fe54]/50 focus:ring-2 focus:ring-[#a6fe54]/20"
                 />
                 <p className="text-sm text-slate-400">
                   Please provide a complete address where we can safely pick up your vehicle
                 </p>
                 {address && isAutoPopulated && vehicleData.appointment?.address && (
-                  <div className="flex items-center gap-2 text-sm text-blue-400 font-medium">
+                  <div className="flex items-center gap-2 text-sm text-[#a6fe54] font-medium">
                     <CheckCircle className="w-4 h-4" />
                     Auto-filled from previous appointment
                   </div>
@@ -556,10 +684,10 @@ function SchedulePickupPageContent() {
           )}
 
           {/* Additional Notes */}
-          <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-3xl p-8 mb-12">
+          <div className="bg-black border border-[#a6fe54]/30 rounded-3xl p-8 mb-12">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-br from-emerald-400/20 to-blue-400/20 rounded-2xl flex items-center justify-center">
-                <Star className="w-6 h-6 text-emerald-400" />
+              <div className="w-12 h-12 bg-[#a6fe54]/20 rounded-2xl flex items-center justify-center">
+                <Star className="w-6 h-6 text-[#a6fe54]" />
               </div>
               <div>
                 <h3 className="text-2xl font-bold text-white">Additional Notes</h3>
@@ -571,10 +699,10 @@ function SchedulePickupPageContent() {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Any special instructions or notes for your appointment..."
-              className="w-full p-4 border border-white/20 rounded-xl resize-none h-32 bg-white/5 text-white placeholder-slate-400 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20"
+              className="w-full p-4 border border-white/20 rounded-xl resize-none h-32 bg-white/5 text-white placeholder-slate-400 focus:border-[#a6fe54]/50 focus:ring-2 focus:ring-[#a6fe54]/20"
             />
             {notes && isAutoPopulated && vehicleData.appointment?.notes && (
-              <div className="mt-3 flex items-center gap-2 text-sm text-emerald-400 font-medium">
+              <div className="mt-3 flex items-center gap-2 text-sm text-[#a6fe54] font-medium">
                 <CheckCircle className="w-4 h-4" />
                 Auto-filled from previous appointment
               </div>
@@ -583,9 +711,9 @@ function SchedulePickupPageContent() {
 
           {/* Summary */}
           {(appointmentType && selectedDate && selectedTime) && (
-            <div className="bg-gradient-to-r from-emerald-400/10 to-blue-400/10 backdrop-blur-sm border border-emerald-400/30 rounded-2xl p-8 mb-12">
+            <div className="bg-[#a6fe54]/10 border border-[#a6fe54]/30 rounded-2xl p-8 mb-12">
               <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                <CheckCircle className="w-6 h-6 text-emerald-400" />
+                <CheckCircle className="w-6 h-6 text-[#a6fe54]" />
                 Appointment Summary
               </h3>
               <div className="grid md:grid-cols-2 gap-6">
@@ -618,17 +746,12 @@ function SchedulePickupPageContent() {
           {/* Action Button */}
           <div className="text-center">
             <div className="relative inline-block group">
-              {/* Animated background - only show when ready */}
-              {appointmentType && selectedDate && selectedTime && !saving && (
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-blue-400 rounded-full blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-300 animate-pulse"></div>
-              )}
-              
               <Button
                 onClick={handleScheduleAppointment}
                 disabled={!appointmentType || !selectedDate || !selectedTime || saving}
-                className={`relative font-black py-6 px-12 text-xl rounded-full shadow-2xl transition-all duration-300 transform ${
+                className={`relative font-black py-6 px-12 text-xl rounded-full transition-all duration-300 transform ${
                   appointmentType && selectedDate && selectedTime && !saving
-                    ? 'bg-gradient-to-r from-emerald-400 to-blue-400 hover:from-emerald-300 hover:to-blue-300 text-black hover:scale-105 border-2 border-emerald-400/20'
+                    ? 'bg-[#a6fe54] hover:bg-[#a6fe54]/80 text-black hover:scale-105'
                     : 'bg-white/10 text-slate-500 cursor-not-allowed border-2 border-white/10'
                 }`}
               >
@@ -648,22 +771,10 @@ function SchedulePickupPageContent() {
                 ) : (
                   <span className="flex items-center gap-3">
                     <Calendar className="w-6 h-6" />
-                    <span>Complete All Fields</span>
+                    <span>Confirm Appointment</span>
                   </span>
                 )}
               </Button>
-            </div>
-            
-            <div className="mt-8 max-w-2xl mx-auto">
-              <h3 className="text-2xl font-bold text-white mb-3">
-                {(appointmentType && selectedDate && selectedTime) ? 'Ready to Schedule!' : 'Complete Your Appointment'}
-              </h3>
-              <p className="text-slate-400 text-lg leading-relaxed">
-                {(appointmentType && selectedDate && selectedTime)
-                  ? "Perfect! Your appointment details look great. Click confirm to finalize your vehicle sale appointment."
-                  : "Please fill in all the required fields above to schedule your vehicle pickup or drop-off appointment."
-                }
-              </p>
             </div>
           </div>
         </div>

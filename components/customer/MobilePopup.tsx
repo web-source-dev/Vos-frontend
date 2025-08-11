@@ -154,7 +154,7 @@ export default function MobilePopup({ isOpen, onClose, onSuccess, submissionId, 
             <Button
               type="submit"
               disabled={loading || !mobile.trim()}
-              className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3"
+              className="w-full bg-[#a6fe54] hover:bg-[#a6fe54]/80 text-black font-semibold py-3"
             >
               {loading ? 'Saving...' : 'Continue to Sale Details'}
             </Button>

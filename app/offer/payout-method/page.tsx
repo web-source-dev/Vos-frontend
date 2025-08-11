@@ -148,13 +148,7 @@ function PayoutMethodPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-x-hidden">
-      {/* Animated background elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-500/5 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-400/3 rounded-full blur-3xl animate-pulse delay-500"></div>
-      </div>
+    <div className="min-h-screen bg-black text-white overflow-x-hidden">
 
       <div className="relative z-10">
         {/* Header */}
@@ -174,18 +168,18 @@ function PayoutMethodPageContent() {
           {/* Hero Section */}
           <div className="text-center mb-16">
             {/* Payment badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-400/20 to-blue-400/20 backdrop-blur-sm border border-emerald-400/30 rounded-full mb-8 animate-fade-in">
-              <DollarSign className="w-4 h-4 text-emerald-400" />
-              <span className="text-sm font-semibold bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#a6fe54]/20 border border-[#a6fe54]/30 rounded-full mb-8 animate-fade-in">
+              <DollarSign className="w-4 h-4 text-[#a6fe54]" />
+              <span className="text-sm font-semibold text-[#a6fe54]">
                 PAYMENT SETUP
               </span>
-              <Sparkles className="w-4 h-4 text-blue-400" />
+              <Sparkles className="w-4 h-4 text-[#a6fe54]" />
             </div>
 
             {/* Main heading */}
             <div className="relative mb-12">
               <h1 className="text-4xl md:text-6xl font-black mb-6 leading-tight">
-                <span className="bg-gradient-to-r from-emerald-400 via-emerald-300 to-blue-400 bg-clip-text text-transparent">
+                <span className="text-[#a6fe54]">
                   Choose Payment Method
                 </span>
               </h1>
@@ -195,24 +189,24 @@ function PayoutMethodPageContent() {
               </p>
               
               {/* Payment Amount Display */}
-              <div className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-emerald-400/10 to-blue-400/10 backdrop-blur-sm border border-emerald-400/20 rounded-2xl mb-8">
-                <Banknote className="w-6 h-6 text-emerald-400" />
-                <span className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
+              <div className="inline-flex items-center gap-3 px-8 py-4 bg-[#a6fe54]/10 border border-[#a6fe54]/30 rounded-2xl mb-8">
+                <Banknote className="w-6 h-6 text-[#a6fe54]" />
+                <span className="text-2xl font-bold text-[#a6fe54]">
                   ${vehicleData.offer?.amount?.toLocaleString()}
                 </span>
               </div>
 
               {/* Auto-selected notification */}
               {isAutoSelected && vehicleData.payoutMethod && (
-                <div className="max-w-2xl mx-auto mt-8 bg-gradient-to-r from-emerald-400/10 to-emerald-400/5 backdrop-blur-sm border border-emerald-400/30 rounded-2xl p-6">
+                <div className="max-w-2xl mx-auto mt-8 bg-[#a6fe54]/10 border border-[#a6fe54]/30 rounded-2xl p-6">
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="w-6 h-6 text-emerald-400" />
+                    <CheckCircle className="w-6 h-6 text-[#a6fe54]" />
                     <div className="text-left">
-                      <p className="text-emerald-400 font-bold text-lg">
+                      <p className="text-[#a6fe54] font-bold text-lg">
                         ✓ Previous selection found
                       </p>
                       <p className="text-slate-300 font-medium">
-                        You previously chose: <span className="text-emerald-400 font-bold">{vehicleData.payoutMethod}</span>
+                        You previously chose: <span className="text-[#a6fe54] font-bold">{vehicleData.payoutMethod}</span>
                       </p>
                       <p className="text-slate-400 text-sm mt-1">
                         You can change your selection below if needed
@@ -236,54 +230,54 @@ function PayoutMethodPageContent() {
                 setIsAutoSelected(false)
               }}
             >
-              <div className={`bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border-2 rounded-3xl p-8 transition-all duration-300 ${
+              <div className={`bg-black border-2 rounded-3xl p-8 transition-all duration-300 ${
                 selectedPayoutMethod === 'Secure Bank Deposit' 
-                  ? 'border-emerald-400/50 shadow-2xl shadow-emerald-400/20' 
-                  : 'border-white/20 hover:border-emerald-400/30'
+                  ? 'border-[#a6fe54]/50 shadow-2xl shadow-[#a6fe54]/20' 
+                  : 'border-white/20 hover:border-[#a6fe54]/30'
               }`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-6">
                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${
                       selectedPayoutMethod === 'Secure Bank Deposit'
-                        ? 'bg-gradient-to-br from-emerald-400/30 to-emerald-500/30 scale-110'
-                        : 'bg-gradient-to-br from-emerald-400/20 to-blue-400/20 group-hover:scale-110'
+                        ? 'bg-[#a6fe54]/30 scale-110'
+                        : 'bg-[#a6fe54]/20 group-hover:scale-110'
                     }`}>
-                      <Building2 className="w-8 h-8 text-emerald-400" />
+                      <Building2 className="w-8 h-8 text-[#a6fe54]" />
                     </div>
                     <div>
                       <h3 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
                         Secure Bank Deposit
                         {selectedPayoutMethod === 'Secure Bank Deposit' && (
-                          <div className="flex items-center gap-1 px-2 py-1 bg-emerald-400/20 rounded-full">
-                            <CheckCircle className="w-4 h-4 text-emerald-400" />
-                            <span className="text-xs text-emerald-400 font-medium">Selected</span>
+                          <div className="flex items-center gap-1 px-2 py-1 bg-[#a6fe54]/20 rounded-full">
+                            <CheckCircle className="w-4 h-4 text-[#a6fe54]" />
+                            <span className="text-xs text-[#a6fe54] font-medium">Selected</span>
                           </div>
                         )}
                       </h3>
                       <p className="text-slate-300 text-lg mb-3">Direct deposit to your bank account within 1-2 business days</p>
                       <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 px-3 py-1 bg-emerald-400/20 rounded-full">
-                          <TrendingUp className="w-4 h-4 text-emerald-400" />
-                          <span className="text-emerald-400 font-semibold text-sm">Fastest</span>
+                        <div className="flex items-center gap-2 px-3 py-1 bg-[#a6fe54]/20 rounded-full">
+                          <TrendingUp className="w-4 h-4 text-[#a6fe54]" />
+                          <span className="text-[#a6fe54] font-semibold text-sm">Fastest</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-1 bg-blue-400/20 rounded-full">
-                          <Shield className="w-4 h-4 text-blue-400" />
-                          <span className="text-blue-400 font-semibold text-sm">Secure</span>
+                        <div className="flex items-center gap-2 px-3 py-1 bg-[#a6fe54]/20 rounded-full">
+                          <Shield className="w-4 h-4 text-[#a6fe54]" />
+                          <span className="text-[#a6fe54] font-semibold text-sm">Secure</span>
                         </div>
                       </div>
                     </div>
                   </div>
                   
                   {selectedPayoutMethod === 'Secure Bank Deposit' && (
-                    <div className="w-8 h-8 bg-emerald-400/20 rounded-full flex items-center justify-center">
-                      <CheckCircle className="w-6 h-6 text-emerald-400" />
+                    <div className="w-8 h-8 bg-[#a6fe54]/20 rounded-full flex items-center justify-center">
+                      <CheckCircle className="w-6 h-6 text-[#a6fe54]" />
                     </div>
                   )}
                 </div>
                 
                 {selectedPayoutMethod === 'Secure Bank Deposit' && isAutoSelected && (
-                  <div className="mt-4 p-3 bg-emerald-400/10 rounded-xl">
-                    <div className="text-xs text-emerald-400 font-medium">Previously Selected</div>
+                  <div className="mt-4 p-3 bg-[#a6fe54]/10 rounded-xl">
+                    <div className="text-xs text-[#a6fe54] font-medium">Previously Selected</div>
                   </div>
                 )}
               </div>
@@ -299,54 +293,54 @@ function PayoutMethodPageContent() {
                 setIsAutoSelected(false)
               }}
             >
-              <div className={`bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border-2 rounded-3xl p-8 transition-all duration-300 ${
+              <div className={`bg-black border-2 rounded-3xl p-8 transition-all duration-300 ${
                 selectedPayoutMethod === 'Printed Check at Pickup' 
-                  ? 'border-blue-400/50 shadow-2xl shadow-blue-400/20' 
-                  : 'border-white/20 hover:border-blue-400/30'
+                  ? 'border-[#a6fe54]/50 shadow-2xl shadow-[#a6fe54]/20' 
+                  : 'border-white/20 hover:border-[#a6fe54]/30'
               }`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-6">
                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 ${
                       selectedPayoutMethod === 'Printed Check at Pickup'
-                        ? 'bg-gradient-to-br from-blue-400/30 to-blue-500/30 scale-110'
-                        : 'bg-gradient-to-br from-blue-400/20 to-purple-400/20 group-hover:scale-110'
+                        ? 'bg-[#a6fe54]/30 scale-110'
+                        : 'bg-[#a6fe54]/20 group-hover:scale-110'
                     }`}>
-                      <FileText className="w-8 h-8 text-blue-400" />
+                      <FileText className="w-8 h-8 text-[#a6fe54]" />
                     </div>
                     <div>
                       <h3 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
                         Printed Check at Pickup
                         {selectedPayoutMethod === 'Printed Check at Pickup' && (
-                          <div className="flex items-center gap-1 px-2 py-1 bg-blue-400/20 rounded-full">
-                            <CheckCircle className="w-4 h-4 text-blue-400" />
-                            <span className="text-xs text-blue-400 font-medium">Selected</span>
+                          <div className="flex items-center gap-1 px-2 py-1 bg-[#a6fe54]/20 rounded-full">
+                            <CheckCircle className="w-4 h-4 text-[#a6fe54]" />
+                            <span className="text-xs text-[#a6fe54] font-medium">Selected</span>
                           </div>
                         )}
                       </h3>
                       <p className="text-slate-300 text-lg mb-3">Receive a certified check when we pick up your vehicle</p>
                       <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 px-3 py-1 bg-blue-400/20 rounded-full">
-                          <Award className="w-4 h-4 text-blue-400" />
-                          <span className="text-blue-400 font-semibold text-sm">Traditional</span>
+                        <div className="flex items-center gap-2 px-3 py-1 bg-[#a6fe54]/20 rounded-full">
+                          <Award className="w-4 h-4 text-[#a6fe54]" />
+                          <span className="text-[#a6fe54] font-semibold text-sm">Traditional</span>
                         </div>
-                        <div className="flex items-center gap-2 px-3 py-1 bg-purple-400/20 rounded-full">
-                          <Clock className="w-4 h-4 text-purple-400" />
-                          <span className="text-purple-400 font-semibold text-sm">At Pickup</span>
+                        <div className="flex items-center gap-2 px-3 py-1 bg-[#a6fe54]/20 rounded-full">
+                          <Clock className="w-4 h-4 text-[#a6fe54]" />
+                          <span className="text-[#a6fe54] font-semibold text-sm">At Pickup</span>
                         </div>
                       </div>
                     </div>
                   </div>
                   
                   {selectedPayoutMethod === 'Printed Check at Pickup' && (
-                    <div className="w-8 h-8 bg-blue-400/20 rounded-full flex items-center justify-center">
-                      <CheckCircle className="w-6 h-6 text-blue-400" />
+                    <div className="w-8 h-8 bg-[#a6fe54]/20 rounded-full flex items-center justify-center">
+                      <CheckCircle className="w-6 h-6 text-[#a6fe54]" />
                     </div>
                   )}
                 </div>
                 
                 {selectedPayoutMethod === 'Printed Check at Pickup' && isAutoSelected && (
-                  <div className="mt-4 p-3 bg-blue-400/10 rounded-xl">
-                    <div className="text-xs text-blue-400 font-medium">Previously Selected</div>
+                  <div className="mt-4 p-3 bg-[#a6fe54]/10 rounded-xl">
+                    <div className="text-xs text-[#a6fe54] font-medium">Previously Selected</div>
                   </div>
                 )}
               </div>
@@ -356,17 +350,12 @@ function PayoutMethodPageContent() {
           {/* Action Button */}
           <div className="text-center">
             <div className="relative inline-block group">
-              {/* Animated background - only show when ready */}
-              {selectedPayoutMethod && !saving && (
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-blue-400 rounded-full blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-300 animate-pulse"></div>
-              )}
-              
               <Button
                 onClick={handleContinue}
                 disabled={!selectedPayoutMethod || saving}
-                className={`relative font-black py-6 px-12 text-xl rounded-full shadow-2xl transition-all duration-300 transform ${
+                className={`relative font-black py-6 px-12 text-xl rounded-full transition-all duration-300 transform ${
                   selectedPayoutMethod && !saving
-                    ? 'bg-gradient-to-r from-emerald-400 to-blue-400 hover:from-emerald-300 hover:to-blue-300 text-black hover:scale-105 border-2 border-emerald-400/20'
+                    ? 'bg-[#a6fe54] hover:bg-[#a6fe54]/80 text-black hover:scale-105'
                     : 'bg-white/10 text-slate-500 cursor-not-allowed border-2 border-white/10'
                 }`}
               >
@@ -391,18 +380,7 @@ function PayoutMethodPageContent() {
                 )}
               </Button>
             </div>
-            
-            <div className="mt-8 max-w-2xl mx-auto">
-              <h3 className="text-2xl font-bold text-white mb-3">
-                {selectedPayoutMethod ? 'Ready to Schedule?' : 'Choose Your Payment Method'}
-              </h3>
-              <p className="text-slate-400 text-lg leading-relaxed">
-                {selectedPayoutMethod 
-                  ? "Perfect! Next, we'll schedule a convenient time for vehicle pickup or drop-off to complete your sale."
-                  : "Select how you'd like to receive your payment. Both options are secure and reliable."
-                }
-              </p>
-            </div>
+          
           </div>
         </div>
       </div>

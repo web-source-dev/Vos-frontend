@@ -222,13 +222,7 @@ function OwnershipVerificationPageContent() {
   const allPhotosUploaded = odometerUploaded && photoIDUploaded
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-x-hidden">
-      {/* Animated background elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-500/5 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-400/3 rounded-full blur-3xl animate-pulse delay-500"></div>
-      </div>
+    <div className="min-h-screen bg-black text-white overflow-x-hidden">
 
       <div className="relative z-10">
         {/* Header */}
@@ -247,19 +241,11 @@ function OwnershipVerificationPageContent() {
         <div className="max-w-7xl mx-auto px-6 pt-24 pb-16">
           {/* Hero Section */}
           <div className="text-center mb-16">
-            {/* Verification badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-400/20 to-blue-400/20 backdrop-blur-sm border border-emerald-400/30 rounded-full mb-8 animate-fade-in">
-              <Shield className="w-4 h-4 text-emerald-400" />
-              <span className="text-sm font-semibold bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
-                OWNERSHIP VERIFICATION
-              </span>
-              <Sparkles className="w-4 h-4 text-blue-400" />
-            </div>
 
             {/* Main heading */}
             <div className="relative mb-12">
               <h1 className="text-4xl md:text-6xl font-black mb-6 leading-tight">
-                <span className="bg-gradient-to-r from-emerald-400 via-emerald-300 to-blue-400 bg-clip-text text-transparent">
+                <span className="text-[#a6fe54]">
                   Verify Ownership
                 </span>
               </h1>
@@ -273,17 +259,17 @@ function OwnershipVerificationPageContent() {
             </div>
 
             {/* Vehicle Info Card */}
-            <div className="inline-flex items-center gap-4 px-8 py-4 bg-gradient-to-r from-emerald-400/10 to-blue-400/10 backdrop-blur-sm border border-emerald-400/20 rounded-2xl mb-8">
+            <div className="inline-flex items-center gap-4 px-8 py-4 bg-[#a6fe54]/10 border border-[#a6fe54]/30 rounded-2xl mb-8">
               <div className="flex items-center gap-2">
-                <Eye className="w-5 h-5 text-emerald-400" />
+                <Eye className="w-5 h-5 text-[#a6fe54]" />
                 <span className="text-white font-semibold">
                   {vehicleData.vinOrPlate?.year} {vehicleData.vinOrPlate?.make} {vehicleData.vinOrPlate?.model}
                 </span>
               </div>
               <div className="w-px h-6 bg-white/20"></div>
               <div className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-blue-400" />
-                <span className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-blue-400 bg-clip-text text-transparent">
+                <CreditCard className="w-5 h-5 text-[#a6fe54]" />
+                <span className="text-xl font-bold text-[#a6fe54]">
                   ${vehicleData.offer?.amount?.toLocaleString()}
                 </span>
               </div>
@@ -293,18 +279,18 @@ function OwnershipVerificationPageContent() {
           {/* Upload Requirements */}
           <div className="grid lg:grid-cols-2 gap-8 mb-16">
             {/* Odometer Photo Upload */}
-            <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-3xl p-8">
+            <div className="bg-black border border-[#a6fe54]/30 rounded-3xl p-8">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-emerald-400/20 to-blue-400/20 rounded-2xl flex items-center justify-center">
-                  <Camera className="w-6 h-6 text-emerald-400" />
+                <div className="w-12 h-12 bg-[#a6fe54]/20 rounded-2xl flex items-center justify-center">
+                  <Camera className="w-6 h-6 text-[#a6fe54]" />
                 </div>
                 <div className="flex-1">
                   <h2 className="text-2xl font-bold text-white flex items-center gap-2">
                     Odometer Photo
                     {odometerUploaded && (
-                      <div className="flex items-center gap-1 px-2 py-1 bg-emerald-400/20 rounded-full">
-                        <CheckCircle className="w-4 h-4 text-emerald-400" />
-                        <span className="text-xs text-emerald-400 font-medium">Uploaded</span>
+                      <div className="flex items-center gap-1 px-2 py-1 bg-[#a6fe54]/20 rounded-full">
+                        <CheckCircle className="w-4 h-4 text-[#a6fe54]" />
+                        <span className="text-xs text-[#a6fe54] font-medium">Uploaded</span>
                       </div>
                     )}
                   </h2>
@@ -313,9 +299,9 @@ function OwnershipVerificationPageContent() {
               </div>
 
               {!odometerPreview ? (
-                <div className="border-2 border-dashed border-white/20 rounded-2xl p-8 text-center hover:border-emerald-400/30 transition-colors duration-300">
-                  <div className="w-16 h-16 bg-emerald-400/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Camera className="w-8 h-8 text-emerald-400" />
+                <div className="border-2 border-dashed border-[#a6fe54]/30 rounded-2xl p-8 text-center hover:border-[#a6fe54]/50 transition-colors duration-300">
+                  <div className="w-16 h-16 bg-[#a6fe54]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <Camera className="w-8 h-8 text-[#a6fe54]" />
                   </div>
                   <p className="text-slate-300 mb-4 font-medium">Take a clear photo of your odometer</p>
                   <p className="text-slate-500 text-sm mb-6">Make sure the mileage numbers are clearly visible</p>
@@ -328,7 +314,7 @@ function OwnershipVerificationPageContent() {
                   />
                   <Button
                     onClick={() => odometerInputRef.current?.click()}
-                    className="bg-emerald-400/20 hover:bg-emerald-400/30 border border-emerald-400/30 text-emerald-400 font-semibold px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105"
+                    className="bg-[#a6fe54]/20 hover:bg-[#a6fe54]/30 border border-[#a6fe54]/30 text-[#a6fe54] font-semibold px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105"
                   >
                     <Upload className="w-4 h-4 mr-2" />
                     Select Photo
@@ -361,7 +347,7 @@ function OwnershipVerificationPageContent() {
                     <Button
                       onClick={() => handleUploadPhoto('odometer')}
                       disabled={uploading}
-                      className="w-full bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-black font-bold py-3 rounded-xl transition-all duration-300 transform hover:scale-105"
+                      className="w-full bg-[#a6fe54] hover:bg-[#a6fe54]/80 text-black font-bold py-3 rounded-xl transition-all duration-300 transform hover:scale-105"
                     >
                       {uploading ? (
                         <>
@@ -378,10 +364,10 @@ function OwnershipVerificationPageContent() {
                   )}
                   
                   {odometerUploaded && (
-                    <div className="bg-emerald-400/10 border border-emerald-400/30 rounded-xl p-4">
+                    <div className="bg-[#a6fe54]/10 border border-[#a6fe54]/30 rounded-xl p-4">
                       <div className="flex items-center gap-2">
-                        <CheckCircle className="w-5 h-5 text-emerald-400" />
-                        <span className="text-emerald-400 font-semibold">Odometer photo successfully uploaded</span>
+                        <CheckCircle className="w-5 h-5 text-[#a6fe54]" />
+                        <span className="text-[#a6fe54] font-semibold">Odometer photo successfully uploaded</span>
                       </div>
                     </div>
                   )}
@@ -390,18 +376,18 @@ function OwnershipVerificationPageContent() {
             </div>
 
             {/* Photo ID Upload */}
-            <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-3xl p-8">
+            <div className="bg-black border border-[#a6fe54]/30 rounded-3xl p-8">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-2xl flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-blue-400" />
+                <div className="w-12 h-12 bg-[#a6fe54]/20 rounded-2xl flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-[#a6fe54]" />
                 </div>
                 <div className="flex-1">
                   <h2 className="text-2xl font-bold text-white flex items-center gap-2">
                     Photo ID
                     {photoIDUploaded && (
-                      <div className="flex items-center gap-1 px-2 py-1 bg-blue-400/20 rounded-full">
-                        <CheckCircle className="w-4 h-4 text-blue-400" />
-                        <span className="text-xs text-blue-400 font-medium">Uploaded</span>
+                      <div className="flex items-center gap-1 px-2 py-1 bg-[#a6fe54]/20 rounded-full">
+                        <CheckCircle className="w-4 h-4 text-[#a6fe54]" />
+                        <span className="text-xs text-[#a6fe54] font-medium">Uploaded</span>
                       </div>
                     )}
                   </h2>
@@ -410,9 +396,9 @@ function OwnershipVerificationPageContent() {
               </div>
 
               {!photoIDPreview ? (
-                <div className="border-2 border-dashed border-white/20 rounded-2xl p-8 text-center hover:border-blue-400/30 transition-colors duration-300">
-                  <div className="w-16 h-16 bg-blue-400/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <FileText className="w-8 h-8 text-blue-400" />
+                <div className="border-2 border-dashed border-[#a6fe54]/30 rounded-2xl p-8 text-center hover:border-[#a6fe54]/50 transition-colors duration-300">
+                  <div className="w-16 h-16 bg-[#a6fe54]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <FileText className="w-8 h-8 text-[#a6fe54]" />
                   </div>
                   <p className="text-slate-300 mb-4 font-medium">Upload a clear photo of your ID</p>
                   <p className="text-slate-500 text-sm mb-6">Make sure all text is clearly readable</p>
@@ -425,7 +411,7 @@ function OwnershipVerificationPageContent() {
                   />
                   <Button
                     onClick={() => photoIDInputRef.current?.click()}
-                    className="bg-blue-400/20 hover:bg-blue-400/30 border border-blue-400/30 text-blue-400 font-semibold px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105"
+                    className="bg-[#a6fe54]/20 hover:bg-[#a6fe54]/30 border border-[#a6fe54]/30 text-[#a6fe54] font-semibold px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105"
                   >
                     <Upload className="w-4 h-4 mr-2" />
                     Select Photo
@@ -458,7 +444,7 @@ function OwnershipVerificationPageContent() {
                     <Button
                       onClick={() => handleUploadPhoto('photoID')}
                       disabled={uploading}
-                      className="w-full bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-300 hover:to-blue-400 text-black font-bold py-3 rounded-xl transition-all duration-300 transform hover:scale-105"
+                      className="w-full bg-[#a6fe54] hover:bg-[#a6fe54]/80 text-black font-bold py-3 rounded-xl transition-all duration-300 transform hover:scale-105"
                     >
                       {uploading ? (
                         <>
@@ -475,10 +461,10 @@ function OwnershipVerificationPageContent() {
                   )}
                   
                   {photoIDUploaded && (
-                    <div className="bg-blue-400/10 border border-blue-400/30 rounded-xl p-4">
+                    <div className="bg-[#a6fe54]/10 border border-[#a6fe54]/30 rounded-xl p-4">
                       <div className="flex items-center gap-2">
-                        <CheckCircle className="w-5 h-5 text-blue-400" />
-                        <span className="text-blue-400 font-semibold">Photo ID successfully uploaded</span>
+                        <CheckCircle className="w-5 h-5 text-[#a6fe54]" />
+                        <span className="text-[#a6fe54] font-semibold">Photo ID successfully uploaded</span>
                       </div>
                     </div>
                   )}
@@ -490,17 +476,13 @@ function OwnershipVerificationPageContent() {
           {/* Action Button */}
           <div className="text-center">
             <div className="relative inline-block group">
-              {/* Animated background - only show when ready */}
-              {allPhotosUploaded && (
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-blue-400 rounded-full blur-xl opacity-30 group-hover:opacity-50 transition-opacity duration-300 animate-pulse"></div>
-              )}
               
               <Button
                 onClick={handleContinue}
                 disabled={!allPhotosUploaded}
                 className={`relative font-black py-6 px-12 text-xl rounded-full shadow-2xl transition-all duration-300 transform ${
                   allPhotosUploaded
-                    ? 'bg-gradient-to-r from-emerald-400 to-blue-400 hover:from-emerald-300 hover:to-blue-300 text-black hover:scale-105 border-2 border-emerald-400/20'
+                    ? 'bg-gradient-to-r from-[#a6fe54] to-[#a6fe54] hover:from-[#a6fe54]/80 hover:to-[#a6fe54]/80 text-black hover:scale-105 border-2 border-[#a6fe54]/20'
                     : 'bg-white/10 text-slate-500 cursor-not-allowed border-2 border-white/10'
                 }`}
               >
@@ -519,18 +501,6 @@ function OwnershipVerificationPageContent() {
                   </span>
                 )}
               </Button>
-            </div>
-            
-            <div className="mt-8 max-w-2xl mx-auto">
-              <h3 className="text-2xl font-bold text-white mb-3">
-                {allPhotosUploaded ? 'Ready for Payment Setup!' : 'Almost There!'}
-              </h3>
-              <p className="text-slate-400 text-lg leading-relaxed">
-                {allPhotosUploaded 
-                  ? "Great! Your ownership verification is complete. Next, we'll set up your payment method to finalize the sale."
-                  : "Please upload both required photos to verify your ownership. This helps us ensure a secure transaction for everyone."
-                }
-              </p>
             </div>
           </div>
         </div>
