@@ -26,6 +26,7 @@ interface CaseData {
   customer?: {
     firstName: string
     lastName: string
+    source?: string
   }
   vehicle?: {
     year: string
@@ -53,6 +54,7 @@ interface RecentActivity {
   stage: number
   createdAt: string
   amount: number
+  source?: string
 }
 
 interface TopPerformer {
@@ -224,7 +226,8 @@ export function AdminOverview() {
           status: c.status,
           stage: c.currentStage,
           createdAt: c.createdAt,
-          amount: c.quote?.offerDecision?.finalAmount || c.quote?.offerAmount || 0
+          amount: c.quote?.offerDecision?.finalAmount || c.quote?.offerAmount || 0,
+          source: c.customer?.source
         }))
 
         // Top performers (agents with most completed cases)
@@ -293,6 +296,22 @@ export function AdminOverview() {
     if (status === "paperwork") return "Pending Paperwork"
     if (status === 'completed') return "Completed"
     return status.charAt(0).toUpperCase() + status.slice(1)
+  }
+
+  const getSourceDisplay = (source?: string) => {
+    if (!source) return { name: 'Unknown', color: 'bg-gray-100 text-gray-800' }
+    
+    const sourceMap = {
+      'contact_form': { name: 'Contact Form', color: 'bg-blue-100 text-blue-800' },
+      'walk_in': { name: 'Walk In', color: 'bg-green-100 text-green-800' },
+      'phone': { name: 'Phone', color: 'bg-purple-100 text-purple-800' },
+      'online': { name: 'Online', color: 'bg-orange-100 text-orange-800' },
+      'on_the_road': { name: 'On The Road', color: 'bg-yellow-100 text-yellow-800' },
+      'social_media': { name: 'Social Media', color: 'bg-pink-100 text-pink-800' },
+      'other': { name: 'Other', color: 'bg-indigo-100 text-indigo-800' }
+    }
+    
+    return sourceMap[source as keyof typeof sourceMap] || { name: 'Unknown', color: 'bg-gray-100 text-gray-800' }
   }
 
   const handleLinkClick = (caseId: string) => {
@@ -468,7 +487,14 @@ export function AdminOverview() {
                   </div>
                   <div>
                     <p className="font-medium">{activity.customer}</p>
-                    <p className="text-sm text-muted-foreground">{activity.vehicle}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">{activity.vehicle}</p>
+                      {activity.source && (
+                        <Badge className={`text-xs ${getSourceDisplay(activity.source).color}`}>
+                          {getSourceDisplay(activity.source).name}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">

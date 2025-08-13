@@ -31,6 +31,7 @@ interface CaseData {
     firstName: string
     lastName: string
     cellPhone: string
+    source?: string
   }
   vehicle?: {
     year: string
@@ -100,6 +101,22 @@ const getStatusBadgeColor = (status: string) => {
     "Offer Declined / Closed": "bg-red-100 text-red-800",
   }
   return statusConfig[status as keyof typeof statusConfig] || "bg-gray-100 text-gray-800"
+}
+
+const getSourceDisplay = (source?: string) => {
+  if (!source) return { name: 'Unknown', color: 'bg-gray-100 text-gray-800' }
+  
+  const sourceMap = {
+    'contact_form': { name: 'Contact Form', color: 'bg-blue-100 text-blue-800' },
+    'walk_in': { name: 'Walk In', color: 'bg-green-100 text-green-800' },
+    'phone': { name: 'Phone', color: 'bg-purple-100 text-purple-800' },
+    'online': { name: 'Online', color: 'bg-orange-100 text-orange-800' },
+    'on_the_road': { name: 'On The Road', color: 'bg-yellow-100 text-yellow-800' },
+    'social_media': { name: 'Social Media', color: 'bg-pink-100 text-pink-800' },
+    'other': { name: 'Other', color: 'bg-indigo-100 text-indigo-800' }
+  }
+  
+  return sourceMap[source as keyof typeof sourceMap] || { name: 'Unknown', color: 'bg-gray-100 text-gray-800' }
 }
 
 // Helper to map status query param to dashboard display value
@@ -498,6 +515,11 @@ export function CustomerDashboard() {
                 </div>
                 <div>
                   <CardTitle className="text-lg">{`${caseData.customer?.firstName} ${caseData.customer?.lastName}`}</CardTitle>
+                  {caseData.customer?.source && (
+                    <Badge className={`text-xs mt-1 ${getSourceDisplay(caseData.customer.source).color}`}>
+                      {getSourceDisplay(caseData.customer.source).name}
+                    </Badge>
+                  )}
                 </div>
               </div>
               {getStatusBadge(caseData.currentStage, caseData.status)}
@@ -962,9 +984,16 @@ export function CustomerDashboard() {
                         </div>
                         <div>
                           <p className="font-medium">{`${customer.customer?.firstName} ${customer.customer?.lastName}`}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {customer.vehicle?.year} {customer.vehicle?.make} {customer.vehicle?.model}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm text-muted-foreground">
+                              {customer.vehicle?.year} {customer.vehicle?.make} {customer.vehicle?.model}
+                            </p>
+                            {customer.customer?.source && (
+                              <Badge className={`text-xs ${getSourceDisplay(customer.customer.source).color}`}>
+                                {getSourceDisplay(customer.customer.source).name}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
@@ -1005,6 +1034,11 @@ export function CustomerDashboard() {
                     </div>
                     <div>
                       <p className="font-medium">{`${customer.customer?.firstName} ${customer.customer?.lastName}`}</p>
+                      {customer.customer?.source && (
+                        <Badge className={`text-xs mt-1 ${getSourceDisplay(customer.customer.source).color}`}>
+                          {getSourceDisplay(customer.customer.source).name}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                         <div className="hidden md:flex col-span-2 items-center">

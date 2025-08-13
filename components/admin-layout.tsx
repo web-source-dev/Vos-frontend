@@ -84,7 +84,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard, current: pathname === "/admin" },
     { name: "User Management", href: "/admin/users", icon: Users, current: pathname === "/admin/users" },
     { name: "Customers", href: "/admin/customers", icon: Users, current: pathname === "/admin/customers" },
-    { name: "Customer Submissions", href: "/admin/customer-submissions", icon: Car, current: pathname === "/admin/customer-submissions" },
     { name: "Time Analytics", href: "/admin/time-analytics", icon: Clock, current: pathname === "/admin/time-analytics" },
     { name: "OBD2 Codes", href: "/admin/obd2-codes", icon: Code, current: pathname === "/admin/obd2-codes" },
     { name: "Reports", href: "/admin/reports", icon: FileText, current: pathname === "/admin/reports" },

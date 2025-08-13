@@ -9,7 +9,7 @@ export interface Customer {
   email2?: string;
   email3?: string;
   hearAboutVOS?: string;
-  source?: string; // Add customer source field
+  source?: 'contact_form' | 'walk_in' | 'phone' | 'online' | 'on_the_road' | 'social_media' | 'other' | '';
   receivedOtherQuote?: boolean;
   otherQuoteOfferer?: string;
   otherQuoteAmount?: number;
@@ -229,7 +229,7 @@ export interface APIResponse<T> {
 
 export interface CustomerData extends Omit<Customer, 'id' | 'agent' | 'storeLocation'> {
   hearAboutVOS: string;
-  source?: string; // Add customer source field
+  source?: 'contact_form' | 'walk_in' | 'phone' | 'online' | 'on_the_road' | 'social_media' | 'other' | '';
   receivedOtherQuote: boolean;
   otherQuoteOfferer?: string;
   otherQuoteAmount?: number;
