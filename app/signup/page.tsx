@@ -59,7 +59,7 @@ export default function SignupPage() {
       password: "",
       firstName: "",
       lastName: "",
-      role: "agent",
+      role: "customer",
       location: "",
     },
   });
@@ -199,7 +199,7 @@ export default function SignupPage() {
                 control={form.control}
                 name="role"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="hidden">
                     <FormLabel>Role</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
