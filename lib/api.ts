@@ -462,57 +462,6 @@ export async function uploadDocument(file: File): Promise<APIResponse<{ path: st
   return handleResponse<{ path: string }>(response);
 }
 
-// Upload inspection photo to Cloudinary
-export async function uploadInspectionPhoto(
-  file: File,
-  inspectionToken: string,
-  sectionId: string,
-  questionId: string,
-  subQuestionId?: string
-): Promise<APIResponse<{ photoUrl: string; publicId: string; photo: any }>> {
-  console.log('Uploading inspection photo:', file.name);
-  const formData = new FormData();
-  formData.append('photo', file);
-  formData.append('inspectionToken', inspectionToken);
-  formData.append('sectionId', sectionId);
-  formData.append('questionId', questionId);
-  if (subQuestionId) {
-    formData.append('subQuestionId', subQuestionId);
-  }
-
-  const response = await fetch(`${API_BASE_URL}/api/inspection/upload-photo`, {
-    method: 'POST',
-    body: formData
-  });
-
-  return handleResponse<{ photoUrl: string; publicId: string; photo: any }>(response);
-}
-
-// Delete inspection photo from Cloudinary
-export async function deleteInspectionPhoto(
-  inspectionToken: string,
-  sectionId: string,
-  questionId: string,
-  photoIndex: number,
-  subQuestionId?: string
-): Promise<APIResponse<{ message: string }>> {
-  console.log('Deleting inspection photo');
-
-  const response = await fetch(`${API_BASE_URL}/api/inspection/delete-photo`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      inspectionToken,
-      sectionId,
-      questionId,
-      photoIndex,
-      subQuestionId
-    })
-  });
-
-  return handleResponse<{ message: string }>(response);
-}
-
 export async function uploadBillOfSaleDocument(caseId: string, file: File): Promise<APIResponse<{ path: string; transaction: any }>> {
   console.log('Uploading bill of sale document:', file.name, 'for case:', caseId);
   const formData = new FormData();
@@ -1063,11 +1012,6 @@ const api = {
   getEstimatorAnalytics,
   getTimeTrackingByCaseId,
   getTimeTrackingAnalytics,
-  
-  // Inspection photo functions
-  uploadInspectionPhoto,
-  deleteInspectionPhoto,
-  
   // Customer submission functions
   getAllCustomerSubmissions,
 };
