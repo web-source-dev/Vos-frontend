@@ -7,8 +7,8 @@ import type { User, AuthResponse } from './types';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; token?: string }>;
-  signup: (userData: SignupData) => Promise<{ success: boolean; token?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; token?: string; error?: string }>;
+  signup: (userData: SignupData) => Promise<{ success: boolean; token?: string; error?: string }>;
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -131,11 +131,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: true, token: response.token };
       } else {
         console.log('Login failed:', response.error);
-        throw new Error(response.error || 'Login failed');
+        // Handle specific error cases
+        let errorMessage = response.error || 'Login failed';
+        
+        // Make error messages more user-friendly
+        if (errorMessage.includes('Invalid email or password')) {
+          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+        } else if (errorMessage.includes('Please enter both')) {
+          errorMessage = 'Please enter both your email address and password.';
+        } else if (errorMessage.includes('valid email address')) {
+          errorMessage = 'Please enter a valid email address.';
+        }
+        
+        return { success: false, error: errorMessage };
       }
     } catch (error) {
       console.error('Login error:', error);
-      return { success: false };
+      let errorMessage = 'Network error. Please check your connection and try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('fetch')) {
+          errorMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
+        } else if (error.message.includes('timeout')) {
+          errorMessage = 'Request timed out. Please check your connection and try again.';
+        } else if (error.message.includes('Failed to set token')) {
+          errorMessage = 'Authentication failed. Please try again.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      return { success: false, error: errorMessage };
     }
   };
 
@@ -162,11 +188,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: true, token: response.token };
       } else {
         console.log('Signup failed:', response.error);
-        throw new Error(response.error || 'Signup failed');
+        // Handle specific error cases
+        let errorMessage = response.error || 'Signup failed';
+        
+        // Make error messages more user-friendly
+        if (errorMessage.includes('already exists')) {
+          errorMessage = 'An account with this email address already exists. Please try logging in instead.';
+        } else if (errorMessage.includes('fill in all required fields')) {
+          errorMessage = 'Please fill in all required fields: email, password, first name, and last name.';
+        } else if (errorMessage.includes('valid email address')) {
+          errorMessage = 'Please enter a valid email address.';
+        } else if (errorMessage.includes('at least 6 characters')) {
+          errorMessage = 'Password must be at least 6 characters long.';
+        }
+        
+        return { success: false, error: errorMessage };
       }
     } catch (error) {
       console.error('Signup error:', error);
-      return { success: false };
+      let errorMessage = 'Network error. Please check your connection and try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('fetch')) {
+          errorMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
+        } else if (error.message.includes('timeout')) {
+          errorMessage = 'Request timed out. Please check your connection and try again.';
+        } else if (error.message.includes('Failed to set token')) {
+          errorMessage = 'Authentication failed. Please try again.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      return { success: false, error: errorMessage };
     }
   };
 

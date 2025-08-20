@@ -46,6 +46,34 @@ const defaultOptions = async (): Promise<RequestInit> => {
   return options;
 };
 
+// Helper function to create user-friendly error messages
+function createUserFriendlyError(status: number, errorMessage?: string): string {
+  switch (status) {
+    case 400:
+      return errorMessage || 'Invalid request. Please check your information and try again.';
+    case 401:
+      return errorMessage || 'Authentication failed. Please check your credentials.';
+    case 403:
+      return errorMessage || 'Access denied. You do not have permission to perform this action.';
+    case 404:
+      return errorMessage || 'The requested resource was not found.';
+    case 409:
+      return errorMessage || 'This resource already exists.';
+    case 422:
+      return errorMessage || 'Invalid data provided. Please check your input.';
+    case 429:
+      return 'Too many requests. Please wait a moment and try again.';
+    case 500:
+      return errorMessage || 'Server error. Please try again later.';
+    case 502:
+    case 503:
+    case 504:
+      return 'Service temporarily unavailable. Please try again later.';
+    default:
+      return errorMessage || 'An unexpected error occurred. Please try again.';
+  }
+}
+
 // Function to handle API responses
 async function handleResponse<T>(response: Response): Promise<APIResponse<T>> {
   if (!response.ok) {
@@ -54,14 +82,14 @@ async function handleResponse<T>(response: Response): Promise<APIResponse<T>> {
       const errorData = await response.json();
       return {
         success: false,
-        error: errorData.error || `API Error: ${response.status} ${response.statusText}`
+        error: createUserFriendlyError(response.status, errorData.error)
       };
     } catch (e) {
       // For non-JSON errors
       console.error(e)
       return {
         success: false,
-        error: `API Error: ${response.status} ${response.statusText}`
+        error: createUserFriendlyError(response.status)
       };
   }
   }
@@ -73,22 +101,62 @@ async function handleResponse<T>(response: Response): Promise<APIResponse<T>> {
     console.error('Error parsing JSON response:', e);
     return {
       success: false,
-      error: 'Invalid JSON response from API'
+      error: 'Invalid response from server. Please try again.'
     };
   }
 }
 
 // Auth API functions
 export async function loginUser(email: string, password: string): Promise<AuthResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ email, password })
-  });
-  
-  const data = await response.json();
-  return data;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, password }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+    
+    const data = await response.json();
+    
+    // If the response is not ok, return error
+    if (!response.ok) {
+      return {
+        success: false,
+        error: createUserFriendlyError(response.status, data.error)
+      };
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Login API error:', error);
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        return {
+          success: false,
+          error: 'Request timed out. Please check your connection and try again.'
+        };
+      }
+      
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        return {
+          success: false,
+          error: 'Unable to connect to the server. Please check your internet connection and try again.'
+        };
+      }
+    }
+    
+    return {
+      success: false,
+      error: 'Network error. Please check your connection and try again.'
+    };
+  }
 }
 
 export async function registerUser(userData: {
@@ -99,15 +167,55 @@ export async function registerUser(userData: {
   role: string;
   location?: string;
 }): Promise<AuthResponse> {
-  const options = await defaultOptions();
-  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-    ...options,
-    method: 'POST',
-    body: JSON.stringify(userData)
-  });
-  
-  const data = await response.json();
-  return data;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+    const options = await defaultOptions();
+    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      ...options,
+      method: 'POST',
+      body: JSON.stringify(userData),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+    
+    const data = await response.json();
+    
+    // If the response is not ok, return error
+    if (!response.ok) {
+      return {
+        success: false,
+        error: createUserFriendlyError(response.status, data.error)
+      };
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Registration API error:', error);
+    
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        return {
+          success: false,
+          error: 'Request timed out. Please check your connection and try again.'
+        };
+      }
+      
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        return {
+          success: false,
+          error: 'Unable to connect to the server. Please check your internet connection and try again.'
+        };
+      }
+    }
+    
+    return {
+      success: false,
+      error: 'Network error. Please check your connection and try again.'
+    };
+  }
 }
 
 export async function verifyUser(): Promise<APIResponse<User>> {
@@ -950,6 +1058,32 @@ export async function getEstimatorAnalytics(timeRange: string = '30d'): Promise<
   }
 }
 
+export async function forgotPassword(email: string): Promise<APIResponse<{ message: string }>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    return handleResponse<{ message: string }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+export async function resetPassword(token: string, password: string): Promise<APIResponse<{ message: string }>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/reset-password/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    return handleResponse<{ message: string }>(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
 const api = {
   // Auth functions
   loginUser,
@@ -957,6 +1091,8 @@ const api = {
   verifyUser,
   logoutUser,
   getCurrentUser,
+  forgotPassword,
+  resetPassword,
   
   // Case functions
   getCases,

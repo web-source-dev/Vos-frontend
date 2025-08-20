@@ -24,19 +24,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/components/ui/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/lib/auth";
+import { CheckCircle, AlertTriangle, Info } from "lucide-react";
 
 const formSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
+  email: z.string()
+    .min(1, "Email address is required")
+    .email("Please enter a valid email address"),
   password: z
     .string()
+    .min(1, "Password is required")
     .min(6, "Password must be at least 6 characters"),
   firstName: z
     .string()
+    .min(1, "First name is required")
     .min(2, "First name must be at least 2 characters"),
   lastName: z
     .string()
+    .min(1, "Last name is required")
     .min(2, "Last name must be at least 2 characters"),
   role: z.enum(['admin', 'agent', 'estimator', 'inspector', 'customer'], {
     required_error: "Please select a role",
@@ -48,8 +54,12 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const [alertMessage, setAlertMessage] = useState<{
+    type: 'success' | 'error' | 'info';
+    title: string;
+    description: string;
+  } | null>(null);
   const { signup, user } = useAuth();
-  const { toast } = useToast();
   const router = useRouter();
 
   const form = useForm<FormValues>({
@@ -66,8 +76,10 @@ export default function SignupPage() {
 
   async function onSubmit(data: FormValues) {
     setIsLoading(true);
+    setAlertMessage(null);
+    
     try {
-      const success = await signup({
+      const result = await signup({
         email: data.email,
         password: data.password,
         firstName: data.firstName,
@@ -76,10 +88,11 @@ export default function SignupPage() {
         location: data.location || undefined,
       });
 
-      if (success) {
-        toast({
-          title: "Account created",
-          description: "Your account has been successfully created.",
+      if (result.success) {
+        setAlertMessage({
+          type: 'success',
+          title: 'Account created',
+          description: 'Your account has been successfully created.',
         });
         
         // Redirect based on role after a short delay to allow user context to update
@@ -91,27 +104,68 @@ export default function SignupPage() {
           }
         }, 100);
       } else {
-        toast({
-          title: "Registration failed",
-          description: "Could not create account. Email may already be in use.",
-          variant: "destructive",
+        // Show specific error message from the auth function
+        const errorMessage = result.error || "Could not create account. Email may already be in use.";
+        setAlertMessage({
+          type: 'error',
+          title: 'Registration failed',
+          description: errorMessage,
         });
       }
     } catch (error) {
-      console.log(error)
-      toast({
-        title: "Error",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive",
+      console.error('Signup error:', error);
+      setAlertMessage({
+        type: 'error',
+        title: 'Error',
+        description: 'Something went wrong. Please try again.',
       });
     } finally {
       setIsLoading(false);
     }
   }
 
+  const getAlertIcon = (type: string) => {
+    switch (type) {
+      case 'success':
+        return <CheckCircle className="h-4 w-4" />;
+      case 'error':
+        return <AlertTriangle className="h-4 w-4" />;
+      case 'info':
+        return <Info className="h-4 w-4" />;
+      default:
+        return null;
+    }
+  };
+
+  const getAlertVariant = (type: string) => {
+    switch (type) {
+      case 'success':
+        return 'default';
+      case 'error':
+        return 'destructive';
+      case 'info':
+        return 'default';
+      default:
+        return 'default';
+    }
+  };
+
+  const getAlertClassName = (type: string) => {
+    switch (type) {
+      case 'success':
+        return 'border-green-200 bg-green-50 text-green-800';
+      case 'error':
+        return 'border-red-200 bg-red-50 text-red-800';
+      case 'info':
+        return 'border-blue-200 bg-blue-50 text-blue-800';
+      default:
+        return '';
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8">
+      <div className="w-full max-w-md space-y-8 bg-[#f5f5f5] p-5 rounded-lg shadow-md">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">
             Create a new account
@@ -123,6 +177,18 @@ export default function SignupPage() {
             </Link>
           </p>
         </div>
+
+        {alertMessage && (
+          <Alert 
+            variant={getAlertVariant(alertMessage.type) as any}
+            className={getAlertClassName(alertMessage.type)}
+          >
+            {getAlertIcon(alertMessage.type)}
+            <AlertDescription>
+              <strong>{alertMessage.title}</strong>: {alertMessage.description}
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="mt-8">
           <Form {...form}>

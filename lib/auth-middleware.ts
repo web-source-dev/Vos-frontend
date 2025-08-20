@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 export function middleware(request: NextRequest) {
   const token = request.cookies.get('token')?.value;
   const isAuthPage = request.nextUrl.pathname.startsWith('/login') || 
-                     request.nextUrl.pathname.startsWith('/signup');
+                     request.nextUrl.pathname.startsWith('/signup') ||
+                     request.nextUrl.pathname.startsWith('/forgot-password') ||
+                     request.nextUrl.pathname.startsWith('/reset-password');
   const isEstimatorPage = request.nextUrl.pathname.startsWith('/estimator');
   const isInspectionPage = request.nextUrl.pathname.startsWith('/inspection');
 
@@ -39,5 +41,7 @@ export const config = {
     // Auth pages for redirection when logged in
     '/login',
     '/signup',
+    '/forgot-password',
+    '/reset-password/:path*',
   ],
 }; 

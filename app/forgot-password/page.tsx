@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -18,47 +18,30 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useAuth } from "@/lib/auth";
-import { CheckCircle, AlertTriangle, Info } from "lucide-react";
+import { CheckCircle, AlertTriangle, Info, ArrowLeft } from "lucide-react";
+import { forgotPassword } from "@/lib/api";
 
 const formSchema = z.object({
   email: z.string()
     .min(1, "Email address is required")
     .email("Please enter a valid email address"),
-  password: z.string()
-    .min(1, "Password is required")
-    .min(6, "Password must be at least 6 characters"),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [alertMessage, setAlertMessage] = useState<{
     type: 'success' | 'error' | 'info';
     title: string;
     description: string;
   } | null>(null);
-  const { login, isAuthenticated, user, isCustomer } = useAuth();
   const router = useRouter();
-
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      // Redirect customers to customer dashboard, others to main dashboard
-      if ((user.role as string) === 'customer') {
-        router.push('/customer-dashboard');
-      } else {
-        router.push('/');
-      }
-    }
-  }, [isAuthenticated, user, router]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: "",
-      password: "",
     },
   });
 
@@ -67,34 +50,26 @@ export default function LoginPage() {
     setAlertMessage(null);
     
     try {
-      const result = await login(data.email, data.password);
+      const result = await forgotPassword(data.email);
       
-      if (result.success && result.token) {
+      if (result.success) {
         setAlertMessage({
           type: 'success',
-          title: 'Login successful',
-          description: 'You have been successfully logged in.',
+          title: 'Reset link sent',
+          description: result.data?.message || 'If an account with that email exists, a password reset link has been sent.',
         });
         
-        // Wait a moment for user context to update, then redirect based on role
-        setTimeout(() => {
-          if ((user?.role as string) === 'customer') {
-            router.push("/customer-dashboard");
-          } else {
-            router.push("/");
-          }
-        }, 100);
+        // Clear the form on success
+        form.reset();
       } else {
-        // Show specific error message from the auth function
-        const errorMessage = result.error || "Invalid email or password. Please try again.";
         setAlertMessage({
           type: 'error',
-          title: 'Login failed',
-          description: errorMessage,
+          title: 'Request failed',
+          description: result.error || 'Failed to send reset link. Please try again.',
         });
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Forgot password error:', error);
       setAlertMessage({
         type: 'error',
         title: 'Error',
@@ -149,19 +124,13 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-8 bg-[#f5f5f5] p-5 rounded-lg shadow-md">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-            Sign in to your account
+            Forgot Password
           </h1>
           <p className="mt-2 text-sm text-gray-600">
-            Or{" "}
-            <Link
-              href="/signup"
-              className="font-medium text-primary hover:underline"
-            >
-              create a new account
-            </Link>
+            Enter your email address and we'll send you a link to reset your password.
           </p>
         </div>
-        
+
         {alertMessage && (
           <Alert 
             variant={getAlertVariant(alertMessage.type) as any}
@@ -173,7 +142,7 @@ export default function LoginPage() {
             </AlertDescription>
           </Alert>
         )}
-        
+
         <div className="mt-8">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -196,46 +165,36 @@ export default function LoginPage() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="******"
-                        type="password"
-                        autoComplete="current-password"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="flex items-center justify-between">
-                <div></div>
-                <Link
-                  href="/forgot-password"
-                  className="text-sm text-primary hover:underline"
-                >
-                  Forgot your password?
-                </Link>
-              </div>
-
               <Button
                 type="submit"
                 className="w-full"
                 disabled={isLoading}
               >
-                {isLoading ? "Signing in..." : "Sign in"}
+                {isLoading ? "Sending..." : "Send Reset Link"}
               </Button>
             </form>
           </Form>
         </div>
+
+        <div className="text-center">
+          <Link
+            href="/login"
+            className="inline-flex items-center text-sm text-primary hover:underline"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to login
+          </Link>
+        </div>
+
+        <div className="text-center">
+          <p className="text-sm text-gray-600">
+            Don't have an account?{" "}
+            <Link href="/signup" className="font-medium text-primary hover:underline">
+              Sign up
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
-} 
+}
