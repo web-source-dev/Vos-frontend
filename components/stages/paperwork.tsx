@@ -10,8 +10,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { FileText, CreditCard, Upload, CheckCircle, X, Loader2, Clock, Info, AlertTriangle, Send, AlertCircle } from "lucide-react"
+import { FileText, CreditCard, Upload, CheckCircle, X, Loader2, Clock, Info, AlertTriangle, Send, AlertCircle, XCircle } from "lucide-react"
 import api from '@/lib/api'
+import { VeriffSDK } from '@/components/VeriffSDK'
 import Image from "next/image"
 import { useStageTimer } from "@/components/useStageTimer"
 
@@ -125,6 +126,23 @@ interface CaseData {
       originalName: string;
       uploadedAt: Date;
     };
+    driverLicenseVerified?: boolean;
+    verificationDate?: Date;
+  };
+  veriff?: {
+    sessionId?: string;
+    verificationId?: string;
+    status?: string;
+    submittedAt?: Date;
+    verifiedAt?: Date;
+    lastChecked?: Date;
+    decisionTime?: Date;
+    reason?: string;
+    reasonCode?: number;
+    code?: number;
+    acceptanceTime?: Date;
+    document?: any;
+    person?: any;
   };
   currentStage?: number;
   status?: string;
@@ -239,11 +257,13 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
   const [driverLicenseError, setDriverLicenseError] = useState<string>('');
 
   // Veriff verification state
-  const [veriffStatus, setVeriffStatus] = useState<string>('');
   const [veriffSessionId, setVeriffSessionId] = useState<string>('');
   const [veriffVerificationId, setVeriffVerificationId] = useState<string>('');
-  const [driverLicenseVerified, setDriverLicenseVerified] = useState<boolean>(false);
+  const [veriffStatus, setVeriffStatus] = useState<string>('');
   const [checkingVeriffStatus, setCheckingVeriffStatus] = useState<boolean>(false);
+  const [useVeriffSDK, setUseVeriffSDK] = useState<boolean>(false);
+  const [driverLicenseVerified, setDriverLicenseVerified] = useState<boolean>(false);
+  const [autoCheckInterval, setAutoCheckInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Stage timer with case ID and stage name
   const caseId = vehicleData._id;
@@ -388,6 +408,14 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
         setDocusignRecipientUrl(vehicleData.transaction.docusign.recipientViewUrl || '');
       }
 
+      // Initialize Veriff status from existing case data
+      if (vehicleData.veriff) {
+        setVeriffSessionId(vehicleData.veriff.sessionId || '');
+        setVeriffVerificationId(vehicleData.veriff.verificationId || '');
+        setVeriffStatus(vehicleData.veriff.status || '');
+        setDriverLicenseVerified(vehicleData.documents?.driverLicenseVerified || false);
+      }
+
       // If there's transaction data, set formSaved to true
       if (vehicleData.transaction) {
         setFormSaved(true);
@@ -517,54 +545,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
       setUploadingDriverLicense(false);
     }
   };
-
-  // Check Veriff verification status
-  const checkVeriffStatus = async () => {
-    if (!veriffSessionId) return;
-    
-    const caseId = vehicleData.id || vehicleData._id;
-    if (!caseId) {
-      toast({
-        title: "Error",
-        description: "No valid case ID found.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    try {
-      setCheckingVeriffStatus(true);
-      const response = await api.getVeriffStatus(caseId);
-      
-      if (response.success && response.data) {
-        setVeriffStatus(response.data.status);
-        setDriverLicenseVerified(response.data.driverLicenseVerified);
-        
-        if (response.data.status === 'approved') {
-          toast({
-            title: "Verification Approved",
-            description: "Driver's license verification has been approved.",
-          });
-        } else if (response.data.status === 'declined') {
-          toast({
-            title: "Verification Declined",
-            description: "Driver's license verification was declined. Please check the images and try again.",
-            variant: "destructive"
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error checking Veriff status:', error);
-      toast({
-        title: "Error",
-        description: "Failed to check verification status.",
-        variant: "destructive"
-      });
-    } finally {
-      setCheckingVeriffStatus(false);
-    }
-  };
-
   // Send paperwork to DocuSign
   const handleSendToDocuSign = async () => {
     try {
@@ -1165,68 +1145,52 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
                 </div>
               )}
 
-              {/* Veriff Verification Status */}
-              {(veriffSessionId || veriffStatus) && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-                    <Info className="h-4 w-4" />
-                    Veriff Verification Status
-                  </h4>
-                  
-                  <div className="space-y-2">
-                    {veriffSessionId && (
-                      <div className="text-sm">
-                        <span className="font-medium">Session ID:</span> {veriffSessionId}
-                      </div>
-                    )}
-                    
-                    {veriffStatus && (
-                      <div className="text-sm">
-                        <span className="font-medium">Status:</span> 
-                        <Badge 
-                          variant={
-                            veriffStatus === 'approved' ? 'default' : 
-                            veriffStatus === 'declined' ? 'destructive' : 
-                            'secondary'
-                          }
-                          className="ml-2"
-                        >
-                          {veriffStatus.charAt(0).toUpperCase() + veriffStatus.slice(1)}
-                        </Badge>
-                      </div>
-                    )}
-                    
-                    {driverLicenseVerified && (
-                      <div className="flex items-center gap-2 text-sm text-green-600">
-                        <CheckCircle className="h-4 w-4" />
-                        <span>Driver's license verified</span>
-                      </div>
-                    )}
-                    
-                    {veriffSessionId && veriffStatus !== 'approved' && veriffStatus !== 'declined' && (
-                      <Button
-                        onClick={checkVeriffStatus}
-                        disabled={checkingVeriffStatus}
-                        variant="outline"
-                        size="sm"
-                        className="mt-2"
-                      >
-                        {checkingVeriffStatus ? (
-                          <>
-                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                            Checking...
-                          </>
-                        ) : (
-                          <>
-                            <Clock className="mr-2 h-3 w-3" />
-                            Check Status
-                          </>
-                        )}
-                      </Button>
-                    )}
+              {/* Veriff SDK Integration */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-medium text-sm">Document Verification Options</h4>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant={!useVeriffSDK ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setUseVeriffSDK(false)}
+                    >
+                      Manual Upload
+                    </Button>
+                    <Button
+                      variant={useVeriffSDK ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setUseVeriffSDK(true)}
+                    >
+                      Veriff SDK
+                    </Button>
                   </div>
                 </div>
-              )}
+
+                {useVeriffSDK ? (
+                  <VeriffSDK
+                    caseId={vehicleData.id || vehicleData._id || ''}
+                    customerName={vehicleData.customer ? `${vehicleData.customer.firstName} ${vehicleData.customer.lastName}` : ''}
+                    onVerificationComplete={(status) => {
+                      setVeriffStatus(status);
+                      if (status === 'approved') {
+                        setDriverLicenseVerified(true);
+                        toast({
+                          title: 'Verification Complete',
+                          description: 'Documents have been successfully verified.',
+                        });
+                      }
+                    }}
+                    onSessionCreated={(sessionId) => {
+                      setVeriffSessionId(sessionId);
+                    }}
+                  />
+                ) : (
+                  <div className="text-sm text-gray-600">
+                    Use the manual upload option above to upload driver's license images.
+                  </div>
+                )}
+              </div>
 
               {/* Show existing uploaded documents if available */}
               {vehicleData.documents?.driverLicenseFront && vehicleData.documents?.driverLicenseRear && (

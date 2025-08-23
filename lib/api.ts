@@ -636,39 +636,6 @@ export async function uploadDriverLicenseDocuments(caseId: string, frontFile: Fi
   return handleResponse<{ frontUrl: string; rearUrl: string; case: any; veriff?: any }>(response);
 }
 
-export async function getVeriffStatus(caseId: string): Promise<APIResponse<{
-  sessionId: string;
-  verificationId: string;
-  status: string;
-  submittedAt: string;
-  verifiedAt?: string;
-  document?: any;
-  person?: any;
-  driverLicenseVerified: boolean;
-}>> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/veriff/status`, {
-      ...await defaultOptions(),
-    });
-    return await handleResponse<{
-      sessionId: string;
-      verificationId: string;
-      status: string;
-      submittedAt: string;
-      verifiedAt?: string;
-      document?: any;
-      person?: any;
-      driverLicenseVerified: boolean;
-    }>(response);
-  } catch (error) {
-    console.error('Error fetching Veriff status:', error);
-    return {
-      success: false,
-      error: 'Failed to fetch Veriff status'
-    };
-  }
-}
-
 export async function getUsersByRole(role: string): Promise<APIResponse<User[]>> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/users?role=${role}`, {
@@ -1229,7 +1196,6 @@ const api = {
   uploadDocument,
   uploadBillOfSaleDocument,
   uploadDriverLicenseDocuments,
-  getVeriffStatus,
   updateOfferDecision,
   updateOfferDecisionByCaseId,
   updatePaperwork,
@@ -1324,6 +1290,25 @@ export async function sendToDocuSign(caseId: string): Promise<APIResponse<{
  * Get DocuSign status for a case
  * @param caseId - Case ID
  */
+export async function createVeriffSession(caseId: string, person?: { givenName?: string; lastName?: string }, vendorData?: string): Promise<APIResponse<{
+  sessionId: string;
+  url: string;
+  status: string;
+  sessionToken: string;
+}>> {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cases/${caseId}/veriff/session`, {
+      method: 'POST',
+      headers: await getAuthHeaders(),
+      body: JSON.stringify({ person, vendorData })
+    });
+
+    return await handleResponse(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
 export async function getDocuSignStatus(caseId: string): Promise<APIResponse<{
   envelopeId: string;
   status: string;

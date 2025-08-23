@@ -32,15 +32,11 @@ export function useStageTimer(caseId?: string, stageName?: string) {
   const [timeTrackingData, setTimeTrackingData] = useState<TimeTrackingData | null>(null);
 
   // Debug logging
-  console.log(`useStageTimer initialized with caseId: ${caseId}, stageName: ${stageName}`);
 
   // Load existing time data when component mounts
   useEffect(() => {
     if (caseId && stageName) {
-      console.log(`Loading time data for caseId: ${caseId}, stageName: ${stageName}`);
       loadExistingTimeData();
-    } else {
-      console.log(`Skipping time data load - caseId: ${caseId}, stageName: ${stageName}`);
     }
   }, [caseId, stageName]);
 
@@ -49,25 +45,14 @@ export function useStageTimer(caseId?: string, stageName?: string) {
 
     try {
       setIsLoading(true);
-      console.log(`Fetching time tracking data for caseId: ${caseId}`);
       const response = await getTimeTrackingByCaseId(caseId);
-      
-      console.log(`Time tracking API response:`, response);
       
       if (response.success && response.data) {
         setTimeTrackingData(response.data);
         
         const stageData = response.data.stageTimes[stageName as keyof typeof response.data.stageTimes];
         
-        console.log(`Stage data for ${stageName}:`, stageData);
-        
         if (stageData && stageData.totalTime) {
-          console.log(`Loading existing time for ${stageName}:`, {
-            totalTime: stageData.totalTime,
-            startTime: stageData.startTime,
-            endTime: stageData.endTime
-          });
-          
           // If there's saved time, set it as the base elapsed time
           setSavedTime(stageData.totalTime);
           setElapsed(stageData.totalTime);
@@ -82,17 +67,14 @@ export function useStageTimer(caseId?: string, stageName?: string) {
               // We don't want to add any gap time between save and reopen
               setElapsed(stageData.totalTime);
               setStartTime(now); // Start fresh timer from now, but keep the saved time
-              console.log(`Resuming inspection timer from saved total time: ${stageData.totalTime}ms (no gap time added)`);
             } else {
               // For other stages, only continue if there's no endTime (stage not completed)
               if (!stageData.endTime) {
                 const additionalTime = now.getTime() - startDate.getTime();
                 setElapsed(stageData.totalTime + additionalTime);
                 setStartTime(startDate);
-                console.log(`Continuing ${stageName} from saved time: ${stageData.totalTime}ms + ${additionalTime}ms = ${stageData.totalTime + additionalTime}ms`);
               } else {
                 // Stage is completed, don't continue the timer
-                console.log(`${stageName} is completed, not continuing timer`);
               }
             }
           }
@@ -125,7 +107,6 @@ export function useStageTimer(caseId?: string, stageName?: string) {
 
   const start = useCallback(() => {
     const now = new Date();
-    console.log(`Starting timer at ${now.toISOString()}, current elapsed: ${elapsed}ms, savedTime: ${savedTime}ms`);
     setStartTime(now);
     // Don't reset elapsed - keep the saved time
     return now;
