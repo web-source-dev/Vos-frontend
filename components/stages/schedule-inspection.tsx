@@ -12,6 +12,7 @@ import { Calendar, User as UserIcon, Clock, CheckCircle, Edit, FileText, Calcula
 import api from '@/lib/api'
 import type { User } from '@/lib/types'
 import { useStageTimer } from '@/components/useStageTimer'
+import { rescheduleInspection } from '@/lib/api'
 
 // TypeScript interfaces for schedule inspection data
 interface CustomerData {
@@ -419,20 +420,36 @@ export function ScheduleInspection({
       const finalScheduledTime = scheduledTime === 'custom' ? customScheduledTime : scheduledTime;
       const finalDueByTime = dueByTime === 'custom' ? customDueByTime : dueByTime;
 
-      const response = await api.scheduleInspection(
-        caseId,
-        {
-          firstName: selectedInspectorData.firstName,
-          lastName: selectedInspectorData.lastName,
-          email: selectedInspectorData.email,
-          location: selectedInspectorData.location
-        },
-        new Date(scheduledDate),
-        finalScheduledTime,
-        notesForInspector,
-        dueByDate ? new Date(dueByDate) : undefined,
-        finalDueByTime || undefined
-      );
+      // Use rescheduleInspection if rescheduling, otherwise use scheduleInspection
+      const response = isRescheduling 
+        ? await rescheduleInspection(
+            caseId,
+            {
+              firstName: selectedInspectorData.firstName,
+              lastName: selectedInspectorData.lastName,
+              email: selectedInspectorData.email,
+              location: selectedInspectorData.location
+            },
+            new Date(scheduledDate),
+            finalScheduledTime,
+            notesForInspector,
+            dueByDate ? new Date(dueByDate) : undefined,
+            finalDueByTime || undefined
+          )
+        : await api.scheduleInspection(
+            caseId,
+            {
+              firstName: selectedInspectorData.firstName,
+              lastName: selectedInspectorData.lastName,
+              email: selectedInspectorData.email,
+              location: selectedInspectorData.location
+            },
+            new Date(scheduledDate),
+            finalScheduledTime,
+            notesForInspector,
+            dueByDate ? new Date(dueByDate) : undefined,
+            finalDueByTime || undefined
+          );
 
       if (response.success) {
         // Assign estimator if selected

@@ -192,6 +192,23 @@ export interface Case {
   inspection?: Inspection | string;
   quote?: Quote | string;
   transaction?: string;
+  documents?: {
+    driverLicenseFront?: {
+      path: string;
+      originalName: string;
+      uploadedAt: Date;
+    };
+    driverLicenseRear?: {
+      path: string;
+      originalName: string;
+      uploadedAt: Date;
+    };
+    vehicleTitle?: {
+      path: string;
+      originalName: string;
+      uploadedAt: Date;
+    };
+  };
   currentStage: number;
   stageStatuses: {
     [key: number]: 'active' | 'complete' | 'pending';

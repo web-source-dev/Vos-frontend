@@ -285,8 +285,8 @@ export function AdminOverview() {
   }
 
   const getStatusName = (status: string) => {
-    if (status === "quote-declined") return "Offer Declined / Closed"
-    if (status === "cancelled") return "Offer Declined / Closed"
+    if (status === "quote-declined") return "Closed"
+    if (status === "cancelled") return "Closed"
     if (status === "completed") return "Completed"
     if (status === "new") return "Pending Customer Intake"
     if (status === "active") return "Pending Inspection Scheduling"

@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { FileText, CreditCard, Upload, CheckCircle, X, Loader2, Clock, Info, AlertTriangle } from "lucide-react"
+import { FileText, CreditCard, Upload, CheckCircle, X, Loader2, Clock, Info, AlertTriangle, Send, AlertCircle } from "lucide-react"
 import api from '@/lib/api'
 import Image from "next/image"
 import { useStageTimer } from "@/components/useStageTimer"
@@ -35,6 +35,22 @@ interface TransactionData {
   payoffCompletedAt?: string
   payoffConfirmedBy?: string
   payoffNotes?: string
+  // DocuSign integration fields
+  docusign?: {
+    envelopeId?: string
+    status?: 'sent' | 'delivered' | 'signed' | 'completed' | 'declined' | 'voided'
+    completedAt?: string
+    signedDocuments?: Array<{
+      documentName: string
+      documentUrl: string
+      signedAt: string
+    }>
+    event?: string
+    recipientViewUrl?: string
+    envelopeUrl?: string
+    documentUrl?: string
+    cloudinaryPublicId?: string
+  }
 }
 
 interface BillOfSaleData {
@@ -93,6 +109,23 @@ interface CaseData {
   offerDecision?: OfferDecisionData;
   quote?: Quote;
   transaction?: TransactionData;
+  documents?: {
+    driverLicenseFront?: {
+      path: string;
+      originalName: string;
+      uploadedAt: Date;
+    };
+    driverLicenseRear?: {
+      path: string;
+      originalName: string;
+      uploadedAt: Date;
+    };
+    vehicleTitle?: {
+      path: string;
+      originalName: string;
+      uploadedAt: Date;
+    };
+  };
   currentStage?: number;
   status?: string;
   stageStatuses?: {
@@ -191,6 +224,26 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
   const [payoffStatus, setPayoffStatus] = useState<'pending' | 'confirmed' | 'completed' | 'not_required'>('not_required');
   const [payoffNotes, setPayoffNotes] = useState<string>('');
 
+  // DocuSign integration state
+  const [docusignStatus, setDocusignStatus] = useState<'not_sent' | 'sent' | 'delivered' | 'signed' | 'completed' | 'declined' | 'voided'>('not_sent');
+  const [docusignEnvelopeId, setDocusignEnvelopeId] = useState<string>('');
+  const [docusignRecipientUrl, setDocusignRecipientUrl] = useState<string>('');
+  const [sendingToDocuSign, setSendingToDocuSign] = useState<boolean>(false);
+  const [docusignError, setDocusignError] = useState<string>('');
+
+  // Driver's license upload state
+  const [driverLicenseFront, setDriverLicenseFront] = useState<File | null>(null);
+  const [driverLicenseRear, setDriverLicenseRear] = useState<File | null>(null);
+  const [uploadingDriverLicense, setUploadingDriverLicense] = useState<boolean>(false);
+  const [driverLicenseUploaded, setDriverLicenseUploaded] = useState<boolean>(false);
+  const [driverLicenseError, setDriverLicenseError] = useState<string>('');
+
+  // Veriff verification state
+  const [veriffStatus, setVeriffStatus] = useState<string>('');
+  const [veriffSessionId, setVeriffSessionId] = useState<string>('');
+  const [veriffVerificationId, setVeriffVerificationId] = useState<string>('');
+  const [driverLicenseVerified, setDriverLicenseVerified] = useState<boolean>(false);
+  const [checkingVeriffStatus, setCheckingVeriffStatus] = useState<boolean>(false);
 
   // Stage timer with case ID and stage name
   const caseId = vehicleData._id;
@@ -328,6 +381,13 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
         setPreferredPaymentMethod(vehicleData.transaction.preferredPaymentMethod);
       }
 
+      // Initialize DocuSign status from existing transaction data
+      if (vehicleData.transaction?.docusign) {
+        setDocusignStatus(vehicleData.transaction.docusign.status || 'not_sent');
+        setDocusignEnvelopeId(vehicleData.transaction.docusign.envelopeId || '');
+        setDocusignRecipientUrl(vehicleData.transaction.docusign.recipientViewUrl || '');
+      }
+
       // If there's transaction data, set formSaved to true
       if (vehicleData.transaction) {
         setFormSaved(true);
@@ -386,10 +446,175 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
     }))
   }
 
+  // Handle driver's license upload
+  const handleDriverLicenseUpload = async () => {
+    if (!driverLicenseFront || !driverLicenseRear) {
+      setDriverLicenseError('Both front and rear images are required');
+      return;
+    }
 
+    try {
+      setUploadingDriverLicense(true);
+      setDriverLicenseError('');
 
+      const caseId = vehicleData.id || vehicleData._id;
+      if (!caseId) {
+        throw new Error('No valid case ID found');
+      }
 
+      const response = await api.uploadDriverLicenseDocuments(caseId, driverLicenseFront, driverLicenseRear);
+      
+      if (response.success && response.data) {
+        setDriverLicenseUploaded(true);
+        
+        // Update case data with document URLs
+        onUpdate({
+          ...vehicleData,
+          documents: {
+            ...vehicleData.documents,
+            driverLicenseFront: {
+              path: response.data.frontUrl,
+              originalName: driverLicenseFront.name,
+              uploadedAt: new Date()
+            },
+            driverLicenseRear: {
+              path: response.data.rearUrl,
+              originalName: driverLicenseRear.name,
+              uploadedAt: new Date()
+            }
+          }
+        });
 
+        // Handle Veriff verification results if available
+        const veriffData = (response.data as any).veriff;
+        if (veriffData && veriffData.success) {
+          setVeriffSessionId(veriffData.sessionId);
+          setVeriffVerificationId(veriffData.verificationId);
+          setVeriffStatus(veriffData.status);
+          
+          toast({
+            title: "Driver's License Uploaded & Verified",
+            description: "Images uploaded successfully and sent for verification with Veriff.",
+          });
+        } else {
+          toast({
+            title: "Driver's License Uploaded",
+            description: "Both front and rear images have been uploaded successfully.",
+          });
+        }
+      } else {
+        throw new Error(response.error || 'Failed to upload driver license documents');
+      }
+    } catch (error) {
+      console.error('Error uploading driver license documents:', error);
+      setDriverLicenseError(error instanceof Error ? error.message : 'Failed to upload driver license documents');
+      toast({
+        title: 'Error',
+        description: 'Failed to upload driver license documents. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setUploadingDriverLicense(false);
+    }
+  };
+
+  // Check Veriff verification status
+  const checkVeriffStatus = async () => {
+    if (!veriffSessionId) return;
+    
+    const caseId = vehicleData.id || vehicleData._id;
+    if (!caseId) {
+      toast({
+        title: "Error",
+        description: "No valid case ID found.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      setCheckingVeriffStatus(true);
+      const response = await api.getVeriffStatus(caseId);
+      
+      if (response.success && response.data) {
+        setVeriffStatus(response.data.status);
+        setDriverLicenseVerified(response.data.driverLicenseVerified);
+        
+        if (response.data.status === 'approved') {
+          toast({
+            title: "Verification Approved",
+            description: "Driver's license verification has been approved.",
+          });
+        } else if (response.data.status === 'declined') {
+          toast({
+            title: "Verification Declined",
+            description: "Driver's license verification was declined. Please check the images and try again.",
+            variant: "destructive"
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error checking Veriff status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to check verification status.",
+        variant: "destructive"
+      });
+    } finally {
+      setCheckingVeriffStatus(false);
+    }
+  };
+
+  // Send paperwork to DocuSign
+  const handleSendToDocuSign = async () => {
+    try {
+      setSendingToDocuSign(true);
+      setDocusignError('');
+
+      const caseId = vehicleData.id || vehicleData._id;
+      if (!caseId) {
+        throw new Error('No valid case ID found');
+      }
+
+      const response = await api.sendToDocuSign(caseId);
+      
+      if (response.success && response.data) {
+        setDocusignStatus('sent');
+        setDocusignEnvelopeId(response.data.envelopeId);
+        setDocusignRecipientUrl(response.data.recipientViewUrl);
+        
+        // Update case data with DocuSign information
+        onUpdate({
+          ...vehicleData,
+          transaction: {
+            ...vehicleData.transaction,
+            docusign: {
+              envelopeId: response.data.envelopeId,
+              status: 'sent',
+              recipientViewUrl: response.data.recipientViewUrl
+            }
+          }
+        });
+
+        toast({
+          title: "Documents Sent to DocuSign",
+          description: "The paperwork has been sent for e-signature. Customer will receive an email to sign the documents.",
+        });
+      } else {
+        throw new Error(response.error || 'Failed to send to DocuSign');
+      }
+    } catch (error) {
+      console.error('Error sending to DocuSign:', error);
+      setDocusignError(error instanceof Error ? error.message : 'Failed to send to DocuSign');
+      toast({
+        title: 'Error',
+        description: 'Failed to send documents to DocuSign. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setSendingToDocuSign(false);
+    }
+  };
 
 
   const handleComplete = async () => {
@@ -861,12 +1086,282 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
           </CardContent>
         </Card>
 
+        {/* Additional Documents */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Additional Documents
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Driver's License</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="driverLicenseFront" className="text-sm">Front Image</Label>
+                  <Input
+                    id="driverLicenseFront"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setDriverLicenseFront(e.target.files?.[0] || null)}
+                    className="cursor-pointer"
+                  />
+                  {driverLicenseFront && (
+                    <div className="flex items-center gap-2 text-sm text-green-600">
+                      <CheckCircle className="h-4 w-4" />
+                      <span>{driverLicenseFront.name}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="driverLicenseRear" className="text-sm">Rear Image</Label>
+                  <Input
+                    id="driverLicenseRear"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setDriverLicenseRear(e.target.files?.[0] || null)}
+                    className="cursor-pointer"
+                  />
+                  {driverLicenseRear && (
+                    <div className="flex items-center gap-2 text-sm text-green-600">
+                      <CheckCircle className="h-4 w-4" />
+                      <span>{driverLicenseRear.name}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <Button
+                onClick={handleDriverLicenseUpload}
+                disabled={!driverLicenseFront || !driverLicenseRear || uploadingDriverLicense}
+                className="w-full mt-4"
+                size="lg"
+              >
+                {uploadingDriverLicense ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload Driver's License Documents
+                  </>
+                )}
+              </Button>
+
+              {driverLicenseError && (
+                <div className="flex items-center gap-2 text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{driverLicenseError}</span>
+                </div>
+              )}
+
+              {driverLicenseUploaded && (
+                <div className="flex items-center gap-2 text-sm text-green-600">
+                  <CheckCircle className="h-4 w-4" />
+                  <span>Driver's license documents uploaded successfully and sent to webhook</span>
+                </div>
+              )}
+
+              {/* Veriff Verification Status */}
+              {(veriffSessionId || veriffStatus) && (
+                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    Veriff Verification Status
+                  </h4>
+                  
+                  <div className="space-y-2">
+                    {veriffSessionId && (
+                      <div className="text-sm">
+                        <span className="font-medium">Session ID:</span> {veriffSessionId}
+                      </div>
+                    )}
+                    
+                    {veriffStatus && (
+                      <div className="text-sm">
+                        <span className="font-medium">Status:</span> 
+                        <Badge 
+                          variant={
+                            veriffStatus === 'approved' ? 'default' : 
+                            veriffStatus === 'declined' ? 'destructive' : 
+                            'secondary'
+                          }
+                          className="ml-2"
+                        >
+                          {veriffStatus.charAt(0).toUpperCase() + veriffStatus.slice(1)}
+                        </Badge>
+                      </div>
+                    )}
+                    
+                    {driverLicenseVerified && (
+                      <div className="flex items-center gap-2 text-sm text-green-600">
+                        <CheckCircle className="h-4 w-4" />
+                        <span>Driver's license verified</span>
+                      </div>
+                    )}
+                    
+                    {veriffSessionId && veriffStatus !== 'approved' && veriffStatus !== 'declined' && (
+                      <Button
+                        onClick={checkVeriffStatus}
+                        disabled={checkingVeriffStatus}
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                      >
+                        {checkingVeriffStatus ? (
+                          <>
+                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                            Checking...
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="mr-2 h-3 w-3" />
+                            Check Status
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Show existing uploaded documents if available */}
+              {vehicleData.documents?.driverLicenseFront && vehicleData.documents?.driverLicenseRear && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-sm mb-2">Previously Uploaded Documents:</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm">Front Image</Label>
+                      <div className="flex items-center gap-2">
+                        <Image
+                          src={vehicleData.documents?.driverLicenseFront?.path || ''}
+                          alt="Driver License Front"
+                          width={100}
+                          height={60}
+                          className="rounded border"
+                        />
+                        <Button
+                          onClick={() => window.open(vehicleData.documents?.driverLicenseFront?.path || '', '_blank')}
+                          variant="outline"
+                          size="sm"
+                        >
+                          View
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">Rear Image</Label>
+                      <div className="flex items-center gap-2">
+                        <Image
+                          src={vehicleData.documents?.driverLicenseRear?.path || ''}
+                          alt="Driver License Rear"
+                          width={100}
+                          height={60}
+                          className="rounded border"
+                        />
+                        <Button
+                          onClick={() => window.open(vehicleData.documents?.driverLicenseRear?.path || '', '_blank')}
+                          variant="outline"
+                          size="sm"
+                        >
+                          View
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
       </div>
 
 
       {(formSaved || hasExistingData) && (
         <>
 
+
+          {/* DocuSign Integration */}
+          <Card className="border-blue-200 bg-blue-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                E-Signature via DocuSign
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Info className="h-4 w-4" />
+                    <span>Send the complete paperwork package to the customer for e-signature</span>
+                  </div>
+                  <Button
+                    onClick={handleSendToDocuSign}
+                    disabled={sendingToDocuSign}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {sendingToDocuSign ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending to DocuSign...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 h-4 w-4" />
+                        Send to DocuSign for E-Signature
+                      </>
+                    )}
+                  </Button>
+                  {docusignError && (
+                    <div className="flex items-center gap-2 text-sm text-red-600">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>{docusignError}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-4">
+
+                  {docusignRecipientUrl && (
+                    <div className="space-y-2">
+                      <Label>Customer Signing Link</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={docusignRecipientUrl}
+                          readOnly
+                          className="bg-gray-50"
+                        />
+                        <Button
+                          onClick={() => window.open(docusignRecipientUrl, '_blank')}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Open
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {docusignStatus === 'completed' && (
+                    <div className="flex items-center gap-2 text-sm text-green-600">
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Documents have been signed and completed</span>
+                    </div>
+                  )}
+
+                  {docusignStatus === 'declined' && (
+                    <div className="flex items-center gap-2 text-sm text-red-600">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>Customer declined to sign the documents</span>
+                    </div>
+                  )}
+                </div>
+            </CardContent>
+          </Card>
 
           {/* Payoff Confirmation */}
           <Card className="border-orange-200 bg-orange-50">

@@ -322,6 +322,31 @@ export async function scheduleInspection(
   return handleResponse<Inspection>(response);
 }
 
+export async function rescheduleInspection (
+  caseId: string,
+  inspectorData: Inspector,
+  scheduledDate: Date,
+  scheduledTime: string,
+  notesForInspector?: string,
+  dueByDate?: Date,
+  dueByTime?: string
+): Promise<APIResponse<Inspection>> {
+  const options = await defaultOptions();
+  const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/inspection`, {
+    ...options,
+    method: 'PUT',
+    body: JSON.stringify({
+      inspector: inspectorData,
+      scheduledDate,
+      scheduledTime,
+      notesForInspector,
+      dueByDate,
+      dueByTime,
+    }),
+  });
+  return handleResponse<Inspection>(response);
+}
+
 export async function getInspectionByToken(token: string): Promise<APIResponse<Inspection>> {
   const response = await fetch(`${API_BASE_URL}/api/inspection/${token}`);
   return handleResponse<Inspection>(response);
@@ -519,13 +544,17 @@ export async function generateCaseFileWithToken(token: string): Promise<Blob> {
 }
 
 export async function updateCaseStatus(caseId: string, status: string): Promise<APIResponse<Case>> {
-  const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/status`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ status }),
-  });
-  return handleResponse<Case>(response);
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/status`, {
+      ...await defaultOptions(),
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+    return await handleResponse<Case>(response);
+  } catch (error) {
+    console.error('Error updating case status:', error);
+    return handleError(error);
+  }
 }
 
 export function handleError(error: unknown): { success: false; error: string } {
@@ -586,6 +615,58 @@ export async function uploadBillOfSaleDocument(caseId: string, file: File): Prom
   });
 
   return handleResponse<{ path: string; transaction: any }>(response);
+}
+
+export async function uploadDriverLicenseDocuments(caseId: string, frontFile: File, rearFile: File): Promise<APIResponse<{ frontUrl: string; rearUrl: string; case: any; veriff?: any }>> {
+  console.log('Uploading driver license documents for case:', caseId);
+  const formData = new FormData();
+  formData.append('driverLicenseFront', frontFile);
+  formData.append('driverLicenseRear', rearFile);
+
+  const headers = await getAuthHeaders();
+  delete headers['Content-Type']; // Let browser set correct content type for FormData
+
+  const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/driver-license-upload`, {
+    method: 'POST',
+    headers,
+    credentials: 'include',
+    body: formData
+  });
+
+  return handleResponse<{ frontUrl: string; rearUrl: string; case: any; veriff?: any }>(response);
+}
+
+export async function getVeriffStatus(caseId: string): Promise<APIResponse<{
+  sessionId: string;
+  verificationId: string;
+  status: string;
+  submittedAt: string;
+  verifiedAt?: string;
+  document?: any;
+  person?: any;
+  driverLicenseVerified: boolean;
+}>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/veriff/status`, {
+      ...await defaultOptions(),
+    });
+    return await handleResponse<{
+      sessionId: string;
+      verificationId: string;
+      status: string;
+      submittedAt: string;
+      verifiedAt?: string;
+      document?: any;
+      person?: any;
+      driverLicenseVerified: boolean;
+    }>(response);
+  } catch (error) {
+    console.error('Error fetching Veriff status:', error);
+    return {
+      success: false,
+      error: 'Failed to fetch Veriff status'
+    };
+  }
 }
 
 export async function getUsersByRole(role: string): Promise<APIResponse<User[]>> {
@@ -1058,6 +1139,36 @@ export async function getEstimatorAnalytics(timeRange: string = '30d'): Promise<
   }
 }
 
+// Get all customers (users with role 'customer')
+export async function getCustomers(): Promise<APIResponse<any[]>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/customers`, {
+      ...await defaultOptions(),
+      method: 'GET',
+    });
+    return await handleResponse<any[]>(response);
+  } catch (error) {
+    console.error('Error fetching customers:', error);
+    return handleError(error);
+  }
+}
+
+// Get cases by customer ID
+export async function getCasesByCustomerId(customerId: string): Promise<APIResponse<Case[]>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/customers/${customerId}/cases`, {
+      ...await defaultOptions(),
+      method: 'GET',
+    });
+    return await handleResponse<Case[]>(response);
+  } catch (error) {
+    console.error('Error fetching cases by customer ID:', error);
+    return handleError(error);
+  }
+}
+
+
+
 export async function forgotPassword(email: string): Promise<APIResponse<{ message: string }>> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
@@ -1117,6 +1228,8 @@ const api = {
   handleError,
   uploadDocument,
   uploadBillOfSaleDocument,
+  uploadDriverLicenseDocuments,
+  getVeriffStatus,
   updateOfferDecision,
   updateOfferDecisionByCaseId,
   updatePaperwork,
@@ -1148,8 +1261,14 @@ const api = {
   getEstimatorAnalytics,
   getTimeTrackingByCaseId,
   getTimeTrackingAnalytics,
+  // Customer functions
+  getCustomers,
+  getCasesByCustomerId,
   // Customer submission functions
   getAllCustomerSubmissions,
+  // DocuSign functions
+  sendToDocuSign,
+  getDocuSignStatus,
 };
 
 export default api;
@@ -1170,6 +1289,58 @@ export async function getTimeTrackingAnalytics(): Promise<APIResponse<any>> {
 export async function getAllCustomerSubmissions(): Promise<APIResponse<any[]>> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/customer/vehicle-submissions`, await defaultOptions());
+    return handleResponse(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+// ===== DOCUSIGN INTEGRATION FUNCTIONS =====
+
+/**
+ * Send paperwork to DocuSign for e-signature
+ * @param caseId - Case ID
+ */
+export async function sendToDocuSign(caseId: string): Promise<APIResponse<{
+  envelopeId: string;
+  status: string;
+  recipientViewUrl: string;
+  message: string;
+  documentUrl: string;
+  cloudinaryPublicId: string;
+}>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/docusign`, {
+      ...await defaultOptions(),
+      method: 'POST',
+    });
+    return handleResponse(response);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * Get DocuSign status for a case
+ * @param caseId - Case ID
+ */
+export async function getDocuSignStatus(caseId: string): Promise<APIResponse<{
+  envelopeId: string;
+  status: string;
+  completedAt: string;
+  recipientViewUrl: string;
+  envelopeUrl: string;
+  signedDocuments: Array<{
+    documentName: string;
+    documentUrl: string;
+    signedAt: string;
+  }>;
+}>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/docusign/status`, {
+      ...await defaultOptions(),
+      method: 'GET',
+    });
     return handleResponse(response);
   } catch (error) {
     return handleError(error);
