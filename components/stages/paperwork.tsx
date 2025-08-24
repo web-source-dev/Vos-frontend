@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { FileText, CreditCard, Upload, CheckCircle, X, Loader2, Clock, Info, AlertTriangle, Send, AlertCircle, XCircle } from "lucide-react"
-import api from '@/lib/api'
+import api, { fetchCaseData } from '@/lib/api'
 import { VeriffSDK } from '@/components/VeriffSDK'
 import Image from "next/image"
 import { useStageTimer } from "@/components/useStageTimer"
@@ -36,22 +36,6 @@ interface TransactionData {
   payoffCompletedAt?: string
   payoffConfirmedBy?: string
   payoffNotes?: string
-  // DocuSign integration fields
-  docusign?: {
-    envelopeId?: string
-    status?: 'sent' | 'delivered' | 'signed' | 'completed' | 'declined' | 'voided'
-    completedAt?: string
-    signedDocuments?: Array<{
-      documentName: string
-      documentUrl: string
-      signedAt: string
-    }>
-    event?: string
-    recipientViewUrl?: string
-    envelopeUrl?: string
-    documentUrl?: string
-    cloudinaryPublicId?: string
-  }
 }
 
 interface BillOfSaleData {
@@ -242,13 +226,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
   const [payoffStatus, setPayoffStatus] = useState<'pending' | 'confirmed' | 'completed' | 'not_required'>('not_required');
   const [payoffNotes, setPayoffNotes] = useState<string>('');
 
-  // DocuSign integration state
-  const [docusignStatus, setDocusignStatus] = useState<'not_sent' | 'sent' | 'delivered' | 'signed' | 'completed' | 'declined' | 'voided'>('not_sent');
-  const [docusignEnvelopeId, setDocusignEnvelopeId] = useState<string>('');
-  const [docusignRecipientUrl, setDocusignRecipientUrl] = useState<string>('');
-  const [sendingToDocuSign, setSendingToDocuSign] = useState<boolean>(false);
-  const [docusignError, setDocusignError] = useState<string>('');
-
   // Driver's license upload state
   const [driverLicenseFront, setDriverLicenseFront] = useState<File | null>(null);
   const [driverLicenseRear, setDriverLicenseRear] = useState<File | null>(null);
@@ -260,10 +237,13 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
   const [veriffSessionId, setVeriffSessionId] = useState<string>('');
   const [veriffVerificationId, setVeriffVerificationId] = useState<string>('');
   const [veriffStatus, setVeriffStatus] = useState<string>('');
-  const [checkingVeriffStatus, setCheckingVeriffStatus] = useState<boolean>(false);
   const [useVeriffSDK, setUseVeriffSDK] = useState<boolean>(false);
   const [driverLicenseVerified, setDriverLicenseVerified] = useState<boolean>(false);
-  const [autoCheckInterval, setAutoCheckInterval] = useState<NodeJS.Timeout | null>(null);
+
+  // Auto-fetch state
+  const [autoFetchEnabled, setAutoFetchEnabled] = useState<boolean>(true);
+  const [lastFetchTime, setLastFetchTime] = useState<Date>(new Date());
+  const [fetchingData, setFetchingData] = useState<boolean>(false);
 
   // Stage timer with case ID and stage name
   const caseId = vehicleData._id;
@@ -400,14 +380,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
       if (vehicleData.transaction?.preferredPaymentMethod) {
         setPreferredPaymentMethod(vehicleData.transaction.preferredPaymentMethod);
       }
-
-      // Initialize DocuSign status from existing transaction data
-      if (vehicleData.transaction?.docusign) {
-        setDocusignStatus(vehicleData.transaction.docusign.status || 'not_sent');
-        setDocusignEnvelopeId(vehicleData.transaction.docusign.envelopeId || '');
-        setDocusignRecipientUrl(vehicleData.transaction.docusign.recipientViewUrl || '');
-      }
-
       // Initialize Veriff status from existing case data
       if (vehicleData.veriff) {
         setVeriffSessionId(vehicleData.veriff.sessionId || '');
@@ -425,6 +397,88 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
     }
 
     loadExistingData()
+  }, []);
+
+  // Auto-fetch case data every 10 seconds
+  useEffect(() => {
+    if (!autoFetchEnabled || !caseId) return;
+
+    const fetchCaseDataFromAPI = async () => {
+      try {
+        setFetchingData(true);
+        const response = await fetchCaseData(caseId);
+        
+        if (response.success && response.data) {
+          const updatedCaseData = response.data as CaseData;
+          
+          // Update Veriff status if it has changed
+          if (updatedCaseData.veriff && updatedCaseData.veriff.status !== veriffStatus) {
+            setVeriffStatus(updatedCaseData.veriff.status || '');
+            setVeriffSessionId(updatedCaseData.veriff.sessionId || '');
+            setVeriffVerificationId(updatedCaseData.veriff.verificationId || '');
+            
+          }
+
+          // Update driver license verification status
+          if (updatedCaseData.documents?.driverLicenseVerified !== driverLicenseVerified) {
+            setDriverLicenseVerified(updatedCaseData.documents?.driverLicenseVerified || false);
+          }
+
+          // Update transaction data if it has changed
+          if (updatedCaseData.transaction && JSON.stringify(updatedCaseData.transaction) !== JSON.stringify(vehicleData.transaction)) {
+            // Update payoff status
+            if (updatedCaseData.transaction.payoffStatus !== payoffStatus) {
+              setPayoffStatus(updatedCaseData.transaction.payoffStatus || 'not_required');
+            }
+            
+            // Update payoff notes
+            if (updatedCaseData.transaction.payoffNotes !== payoffNotes) {
+              setPayoffNotes(updatedCaseData.transaction.payoffNotes || '');
+            }
+
+            // Update bank details
+            if (updatedCaseData.transaction.bankDetails) {
+              setBankDetails({
+                bankName: updatedCaseData.transaction.bankDetails.bankName || "",
+                loanNumber: updatedCaseData.transaction.bankDetails.loanNumber || "",
+                payoffAmount: updatedCaseData.transaction.bankDetails.payoffAmount || 0
+              });
+            }
+
+            // Update payment status
+            if (updatedCaseData.transaction.paymentStatus !== paymentStatus) {
+              setPaymentStatus(updatedCaseData.transaction.paymentStatus || 'pending');
+            }
+
+            // Update preferred payment method
+            if (updatedCaseData.transaction.preferredPaymentMethod !== preferredPaymentMethod) {
+              setPreferredPaymentMethod(updatedCaseData.transaction.preferredPaymentMethod || 'Wire');
+            }
+          }
+
+          // Update case data in parent component
+          onUpdate(updatedCaseData);
+          
+          setLastFetchTime(new Date());
+        }
+      } catch (error) {
+        console.error('Error fetching case data:', error);
+      } finally {
+        setFetchingData(false);
+      }
+    };
+
+    // Initial fetch
+    fetchCaseDataFromAPI();
+
+    // Set up interval for auto-fetch
+    const interval = setInterval(fetchCaseDataFromAPI, 10000); // 10 seconds
+    console.log('fetching data',vehicleData);
+
+    // Cleanup interval on unmount
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
   // Ensure vehicle information is properly loaded from previous stages
@@ -545,57 +599,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
       setUploadingDriverLicense(false);
     }
   };
-  // Send paperwork to DocuSign
-  const handleSendToDocuSign = async () => {
-    try {
-      setSendingToDocuSign(true);
-      setDocusignError('');
-
-      const caseId = vehicleData.id || vehicleData._id;
-      if (!caseId) {
-        throw new Error('No valid case ID found');
-      }
-
-      const response = await api.sendToDocuSign(caseId);
-      
-      if (response.success && response.data) {
-        setDocusignStatus('sent');
-        setDocusignEnvelopeId(response.data.envelopeId);
-        setDocusignRecipientUrl(response.data.recipientViewUrl);
-        
-        // Update case data with DocuSign information
-        onUpdate({
-          ...vehicleData,
-          transaction: {
-            ...vehicleData.transaction,
-            docusign: {
-              envelopeId: response.data.envelopeId,
-              status: 'sent',
-              recipientViewUrl: response.data.recipientViewUrl
-            }
-          }
-        });
-
-        toast({
-          title: "Documents Sent to DocuSign",
-          description: "The paperwork has been sent for e-signature. Customer will receive an email to sign the documents.",
-        });
-      } else {
-        throw new Error(response.error || 'Failed to send to DocuSign');
-      }
-    } catch (error) {
-      console.error('Error sending to DocuSign:', error);
-      setDocusignError(error instanceof Error ? error.message : 'Failed to send to DocuSign');
-      toast({
-        title: 'Error',
-        description: 'Failed to send documents to DocuSign. Please try again.',
-        variant: 'destructive'
-      });
-    } finally {
-      setSendingToDocuSign(false);
-    }
-  };
-
 
   const handleComplete = async () => {
     // This function now handles both payoff status saving and completion
@@ -1087,12 +1090,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
                     onChange={(e) => setDriverLicenseFront(e.target.files?.[0] || null)}
                     className="cursor-pointer"
                   />
-                  {driverLicenseFront && (
-                    <div className="flex items-center gap-2 text-sm text-green-600">
-                      <CheckCircle className="h-4 w-4" />
-                      <span>{driverLicenseFront.name}</span>
-                    </div>
-                  )}
+                 
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="driverLicenseRear" className="text-sm">Rear Image</Label>
@@ -1103,12 +1101,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
                     onChange={(e) => setDriverLicenseRear(e.target.files?.[0] || null)}
                     className="cursor-pointer"
                   />
-                  {driverLicenseRear && (
-                    <div className="flex items-center gap-2 text-sm text-green-600">
-                      <CheckCircle className="h-4 w-4" />
-                      <span>{driverLicenseRear.name}</span>
-                    </div>
-                  )}
+                  
                 </div>
               </div>
               
@@ -1141,14 +1134,25 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
               {driverLicenseUploaded && (
                 <div className="flex items-center gap-2 text-sm text-green-600">
                   <CheckCircle className="h-4 w-4" />
-                  <span>Driver's license documents uploaded successfully and sent to webhook</span>
+                  <span>Driver's license documents uploaded successfully</span>
                 </div>
               )}
 
               {/* Veriff SDK Integration */}
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-medium text-sm">Document Verification Options</h4>
+                {veriffStatus === 'approved' && (
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>Driver's license documents verified</span>
+                  </div>
+                )}
+                {veriffStatus === 'declined' && (
+                  <div className="flex items-center gap-2 text-sm text-red-600">
+                    <XCircle className="h-4 w-4" />
+                    <span>Driver's license documents not verified</span>
+                  </div>
+                )}
                   <div className="flex items-center gap-2">
                     <Button
                       variant={!useVeriffSDK ? "default" : "outline"}
@@ -1167,7 +1171,7 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
                   </div>
                 </div>
 
-                {useVeriffSDK ? (
+                {useVeriffSDK && (
                   <VeriffSDK
                     caseId={vehicleData.id || vehicleData._id || ''}
                     customerName={vehicleData.customer ? `${vehicleData.customer.firstName} ${vehicleData.customer.lastName}` : ''}
@@ -1185,10 +1189,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
                       setVeriffSessionId(sessionId);
                     }}
                   />
-                ) : (
-                  <div className="text-sm text-gray-600">
-                    Use the manual upload option above to upload driver's license images.
-                  </div>
                 )}
               </div>
 
@@ -1247,85 +1247,6 @@ export function Paperwork({ vehicleData, onUpdate, onComplete, isAdmin = false, 
 
       {(formSaved || hasExistingData) && (
         <>
-
-
-          {/* DocuSign Integration */}
-          <Card className="border-blue-200 bg-blue-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                E-Signature via DocuSign
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Info className="h-4 w-4" />
-                    <span>Send the complete paperwork package to the customer for e-signature</span>
-                  </div>
-                  <Button
-                    onClick={handleSendToDocuSign}
-                    disabled={sendingToDocuSign}
-                    className="w-full"
-                    size="lg"
-                  >
-                    {sendingToDocuSign ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Sending to DocuSign...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="mr-2 h-4 w-4" />
-                        Send to DocuSign for E-Signature
-                      </>
-                    )}
-                  </Button>
-                  {docusignError && (
-                    <div className="flex items-center gap-2 text-sm text-red-600">
-                      <AlertCircle className="h-4 w-4" />
-                      <span>{docusignError}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-4">
-
-                  {docusignRecipientUrl && (
-                    <div className="space-y-2">
-                      <Label>Customer Signing Link</Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={docusignRecipientUrl}
-                          readOnly
-                          className="bg-gray-50"
-                        />
-                        <Button
-                          onClick={() => window.open(docusignRecipientUrl, '_blank')}
-                          variant="outline"
-                          size="sm"
-                        >
-                          Open
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {docusignStatus === 'completed' && (
-                    <div className="flex items-center gap-2 text-sm text-green-600">
-                      <CheckCircle className="h-4 w-4" />
-                      <span>Documents have been signed and completed</span>
-                    </div>
-                  )}
-
-                  {docusignStatus === 'declined' && (
-                    <div className="flex items-center gap-2 text-sm text-red-600">
-                      <AlertCircle className="h-4 w-4" />
-                      <span>Customer declined to sign the documents</span>
-                    </div>
-                  )}
-                </div>
-            </CardContent>
-          </Card>
 
           {/* Payoff Confirmation */}
           <Card className="border-orange-200 bg-orange-50">

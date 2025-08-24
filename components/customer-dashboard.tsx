@@ -350,34 +350,6 @@ export function CustomerDashboard() {
               </div>
             </CardContent>
           </Card>
-
-        <Card>
-            <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-                <div>
-                <p className="text-sm font-medium text-gray-600">Completed Cases</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {customers.reduce((sum, customer) => sum + customer.stats.completedCases, 0)}
-                  </p>
-                </div>
-              <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
-
-        <Card>
-            <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-                <div>
-                <p className="text-sm font-medium text-gray-600">Total Value</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  ${customers.reduce((sum, customer) => sum + customer.stats.totalValue, 0).toLocaleString()}
-                </p>
-                </div>
-              <Check className="h-8 w-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
       </div>
 
       {/* Filters and Search */}

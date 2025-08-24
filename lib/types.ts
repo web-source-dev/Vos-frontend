@@ -187,11 +187,12 @@ export interface Quote {
 
 export interface Case {
   id?: string;
-  customer: Customer | string;
-  vehicle: Vehicle | string;
-  inspection?: Inspection | string;
-  quote?: Quote | string;
-  transaction?: string;
+  _id?: string;
+  customer?: Customer;
+  vehicle?: Vehicle;
+  inspection?: Inspection;
+  quote?: Quote;
+  transaction?: Transaction;
   documents?: {
     driverLicenseFront?: {
       path: string;
@@ -208,6 +209,18 @@ export interface Case {
       originalName: string;
       uploadedAt: Date;
     };
+    driverLicenseVerified?: boolean;
+    verificationDate?: Date;
+  };
+  veriff?: {
+    sessionId?: string;
+    verificationId?: string;
+    documentType?: string;
+    status?: string;
+    submittedAt?: Date;
+    verifiedAt?: Date;
+    lastChecked?: Date;
+    reason?: string;
   };
   currentStage: number;
   stageStatuses: {

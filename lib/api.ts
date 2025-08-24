@@ -1232,9 +1232,6 @@ const api = {
   getCasesByCustomerId,
   // Customer submission functions
   getAllCustomerSubmissions,
-  // DocuSign functions
-  sendToDocuSign,
-  getDocuSignStatus,
 };
 
 export default api;
@@ -1261,33 +1258,7 @@ export async function getAllCustomerSubmissions(): Promise<APIResponse<any[]>> {
   }
 }
 
-// ===== DOCUSIGN INTEGRATION FUNCTIONS =====
-
 /**
- * Send paperwork to DocuSign for e-signature
- * @param caseId - Case ID
- */
-export async function sendToDocuSign(caseId: string): Promise<APIResponse<{
-  envelopeId: string;
-  status: string;
-  recipientViewUrl: string;
-  message: string;
-  documentUrl: string;
-  cloudinaryPublicId: string;
-}>> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/docusign`, {
-      ...await defaultOptions(),
-      method: 'POST',
-    });
-    return handleResponse(response);
-  } catch (error) {
-    return handleError(error);
-  }
-}
-
-/**
- * Get DocuSign status for a case
  * @param caseId - Case ID
  */
 export async function createVeriffSession(caseId: string, person?: { givenName?: string; lastName?: string }, vendorData?: string): Promise<APIResponse<{
@@ -1309,24 +1280,17 @@ export async function createVeriffSession(caseId: string, person?: { givenName?:
   }
 }
 
-export async function getDocuSignStatus(caseId: string): Promise<APIResponse<{
-  envelopeId: string;
-  status: string;
-  completedAt: string;
-  recipientViewUrl: string;
-  envelopeUrl: string;
-  signedDocuments: Array<{
-    documentName: string;
-    documentUrl: string;
-    signedAt: string;
-  }>;
-}>> {
+/**
+ * Fetch case data by ID for auto-refresh functionality
+ */
+export async function fetchCaseData(caseId: string): Promise<APIResponse<Case>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/cases/${caseId}/docusign/status`, {
-      ...await defaultOptions(),
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cases/${caseId}`, {
       method: 'GET',
+      headers: await getAuthHeaders(),
     });
-    return handleResponse(response);
+
+    return await handleResponse(response);
   } catch (error) {
     return handleError(error);
   }
