@@ -90,7 +90,7 @@ export default function PerCustomerCases() {
   const fetchCustomerData = async () => {
     try {
       setLoadingData(true)
-      
+
       // First, get the customer data from the customers list
       const customersResponse = await api.getCustomers()
       if (customersResponse.success) {
@@ -125,7 +125,7 @@ export default function PerCustomerCases() {
     if (status === "completed") return "Completed"
     if (status === "quote-declined") return "Closed"
     if (status === "cancelled") return "Closed"
-    
+
     switch (currentStage) {
       case 1:
         return "Pending Customer Intake"
@@ -176,24 +176,24 @@ export default function PerCustomerCases() {
   const handleStatusUpdate = async (caseId: string, newStatus: string) => {
     try {
       setUpdatingStatus(caseId)
-      
+
       const response = await api.updateCaseStatus(caseId, newStatus)
-      
+
       if (response.success) {
         // Update the case in the local state
-        setCases(prevCases => 
-          prevCases.map(case_ => 
-            case_._id === caseId 
+        setCases(prevCases =>
+          prevCases.map(case_ =>
+            case_._id === caseId
               ? { ...case_, status: newStatus }
               : case_
           )
         )
-        
+
         toast({
           title: "Status Updated",
           description: `Case status has been updated to ${newStatus}`,
         })
-        
+
         // Refresh customer data to update stats
         fetchCustomerData()
       } else {
@@ -348,7 +348,7 @@ export default function PerCustomerCases() {
                 <Card key={caseData._id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
-                      <div 
+                      <div
                         className="flex items-center space-x-4 cursor-pointer flex-1"
                         onClick={() => handleCaseClick(caseData._id)}
                       >
@@ -377,23 +377,26 @@ export default function PerCustomerCases() {
                         <Badge className={getStatusBadgeColor(getStatusFromStage(caseData.currentStage, caseData.status))}>
                           {getStatusFromStage(caseData.currentStage, caseData.status)}
                         </Badge>
-                        
+
                         {/* Status Update Dropdown */}
-                            {caseData.status !== "cancelled" && (
                         <div className="flex items-center space-x-2">
-                          <Button variant="outline" size="sm" onClick={() => handleStatusUpdate(caseData._id, "cancelled")}>
-                            <XCircle className="h-4 w-4" />
-                            Cancelled/Closed
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleCaseClick(caseData._id)}
+                          {caseData.status !== "cancelled" && caseData.status !== "completed" && (
+                            <Button variant="outline" size="sm" onClick={() => handleStatusUpdate(caseData._id, "cancelled")}>
+                              <XCircle className="h-4 w-4" />
+                              Cancelled/Closed
+                            </Button>
+
+                          )}
+                          {caseData.status !== "cancelled" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCaseClick(caseData._id)}
                             >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
-                        )}
                       </div>
                     </div>
                   </CardContent>
